@@ -73,6 +73,12 @@ export const auth = {
     return { user, error };
   },
 
+  resetPassword: async (email, redirectTo) => {
+    const options = redirectTo ? { redirectTo } : undefined;
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, options);
+    return { data, error };
+  },
+
   onAuthStateChange: (callback) => {
     return supabase.auth.onAuthStateChange(callback);
   }
