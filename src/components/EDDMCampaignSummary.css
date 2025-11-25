@@ -1,0 +1,97 @@
+.eddm-campaign-summary {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex: 1;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.section-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 4px 0;
+}
+
+.zip-code-display {
+  font-size: 14px;
+  color: #718096;
+  margin: 0;
+}
+
+.campaign-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.campaign-metric-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.campaign-metric-card-blue {
+  background: #dbeafe;
+}
+
+.campaign-metric-card-purple {
+  background: #f3e8ff;
+}
+
+.campaign-metric-card-green {
+  background: #d1fae5;
+}
+
+.campaign-metric-card-orange {
+  background: #fed7aa;
+}
+
+.campaign-metric-icon {
+  font-size: 24px;
+}
+
+.campaign-metric-content {
+  flex: 1;
+}
+
+.campaign-metric-label {
+  font-size: 12px;
+  color: #718096;
+  margin-bottom: 4px;
+}
+
+.campaign-metric-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.campaign-metric-card-blue .campaign-metric-value {
+  color: #1e40af;
+}
+
+.campaign-metric-card-purple .campaign-metric-value {
+  color: #7c3aed;
+}
+
+.campaign-metric-card-green .campaign-metric-value {
+  color: #059669;
+}
+
+.campaign-metric-card-orange .campaign-metric-value {
+  color: #ea580c;
+}
+

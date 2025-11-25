@@ -1,0 +1,64 @@
+.routes-page {
+  padding: 24px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  font-size: 28px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 8px 0;
+}
+
+.page-header p {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+.routes-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.routes-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.routes-middle {
+  width: 100%;
+}
+
+.table-container {
+  display: flex;
+  gap: 24px;
+}
+
+.routes-bottom {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 1200px) {
+  .routes-top {
+    grid-template-columns: 1fr;
+  }
+
+  .routes-bottom {
+    grid-template-columns: 1fr;
+  }
+
+  .table-container {
+    flex-direction: column;
+  }
+}
+
