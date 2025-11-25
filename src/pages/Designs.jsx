@@ -5,6 +5,7 @@ import { designs as designsAPI } from '../lib/api';
 import { storage } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import ImageUploader from '../components/ImageUploader';
+import PageLayout from '../components/PageLayout';
 
 const CARD_SIZES = [
   { value: '9x12', label: '9" × 12"', width: 900, height: 1200 },
@@ -103,31 +104,37 @@ function Designs() {
     }
   };
 
+  const layoutProps = {
+    title: 'Design Studio',
+    subtitle: 'Create and manage your postcard templates.',
+    tip: 'Lock designs when you want to reuse them without accidental edits.'
+  };
+
   if (loading) {
     return (
-      <div className="designs-page">
-        <div className="loading-state">
-          <div className="spinner-large"></div>
-          <p>Loading designs...</p>
+      <PageLayout {...layoutProps}>
+        <div className="designs-page">
+          <div className="loading-state">
+            <div className="spinner-large"></div>
+            <p>Loading designs...</p>
+          </div>
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="designs-page">
-      <div className="page-header">
-        <div>
-          <h1>Design Studio</h1>
-          <p>Create and manage your postcard templates</p>
-        </div>
+    <PageLayout
+      {...layoutProps}
+      actions={
         <button className="btn-primary" onClick={handleCreateDesign}>
           <Plus size={20} />
           New Design
         </button>
-      </div>
-
-      <div className="designs-grid">
+      }
+    >
+      <div className="designs-page">
+        <div className="designs-grid">
         {designs.length === 0 ? (
           <div className="empty-state">
             <p>No designs yet. Create your first template!</p>
@@ -200,9 +207,9 @@ function Designs() {
             </div>
           ))
         )}
-      </div>
+        </div>
 
-      {showModal && selectedDesign && (
+        {showModal && selectedDesign && (
         <DesignModal
           design={selectedDesign}
           onSave={handleSaveDesign}
@@ -210,7 +217,8 @@ function Designs() {
           userId={user.id}
         />
       )}
-    </div>
+      </div>
+    </PageLayout>
   );
 }
 

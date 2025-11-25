@@ -9,6 +9,7 @@ import EDDMCampaignSummary from '../components/EDDMCampaignSummary';
 import { optimizeRoutes } from '../utils/optimizeRoutes';
 import { savedRoutes as savedRoutesAPI } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
+import PageLayout from '../components/PageLayout';
 
 function Routes() {
   const { user } = useAuth();
@@ -175,14 +176,16 @@ function Routes() {
     }
   };
 
-  return (
-    <div className="routes-page">
-      <div className="page-header">
-        <h1>Route Manager</h1>
-        <p>Import and manage your EDDM routes</p>
-      </div>
+  const layoutProps = {
+    title: 'Route Manager',
+    subtitle: 'Import and optimize your EDDM routes in one place.',
+    tip: 'Drop a USPS export or CSV to start mapping routes quickly.'
+  };
 
-      <div className="routes-content">
+  return (
+    <PageLayout {...layoutProps}>
+      <div className="routes-page">
+        <div className="routes-content">
         <div className="routes-top">
           <ImportPanel onProcessData={handleProcessData} />
           <RouteAnalysisSummary 
@@ -224,6 +227,7 @@ function Routes() {
         </div>
       </div>
     </div>
+  </PageLayout>
   );
 }
 

@@ -20,6 +20,7 @@ import { contacts as contactsAPI, niches as nichesAPI, clientAds, activities } f
 import { storage } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import ImageUploader from '../components/ImageUploader';
+import PageLayout from '../components/PageLayout';
 
 const PIPELINE_STAGES = [
   { value: 'lead', label: 'Lead', color: '#6b7280' },
@@ -208,32 +209,38 @@ function Contacts() {
     }
   };
 
+  const layoutProps = {
+    title: 'Contacts',
+    subtitle: 'Manage your clients and prospects from one workspace.',
+    tip: 'Use filters to quickly surface leads, active clients, or opportunities.'
+  };
+
   if (loading) {
     return (
-      <div className="contacts-page">
-        <div className="loading-state">
-          <div className="spinner-large"></div>
-          <p>Loading contacts...</p>
+      <PageLayout {...layoutProps}>
+        <div className="contacts-page">
+          <div className="loading-state">
+            <div className="spinner-large"></div>
+            <p>Loading contacts...</p>
+          </div>
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="contacts-page">
-      <div className="page-header">
-        <div>
-          <h1>Contacts</h1>
-          <p>Manage your clients and prospects</p>
-        </div>
+    <PageLayout
+      {...layoutProps}
+      actions={
         <button className="btn-primary" onClick={handleCreateContact}>
           <Plus size={20} />
           Add Contact
         </button>
-      </div>
-
-      {/* Filters */}
-      <div className="contacts-filters">
+      }
+    >
+      <div className="contacts-page">
+        {/* Filters */}
+        <div className="contacts-filters">
         <div className="search-box">
           <Search size={20} />
           <input
@@ -341,6 +348,7 @@ function Contacts() {
         />
       )}
     </div>
+  </PageLayout>
   );
 }
 

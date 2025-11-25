@@ -2,11 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
 #root {
   min-height: 100%;
 }
 
 body {
-  background-color: #f5f5f5;
+  margin: 0;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: #eff3ff;
+  color: #0f172a;
+  line-height: 1.6;
 }
 

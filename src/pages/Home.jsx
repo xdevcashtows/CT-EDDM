@@ -13,6 +13,7 @@ import './Home.css';
 import { analytics, campaigns as campaignsAPI, contacts as contactsAPI } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import DevNotice from '../components/DevNotice';
+import PageLayout from '../components/PageLayout';
 
 function Home() {
   const { user } = useAuth();
@@ -20,6 +21,11 @@ function Home() {
   const [loading, setLoading] = useState(true);
   const [recentCampaigns, setRecentCampaigns] = useState([]);
   const [upcomingFollowUps, setUpcomingFollowUps] = useState([]);
+  const layoutProps = {
+    title: 'Dashboard',
+    subtitle: "Welcome back! Here's your business overview.",
+    tip: 'Data refreshes automatically when new activity arrives.'
+  };
 
   useEffect(() => {
     if (user) {
@@ -99,26 +105,24 @@ function Home() {
 
   if (loading) {
     return (
-      <div className="home-page">
-        <div className="loading-state">
-          <div className="spinner-large"></div>
-          <p>Loading dashboard...</p>
+      <PageLayout {...layoutProps}>
+        <div className="home-page">
+          <div className="loading-state">
+            <div className="spinner-large"></div>
+            <p>Loading dashboard...</p>
+          </div>
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="home-page">
-      <div className="page-header">
-        <h1>Dashboard</h1>
-        <p>Welcome back! Here's your business overview.</p>
-      </div>
+    <PageLayout {...layoutProps}>
+      <div className="home-page">
+        <DevNotice />
 
-      <DevNotice />
-
-      {/* Key Metrics */}
-      <div className="metrics-grid">
+        {/* Key Metrics */}
+        <div className="metrics-grid">
         <div className="metric-card">
           <div className="metric-icon" style={{ background: '#dbeafe' }}>
             <Package size={24} color="#3b82f6" />
@@ -277,6 +281,7 @@ function Home() {
         </div>
       </div>
     </div>
+  </PageLayout>
   );
 }
 

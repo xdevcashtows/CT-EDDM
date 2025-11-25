@@ -11,6 +11,7 @@ import {
   niches as nichesAPI
 } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
+import PageLayout from '../components/PageLayout';
 
 const CAMPAIGN_STATUSES = [
   { value: 'draft', label: 'Draft', color: '#64748b' },
@@ -81,32 +82,38 @@ function Campaigns() {
     }
   };
 
+  const layoutProps = {
+    title: 'Campaigns',
+    subtitle: 'Manage your EDDM campaigns from planning through mailing.',
+    tip: 'Filters update as campaign status changes—use them to surface active work.'
+  };
+
   if (loading) {
     return (
-      <div className="campaigns-page">
-        <div className="loading-state">
-          <div className="spinner-large"></div>
-          <p>Loading campaigns...</p>
+      <PageLayout {...layoutProps}>
+        <div className="campaigns-page">
+          <div className="loading-state">
+            <div className="spinner-large"></div>
+            <p>Loading campaigns...</p>
+          </div>
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="campaigns-page">
-      <div className="page-header">
-        <div>
-          <h1>Campaigns</h1>
-          <p>Manage your EDDM campaigns</p>
-        </div>
+    <PageLayout
+      {...layoutProps}
+      actions={
         <button className="btn-primary" onClick={handleCreateCampaign}>
           <Plus size={20} />
           New Campaign
         </button>
-      </div>
-
-      {/* Status Filters */}
-      <div className="status-filters">
+      }
+    >
+      <div className="campaigns-page">
+        {/* Status Filters */}
+        <div className="status-filters">
         <button
           className={`status-filter ${filterStatus === 'all' ? 'active' : ''}`}
           onClick={() => setFilterStatus('all')}
@@ -156,6 +163,7 @@ function Campaigns() {
         />
       )}
     </div>
+  </PageLayout>
   );
 }
 
