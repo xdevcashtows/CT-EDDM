@@ -7,12 +7,16 @@ import Designs from './pages/Designs'
 import Campaigns from './pages/Campaigns'
 import EmailMarketing from './pages/EmailMarketing'
 import PackingSlips from './pages/PackingSlips'
+import SignIn from './pages/SignIn'
+import SignUp from './pages/SignUp'
 import DashboardLayout from './components/DashboardLayout'
 
 function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/signup" element={<SignUp />} />
         <Route path="/" element={<DashboardLayout />}>
           <Route index element={<Navigate to="/home" replace />} />
           <Route path="home" element={<Home />} />

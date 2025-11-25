@@ -1,34 +1,49 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import './Auth.css'
+import { useAuth } from '../hooks/useAuth'
 
-function SignUp({ onSignUp }) {
+function SignUp() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
+  const [processing, setProcessing] = useState(false)
   const navigate = useNavigate()
+  const { signUp } = useAuth()
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setError('')
-    
+
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
     }
-    
+
     if (password.length < 6) {
       setError('Password must be at least 6 characters')
       return
     }
-    
-    // Simple validation - in production, this would call an API
-    if (email && password) {
-      onSignUp()
-      navigate('/dashboard')
-    } else {
+
+    if (!email || !password) {
       setError('Please fill in all fields')
+      return
+    }
+
+    setError('')
+    setProcessing(true)
+
+    try {
+      const { error } = await signUp(email, password)
+      if (error) {
+        setError(error.message || 'Unable to create account')
+        return
+      }
+      navigate('/home')
+    } catch (err) {
+      setError(err?.message || 'Unable to create account')
+    } finally {
+      setProcessing(false)
     }
   }
 
@@ -84,8 +99,8 @@ function SignUp({ onSignUp }) {
             />
           </div>
 
-          <button type="submit" className="auth-button primary">
-            Sign Up
+          <button type="submit" className="auth-button primary" disabled={processing}>
+            {processing ? 'Creating account…' : 'Sign Up'}
           </button>
         </form>
 

@@ -1,23 +1,38 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import './Auth.css'
+import { useAuth } from '../hooks/useAuth'
 
-function SignIn({ onSignIn }) {
+function SignIn() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [processing, setProcessing] = useState(false)
   const navigate = useNavigate()
+  const { signIn } = useAuth()
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setError('')
-    
-    // Simple validation - in production, this would call an API
-    if (email && password) {
-      onSignIn()
-      navigate('/dashboard')
-    } else {
+
+    if (!email || !password) {
       setError('Please enter both email and password')
+      return
+    }
+
+    setError('')
+    setProcessing(true)
+
+    try {
+      const { error } = await signIn(email, password)
+      if (error) {
+        setError(error.message || 'Unable to sign in')
+        return
+      }
+      navigate('/home')
+    } catch (err) {
+      setError(err?.message || 'Unable to sign in')
+    } finally {
+      setProcessing(false)
     }
   }
 
@@ -61,8 +76,8 @@ function SignIn({ onSignIn }) {
             />
           </div>
 
-          <button type="submit" className="auth-button primary">
-            Sign In
+          <button type="submit" className="auth-button primary" disabled={processing}>
+            {processing ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
 
