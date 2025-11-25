@@ -8,6 +8,7 @@ import {
   Package, 
   Mail, 
   FileText,
+  Settings,
   LogOut
 } from 'lucide-react'
 import './DashboardLayout.css'
@@ -20,7 +21,8 @@ const NAV_ITEMS = [
   { path: '/designs', label: 'Designs', icon: Palette },
   { path: '/campaigns', label: 'Campaigns', icon: Package },
   { path: '/email-marketing', label: 'Email Marketing', icon: Mail },
-  { path: '/packing-slips', label: 'Packing Slips', icon: FileText }
+  { path: '/packing-slips', label: 'Packing Slips', icon: FileText },
+  { path: '/settings', label: 'Settings', icon: Settings }
 ]
 
 function DashboardLayout() {
@@ -51,6 +53,7 @@ function DashboardLayout() {
     window.location.href = '/signin'
   }
 
+  return (
     <div className="dashboard-layout">
       <aside className="sidebar">
         <div className="sidebar-header">
