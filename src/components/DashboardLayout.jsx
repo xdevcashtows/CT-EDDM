@@ -1,5 +1,5 @@
-import React from 'react'
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import React, { useEffect } from 'react'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { 
   Home, 
   Map, 
@@ -25,14 +25,32 @@ const NAV_ITEMS = [
 
 function DashboardLayout() {
   const location = useLocation()
-  const { user, signOut } = useAuth()
+  const navigate = useNavigate()
+  const { user, signOut, loading } = useAuth()
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/signin', { replace: true })
+    }
+  }, [loading, user, navigate])
+
+  if (loading) {
+    return (
+      <div className="dashboard-loading">
+        <p>Loading session...</p>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return null
+  }
 
   const handleSignOut = async () => {
     await signOut()
     window.location.href = '/signin'
   }
 
-  return (
     <div className="dashboard-layout">
       <aside className="sidebar">
         <div className="sidebar-header">

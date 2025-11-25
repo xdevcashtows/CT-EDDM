@@ -33,6 +33,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
       signInWithPassword: () => Promise.resolve({ data: null, error: null }),
       signUp: () => Promise.resolve({ data: null, error: null }),
       signOut: () => Promise.resolve({ error: null }),
+      resetPasswordForEmail: () => Promise.resolve({ data: null, error: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
     }
   };

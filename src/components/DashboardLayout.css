@@ -130,6 +130,16 @@
   background: #f8fafc;
 }
 
+.dashboard-loading {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #94a3b8;
+  background: #f8fafc;
+}
+
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;

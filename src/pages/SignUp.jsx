@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import './Auth.css'
@@ -13,7 +13,13 @@ function SignUp() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const navigate = useNavigate()
-  const { signUp } = useAuth()
+  const { user, loading, signUp } = useAuth()
+
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/home', { replace: true })
+    }
+  }, [loading, user, navigate])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
