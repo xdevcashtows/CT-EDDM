@@ -36,18 +36,35 @@ export const contacts = {
     if (isMockMode) {
       return { data: [], error: null };
     }
+    const { data: memberships, error: membershipError } = await supabase
+      .from('account_members')
+      .select('owner_id')
+      .eq('profile_id', userId)
+      .eq('status', 'active');
+
+    if (membershipError) {
+      return { data: [], error: membershipError };
+    }
+
+    const ownerIds = (memberships || [])
+      .map((membership) => membership.owner_id)
+      .filter(Boolean);
+
+    const targetUserIds = Array.from(new Set([userId, ...ownerIds]));
+
     const { data, error } = await supabase
       .from('contacts')
-      .select('*, niche:niches(name)')
-      .eq('user_id', userId)
+      .select('*, niche:niches!contacts_niche_id_fkey(name)')
+      .in('user_id', targetUserIds)
       .order('created_at', { ascending: false });
+
     return { data, error };
   },
 
   getById: async (id) => {
     const { data, error } = await supabase
       .from('contacts')
-      .select('*, niche:niches(name)')
+      .select('*, niche:niches!contacts_niche_id_fkey(name)')
       .eq('id', id)
       .single();
     return { data, error };
@@ -56,7 +73,7 @@ export const contacts = {
   getByStage: async (userId, stage) => {
     const { data, error } = await supabase
       .from('contacts')
-      .select('*, niche:niches(name)')
+      .select('*, niche:niches!contacts_niche_id_fkey(name)')
       .eq('user_id', userId)
       .eq('stage', stage)
       .order('created_at', { ascending: false });
@@ -474,6 +491,47 @@ export const emailCampaigns = {
       .select()
       .single();
     return { data, error };
+  }
+};
+
+// ============================================
+// EMAIL TEMPLATES
+// ============================================
+export const emailTemplates = {
+  getAll: async (userId) => {
+    const { data, error } = await supabase
+      .from('email_templates')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  },
+
+  create: async (templateData) => {
+    const { data, error } = await supabase
+      .from('email_templates')
+      .insert(templateData)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  update: async (id, updates) => {
+    const { data, error } = await supabase
+      .from('email_templates')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  delete: async (id) => {
+    const { error } = await supabase
+      .from('email_templates')
+      .delete()
+      .eq('id', id);
+    return { error };
   }
 };
 

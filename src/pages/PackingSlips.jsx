@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, CheckCircle, XCircle, Loader, Download, Info } from 'lucide-react';
+import { Upload, FileText, CheckCircle, XCircle, Loader, Download, Info, ChevronUp } from 'lucide-react';
 import { extractRoutesFromPDF, generateFacingSlips } from '../utils/pdfProcessor';
 import PageLayout from '../components/PageLayout';
 import './PackingSlips.css';
@@ -16,11 +16,11 @@ export default function PackingSlips() {
   const [error, setError] = useState(null);
   const [generatedPdf, setGeneratedPdf] = useState(null);
   const [stats, setStats] = useState(null);
+  const [calloutOpen, setCalloutOpen] = useState(false);
 
   const layoutProps = {
     title: 'Facing Slip Generator',
-    subtitle: 'Upload USPS EDDM exports, merge Do Not Deliver addresses, and process facing slips.',
-    tip: 'Start with the USPS combined PDF before adding CSV DND data.'
+    subtitle: 'Upload USPS EDDM exports, merge Do Not Deliver addresses, and process facing slips.'
   };
 
   const onPdfDrop = useCallback(async (acceptedFiles) => {
@@ -173,40 +173,105 @@ export default function PackingSlips() {
 
   const formatNumber = (num) => num.toLocaleString();
 
+  const statusPanelData = (() => {
+    if (status === 'processing') {
+      return {
+        statusType: 'processing',
+        icon: <Loader className="loader status-icon" />,
+        messages: [{ text: 'Generating facing slips...' }]
+      };
+    }
+
+    if (status === 'complete') {
+      return {
+        statusType: 'complete',
+        icon: <CheckCircle className="status-icon success" />,
+        messages: stats ? [
+          {
+            text: `Completed! ${formatNumber(stats.totalFacingSlips)} slips ready.`,
+            className: 'text-success'
+          },
+          {
+            text: `Total mailpieces: ${formatNumber(stats.totalMailpieces)}`,
+            className: 'text-muted'
+          }
+        ] : [
+          {
+            text: 'Facing slips ready.',
+            className: 'text-success'
+          }
+        ]
+      };
+    }
+
+    if (status === 'error') {
+      return {
+        statusType: 'error',
+        icon: <XCircle className="status-icon error" />,
+        messages: [{ text: error || 'Failed to generate facing slips', className: 'text-error' }]
+      };
+    }
+
+    return {
+      statusType: 'idle',
+      icon: <Info className="status-icon" />,
+      messages: [
+        {
+          text: 'Upload required files and select mailing date to enable generation.',
+          className: 'status-idle-text'
+        }
+      ]
+    };
+  })();
+
   return (
     <PageLayout {...layoutProps} className="page-shell--fullwidth">
       <div className="packing-page">
         {error && (
-          <div className="status-banner error">
+        <div className="status-banner error">
             <XCircle className="icon" />
             <p>{error}</p>
           </div>
         )}
 
-        <div className="upload-grid">
-          <section className="upload-card">
+        <div className="usage-callout" data-open={calloutOpen}>
+          <div className="usage-callout-header">
+            <div>
+              <p className="callout-eyebrow">How to use this tool</p>
+              <p className="callout-description">
+                Start with the USPS combined PDF before adding CSV DND data.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="callout-toggle"
+              onClick={() => setCalloutOpen(prev => !prev)}
+              aria-expanded={calloutOpen}
+              aria-label={calloutOpen ? 'Collapse instructions' : 'Expand instructions'}
+            >
+              <ChevronUp className="callout-icon" />
+            </button>
+          </div>
+          {calloutOpen && (
+            <ol className="callout-steps">
+              <li>Go to your USPS EDDM Order Confirmation page</li>
+              <li>Click the "Print" button then "All Forms"</li>
+              <li>Save the combined PDF file that downloads</li>
+              <li>Upload that combined PDF file here</li>
+            </ol>
+          )}
+        </div>
+
+        <div className="packing-card-grid">
+          <section className="upload-card pdf-card">
             <div className="card-heading">
               <div>
                 <p className="card-eyebrow">EDDM PDF</p>
-                <h2>Upload the combined USPS export</h2>
+                <h2>Upload combined USPS export</h2>
               </div>
               <span className="badge badge-required">Required</span>
             </div>
-            <p className="card-subtext">Follow these steps to upload the combined USPS export:</p>
-            <ol className="pdf-steps">
-              <li>
-                <span>Step 1:</span> Go to your USPS EDDM Order Confirmation page
-              </li>
-              <li>
-                <span>Step 2:</span> Click the <strong>"Print All Forms"</strong> button
-              </li>
-              <li>
-                <span>Step 3:</span> Save the combined PDF file that downloads
-              </li>
-              <li>
-                <span>Step 4:</span> Upload that combined PDF file here
-              </li>
-            </ol>
+            <p className="card-subtext">PDF format</p>
             <div
               {...getPdfRootProps()}
               className={`dropzone ${pdfFile ? 'filled' : ''}`}
@@ -214,11 +279,10 @@ export default function PackingSlips() {
               <input {...getPdfInputProps()} />
               <Upload className="dropzone-icon" />
               <div className="dropzone-text">
-                <p className="bold">{pdfFile ? `Loaded: ${pdfFile.name}` : 'Drop your combined PDF here'}</p>
-                <p>{pdfFile ? 'Click to replace' : 'Support: Drag & drop or browse'}</p>
+                <p className="bold">{pdfFile ? `Loaded: ${pdfFile.name}` : 'Drop file or click'}</p>
+                <p>{pdfFile ? 'Click to replace' : 'PDF format only'}</p>
               </div>
             </div>
-
             {routes.length > 0 && (
               <div className="route-list">
                 <div className="route-list-header">
@@ -252,15 +316,14 @@ export default function PackingSlips() {
           <section className="upload-card dnd-card">
             <div className="card-heading">
               <div>
-                <p className="card-eyebrow">Do Not Deliver Addresses</p>
+                <p className="card-eyebrow">DND ADDRESSES</p>
                 <h2>Merge optional DND CSV</h2>
               </div>
               <span className="badge badge-optional">Optional</span>
             </div>
             <p className="card-subtext">
-              CSV must include columns: <strong>ZIP, ROUTE, DND ADDRESS</strong>.
+              ZIP, ROUTE, DND ADDRESS
             </p>
-
             {csvFile ? (
               <div className="csv-loaded">
                 <div className="csv-loaded-top">
@@ -336,20 +399,24 @@ export default function PackingSlips() {
               </div>
             )}
           </section>
-        </div>
 
-        <div className="generate-grid">
-          <div className="control-card">
-            <p className="card-eyebrow">Mailing Date</p>
-            <h3>Select when your mail should go out</h3>
+          <section className="upload-card mailing-card">
+            <div className="card-heading">
+              <div>
+                <p className="card-eyebrow">Mailing Date</p>
+                <h3>Select mail date</h3>
+              </div>
+            </div>
             <input
               type="date"
               value={mailingDate}
               onChange={(e) => setMailingDate(e.target.value)}
+              className="date-input"
             />
             <button
               onClick={handleGenerate}
               disabled={!pdfFile || !mailingDate || routes.length === 0}
+              className="generate-btn"
             >
               <FileText className="icon" />
               Generate Facing Slips
@@ -357,32 +424,23 @@ export default function PackingSlips() {
             <p className="helper-text">
               You need a PDF upload, mailing date, and extracted routes to enable generation.
             </p>
-          </div>
+          </section>
+        </div>
 
-          <div className="status-card">
-            <div className="status-card-header">
-              <Info className="icon" />
-              <p>Status</p>
+        <div className="status-row">
+          <div className={`status-panel ${statusPanelData.statusType}`}>
+            <div className="status-panel-leading">
+              {statusPanelData.icon}
+              <div className="status-panel-texts">
+                {statusPanelData.messages.map((message, idx) => (
+                  <p key={idx} className={`status-panel-line ${message.className || ''}`}>
+                    {message.text}
+                  </p>
+                ))}
+              </div>
             </div>
-            {status === 'processing' && (
-              <div className="status-body">
-                <Loader className="loader" />
-                <p>Generating facing slips...</p>
-              </div>
-            )}
-            {status === 'complete' && stats && (
-              <div className="status-body">
-                <p className="text-success">Completed! {formatNumber(stats.totalFacingSlips)} slips ready.</p>
-                <p className="text-muted">Total mailpieces: {formatNumber(stats.totalMailpieces)}</p>
-              </div>
-            )}
-            {status === 'idle' && (
-              <p className="status-idle">
-                Upload the required files and select a mailing date to enable generation.
-              </p>
-            )}
             {generatedPdf && (
-              <button onClick={handleDownload} className="download-btn">
+              <button onClick={handleDownload} className="download-btn compact">
                 <Download className="icon" />
                 Download Facing Slips PDF
               </button>

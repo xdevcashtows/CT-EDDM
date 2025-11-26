@@ -8,10 +8,13 @@ import {
   adSlots as adSlotsAPI,
   contacts as contactsAPI,
   clientAds,
-  niches as nichesAPI
+  niches as nichesAPI,
+  emailTemplates as emailTemplatesAPI,
+  emailCampaigns
 } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import PageLayout from '../components/PageLayout';
+import { enrichSavedRoutesWithLock } from '../utils/routeLocking';
 
 const CAMPAIGN_STATUSES = [
   { value: 'draft', label: 'Draft', color: '#64748b' },
@@ -257,6 +260,15 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   const [slots, setSlots] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [niches, setNiches] = useState([]);
+  const [emailTemplates, setEmailTemplates] = useState([]);
+  const [emailForm, setEmailForm] = useState({
+    templateId: '',
+    sendTo: 'tag',
+    selectedTag: '',
+    selectedContacts: [],
+    sendNow: true,
+    scheduledAt: ''
+  });
   const [loading, setLoading] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
 
@@ -271,17 +283,27 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   }, [campaign]);
 
   const loadData = async () => {
-    const [routesRes, designsRes, contactsRes, nichesRes] = await Promise.all([
+    const [routesRes, campaignsRes, designsRes, contactsRes, nichesRes, templatesRes] = await Promise.all([
       savedRoutesAPI.getAll(userId),
+      campaignsAPI.getAll(userId),
       designsAPI.getAll(userId),
       contactsAPI.getAll(userId),
-      nichesAPI.getAll()
+      nichesAPI.getAll(),
+      emailTemplatesAPI.getAll(userId)
     ]);
 
-    if (!routesRes.error) setSavedRoutes(routesRes.data || []);
+    if (!routesRes.error) {
+      setSavedRoutes(
+        enrichSavedRoutesWithLock(
+          routesRes.data || [],
+          campaignsRes?.data || []
+        )
+      );
+    }
     if (!designsRes.error) setDesigns(designsRes.data || []);
     if (!contactsRes.error) setContacts(contactsRes.data || []);
     if (!nichesRes.error) setNiches(nichesRes.data || []);
+    if (!templatesRes.error) setEmailTemplates(templatesRes.data || []);
   };
 
   const loadSlots = async () => {
@@ -291,6 +313,39 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
 
   const selectedRoute = savedRoutes.find(r => r.id === formData.saved_route_id);
   const selectedDesign = designs.find(d => d.id === formData.design_id);
+  
+  const selectableContacts = contacts
+    .filter(contact => contact.email)
+    .sort((a, b) => (a.business_name || '').localeCompare(b.business_name || ''));
+
+  const contactTagSet = new Set();
+  contacts.forEach(contact => {
+    if (contact.stage) contactTagSet.add(contact.stage);
+    if (Array.isArray(contact.tags)) {
+      contact.tags.forEach(tag => {
+        if (tag) contactTagSet.add(tag);
+      });
+    }
+  });
+  const availableTags = Array.from(contactTagSet).sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: 'base' })
+  );
+
+  const formatTagLabel = (tag) => (
+    tag
+      ? tag
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, char => char.toUpperCase())
+      : ''
+  );
+
+  const getLocalDateTimeValue = (date = new Date()) => {
+    const tzOffset = date.getTimezoneOffset();
+    const localTime = new Date(date.getTime() - tzOffset * 60000);
+    return localTime.toISOString().slice(0, 16);
+  };
+
+  const scheduleMinValue = getLocalDateTimeValue();
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -334,6 +389,9 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         if (formData.saved_route_id) {
           await savedRoutesAPI.lock(formData.saved_route_id);
         }
+
+        // Create linked email campaign when configured
+        await createEmailCampaignIfConfigured(newCampaign.id);
       }
 
       onSave();
@@ -387,6 +445,99 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
       alert('Failed to save draft campaign');
     } finally {
       setSavingDraft(false);
+    }
+  };
+
+  const handleEmailSendToChange = (value) => {
+    setEmailForm(prev => ({
+      ...prev,
+      sendTo: value,
+      selectedTag: value === 'tag' ? prev.selectedTag : '',
+      selectedContacts: value === 'tag' ? [] : prev.selectedContacts
+    }));
+  };
+
+  const toggleEmailContact = (contactId) => {
+    setEmailForm(prev => {
+      const alreadySelected = prev.selectedContacts.includes(contactId);
+      const updated = alreadySelected
+        ? prev.selectedContacts.filter(id => id !== contactId)
+        : [...prev.selectedContacts, contactId];
+      return { ...prev, selectedContacts: updated };
+    });
+  };
+
+  const handleWhenToSendChange = (value) => {
+    setEmailForm(prev => ({
+      ...prev,
+      sendNow: value === 'send_now',
+      scheduledAt: value === 'send_now' ? '' : prev.scheduledAt
+    }));
+  };
+
+  const handleScheduleChange = (value) => {
+    setEmailForm(prev => ({ ...prev, scheduledAt: value }));
+  };
+
+  const getRecipientsForTag = (tag) => {
+    if (!tag) return [];
+    return contacts
+      .filter(contact => contact.email && (
+        contact.stage === tag ||
+        (Array.isArray(contact.tags) && contact.tags.includes(tag))
+      ))
+      .map(contact => contact.id);
+  };
+
+  const createEmailCampaignIfConfigured = async (campaignId) => {
+    if (!emailForm.templateId) return;
+
+    const template = emailTemplates.find(t => t.id === emailForm.templateId);
+    if (!template) return;
+
+    let recipients = [];
+    let targetStage = null;
+
+    if (emailForm.sendTo === 'tag') {
+      if (!emailForm.selectedTag) return;
+      recipients = getRecipientsForTag(emailForm.selectedTag);
+      const stageSet = new Set(contacts.map(contact => contact.stage).filter(Boolean));
+      if (stageSet.has(emailForm.selectedTag)) {
+        targetStage = emailForm.selectedTag;
+      }
+    } else if (emailForm.sendTo === 'individual') {
+      recipients = emailForm.selectedContacts.filter(Boolean);
+    }
+
+    if (!recipients.length) return;
+
+    const scheduledDate = emailForm.sendNow
+      ? new Date()
+      : emailForm.scheduledAt
+        ? new Date(emailForm.scheduledAt)
+        : null;
+
+    if (!scheduledDate || Number.isNaN(scheduledDate.getTime())) return;
+
+    const payload = {
+      user_id: userId,
+      campaign_id: campaignId,
+      template_id: template.id,
+      name: `${formData.name || 'Campaign'} - ${template.name}`,
+      subject: template.subject,
+      body_html: template.body_html,
+      body_text: template.body_text || template.body_html,
+      target_contacts: recipients,
+      target_stage: targetStage,
+      send_type: emailForm.sendNow ? 'immediate' : 'scheduled',
+      scheduled_at: scheduledDate.toISOString(),
+      status: 'scheduled',
+      total_recipients: recipients.length
+    };
+
+    const { error } = await emailCampaigns.create(payload);
+    if (error) {
+      console.error('Failed to create email campaign', error);
     }
   };
 
@@ -553,6 +704,152 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
                   </div>
                 </div>
               </div>
+
+              {!campaign && (
+                <div className="email-outreach">
+                  <div className="email-outreach__header">
+                    <h4>Email Outreach</h4>
+                    <p>Choose a saved template and the people you want to notify about this campaign.</p>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Select Template</label>
+                    <select
+                      value={emailForm.templateId}
+                      onChange={(e) => setEmailForm(prev => ({ ...prev, templateId: e.target.value }))}
+                    >
+                      <option value="">Choose a template...</option>
+                      {emailTemplates.map(template => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </select>
+                    {!emailTemplates.length && (
+                      <p className="form-hint">Create email templates on the Email Marketing page to get started.</p>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label>Send To</label>
+                    <div className="email-radio-group">
+                      <label>
+                        <input
+                          type="radio"
+                          name="emailSendTo"
+                          value="tag"
+                          checked={emailForm.sendTo === 'tag'}
+                          onChange={(e) => handleEmailSendToChange(e.target.value)}
+                        />
+                        <span>All contacts with tag</span>
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name="emailSendTo"
+                          value="individual"
+                          checked={emailForm.sendTo === 'individual'}
+                          onChange={(e) => handleEmailSendToChange(e.target.value)}
+                        />
+                        <span>Select individual contacts</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {emailForm.sendTo === 'tag' && (
+                    <div className="form-group">
+                      <label>Select Tag</label>
+                      {availableTags.length ? (
+                        <select
+                          value={emailForm.selectedTag}
+                          onChange={(e) => setEmailForm(prev => ({ ...prev, selectedTag: e.target.value }))}
+                        >
+                          <option value="">Choose a tag...</option>
+                          {availableTags.map(tag => (
+                            <option key={tag} value={tag}>
+                              {formatTagLabel(tag)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="form-hint">Add tags or pipeline stages to contacts to unlock this filter.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {emailForm.sendTo === 'individual' && (
+                    <div className="form-group">
+                      <label>Select Contacts</label>
+                      <div className="email-contact-list">
+                        {selectableContacts.length ? (
+                          selectableContacts.map(contact => (
+                            <label key={contact.id} className="email-contact-item">
+                              <input
+                                type="checkbox"
+                                value={contact.id}
+                                checked={emailForm.selectedContacts.includes(contact.id)}
+                                onChange={() => toggleEmailContact(contact.id)}
+                              />
+                              <div>
+                                <strong>{contact.business_name}</strong>
+                                <span>{contact.email}</span>
+                              </div>
+                            </label>
+                          ))
+                        ) : (
+                          <p className="form-hint">Add contacts with valid email addresses to invite them.</p>
+                        )}
+                      </div>
+                      {emailForm.selectedContacts.length > 0 && (
+                        <p className="form-hint">
+                          {emailForm.selectedContacts.length} contact{emailForm.selectedContacts.length === 1 ? '' : 's'} selected
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label>When to Send</label>
+                    <div className="email-radio-group">
+                      <label>
+                        <input
+                          type="radio"
+                          name="emailWhen"
+                          value="send_now"
+                          checked={emailForm.sendNow}
+                          onChange={(e) => handleWhenToSendChange(e.target.value)}
+                        />
+                        <span>Send now</span>
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name="emailWhen"
+                          value="schedule"
+                          checked={!emailForm.sendNow}
+                          onChange={(e) => handleWhenToSendChange(e.target.value)}
+                        />
+                        <span>Schedule for later</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {!emailForm.sendNow && (
+                    <div className="form-group">
+                      <label>Schedule date and time</label>
+                      <input
+                        type="datetime-local"
+                        min={scheduleMinValue}
+                        value={emailForm.scheduledAt}
+                        onChange={(e) => handleScheduleChange(e.target.value)}
+                      />
+                      {!emailForm.scheduledAt && (
+                        <p className="form-hint">Select when you want the email to go out.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

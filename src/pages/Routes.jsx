@@ -6,9 +6,14 @@ import RouteAnalysisSummary from '../components/RouteAnalysisSummary';
 import DataTable from '../components/DataTable';
 import SavedRoutes from '../components/SavedRoutes';
 import { optimizeRoutes } from '../utils/optimizeRoutes';
-import { profiles as profilesAPI, savedRoutes as savedRoutesAPI } from '../lib/api';
+import {
+  campaigns as campaignsAPI,
+  profiles as profilesAPI,
+  savedRoutes as savedRoutesAPI
+} from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import PageLayout from '../components/PageLayout';
+import { enrichSavedRoutesWithLock } from '../utils/routeLocking';
 
 function Routes() {
   const { user } = useAuth();
@@ -28,10 +33,17 @@ function Routes() {
 
   const loadSavedRoutes = async () => {
     setLoading(true);
-    const { data, error } = await savedRoutesAPI.getAll(user.id);
-    if (!error && data) {
-      setSavedRoutes(data);
+    const [routesRes, campaignsRes] = await Promise.all([
+      savedRoutesAPI.getAll(user.id),
+      campaignsAPI.getAll(user.id)
+    ]);
+
+    const savedRouteList = routesRes?.data || [];
+    const campaignList = campaignsRes?.data || [];
+    if (!routesRes.error) {
+      setSavedRoutes(enrichSavedRoutesWithLock(savedRouteList, campaignList));
     }
+
     setLoading(false);
   };
 

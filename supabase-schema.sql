@@ -196,8 +196,35 @@ CREATE INDEX idx_contacts_user_stage ON contacts(user_id, stage);
 CREATE INDEX idx_contacts_niche ON contacts(niche_id);
 
 ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can view own contacts" ON contacts FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can manage own contacts" ON contacts FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own or shared contacts" ON contacts
+  FOR SELECT
+  USING (
+    auth.uid() = user_id OR auth.uid() IN (
+      SELECT profile_id
+      FROM account_members
+      WHERE owner_id = user_id
+        AND status = 'active'
+    )
+  );
+
+CREATE POLICY "Users can manage own or shared contacts" ON contacts
+  FOR ALL
+  USING (
+    auth.uid() = user_id OR auth.uid() IN (
+      SELECT profile_id
+      FROM account_members
+      WHERE owner_id = user_id
+        AND status = 'active'
+    )
+  )
+  WITH CHECK (
+    auth.uid() = user_id OR auth.uid() IN (
+      SELECT profile_id
+      FROM account_members
+      WHERE owner_id = user_id
+        AND status = 'active'
+    )
+  );
 
 -- ============================================
 -- CONTACT ACTIVITIES (Notes, Tasks, Reminders)
@@ -417,12 +444,36 @@ CREATE POLICY "Users can view own invoices" ON invoices FOR SELECT USING (auth.u
 CREATE POLICY "Users can manage own invoices" ON invoices FOR ALL USING (auth.uid() = user_id);
 
 -- ============================================
+-- EMAIL TEMPLATES
+-- ============================================
+CREATE TABLE email_templates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+
+  name TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  body_html TEXT NOT NULL,
+  body_text TEXT,
+  template_tag TEXT,
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_email_templates_user ON email_templates(user_id);
+
+ALTER TABLE email_templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own email templates" ON email_templates FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can manage own email templates" ON email_templates FOR ALL USING (auth.uid() = user_id);
+
+-- ============================================
 -- EMAIL CAMPAIGNS
 -- ============================================
 CREATE TABLE email_campaigns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   campaign_id UUID REFERENCES campaigns(id) ON DELETE SET NULL, -- Optional link to EDDM campaign
+  template_id UUID REFERENCES email_templates(id) ON DELETE SET NULL,
   
   name TEXT NOT NULL,
   subject TEXT NOT NULL,
