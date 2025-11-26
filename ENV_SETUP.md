@@ -63,6 +63,7 @@ VITE_ENABLE_DEBUG=true
 2. Add all environment variables in Site Settings > Environment Variables
 3. Set build command: `npm run build`
 4. Set publish directory: `dist`
+5. (Optional but recommended) Add `SECRETS_SCAN_OMIT_KEYS=VITE_SUPABASE_ANON_KEY,VITE_SUPABASE_URL` so the build can include those frontend-only keys without triggering Netlify’s secrets scanner.
 
 ## Security Notes
 
