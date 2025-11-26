@@ -183,7 +183,9 @@ function personalizeEmail(template, contact) {
     .replace(/\{\{owner_name\}\}/g, contact.owner_name || '')
     .replace(/\{\{first_name\}\}/g, contact.owner_name?.split(' ')[0] || '')
     .replace(/\{\{email\}\}/g, contact.email || '')
-    .replace(/\{\{phone\}\}/g, contact.phone || '');
+    .replace(/\{\{phone\}\}/g, contact.phone || '')
+    .replace(/\{\{city\}\}/g, contact.city || '')
+    .replace(/\{\{state\}\}/g, contact.state || '');
 }
 
 function sleep(ms) {

@@ -12,15 +12,56 @@ const TEMPLATE_FORM_DEFAULT = {
   tag: ''
 };
 
+const PLACEHOLDER_TOKENS = [
+  {
+    label: 'Business Name',
+    value: '{{business_name}}',
+    description: 'Contact business name'
+  },
+  {
+    label: 'Owner Name',
+    value: '{{owner_name}}',
+    description: 'Full owner name'
+  },
+  {
+    label: 'First Name',
+    value: '{{first_name}}',
+    description: 'First word of the owner name'
+  },
+  {
+    label: 'Email Address',
+    value: '{{email}}',
+    description: 'Primary contact email'
+  },
+  {
+    label: 'Phone Number',
+    value: '{{phone}}',
+    description: 'Primary contact phone number'
+  },
+  {
+    label: 'City',
+    value: '{{city}}',
+    description: 'Contact city'
+  },
+  {
+    label: 'State',
+    value: '{{state}}',
+    description: 'Contact state'
+  }
+];
+
 function EmailMarketing() {
   const { user } = useAuth();
   const statusTimeoutRef = useRef();
+  const subjectInputRef = useRef(null);
+  const bodyTextareaRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [templates, setTemplates] = useState([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [templateForm, setTemplateForm] = useState(TEMPLATE_FORM_DEFAULT);
   const [statusMessage, setStatusMessage] = useState('');
   const [editingTemplate, setEditingTemplate] = useState(null);
+  const [focusedField, setFocusedField] = useState('body');
 
   useEffect(() => {
     if (user) {
@@ -115,6 +156,41 @@ function EmailMarketing() {
     }
   };
 
+  const handleFieldFocus = (field) => () => setFocusedField(field);
+
+  const insertPlaceholder = (token) => {
+    const targetField = focusedField || 'body';
+    const fieldRef = targetField === 'subject' ? subjectInputRef.current : bodyTextareaRef.current;
+    const selectionStart = fieldRef?.selectionStart;
+    const selectionEnd = fieldRef?.selectionEnd;
+    let cursorPosition = 0;
+
+    setTemplateForm(prev => {
+      const value = prev[targetField] || '';
+      const safeStart =
+        typeof selectionStart === 'number'
+          ? Math.min(value.length, Math.max(0, selectionStart))
+          : value.length;
+      const safeEnd =
+        typeof selectionEnd === 'number'
+          ? Math.min(value.length, Math.max(0, selectionEnd))
+          : safeStart;
+      cursorPosition = safeStart + token.length;
+      return {
+        ...prev,
+        [targetField]: `${value.slice(0, safeStart)}${token}${value.slice(safeEnd)}`
+      };
+    });
+
+    setTimeout(() => {
+      if (fieldRef) {
+        fieldRef.focus();
+        const finalCursor = Math.min((fieldRef.value || '').length, cursorPosition);
+        fieldRef.setSelectionRange(finalCursor, finalCursor);
+      }
+    }, 0);
+  };
+
   const templateModal = showTemplateModal ? (
     <div className="modal-overlay" onClick={closeTemplateModal}>
       <div className="modal-window" onClick={(e) => e.stopPropagation()}>
@@ -154,15 +230,38 @@ function EmailMarketing() {
               type="text"
               value={templateForm.subject}
               onChange={(e) => setTemplateForm(prev => ({ ...prev, subject: e.target.value }))}
+              onFocus={handleFieldFocus('subject')}
+              ref={subjectInputRef}
               placeholder="Subject line for the email"
               required
             />
           </label>
+          <div className="placeholder-helper">
+            <div className="placeholder-helper__header">
+              <span>Insert contact placeholders</span>
+              <small>Click to add them to the focused field.</small>
+            </div>
+            <div className="placeholder-helper__chips">
+              {PLACEHOLDER_TOKENS.map(token => (
+                <button
+                  type="button"
+                  key={token.value}
+                  className="placeholder-helper__chip"
+                  onClick={() => insertPlaceholder(token.value)}
+                  title={token.description}
+                >
+                  {token.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <label>
             Email Body *
             <textarea
               value={templateForm.body}
               onChange={(e) => setTemplateForm(prev => ({ ...prev, body: e.target.value }))}
+              onFocus={handleFieldFocus('body')}
+              ref={bodyTextareaRef}
               placeholder="Write your email content here…"
               rows={5}
               required
