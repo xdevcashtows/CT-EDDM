@@ -60,6 +60,41 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.view-toggle {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.view-toggle-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #475569;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-toggle-button svg {
+  display: block;
+}
+
+.view-toggle-button.active {
+  background: #312e81;
+  border-color: #312e81;
+  color: white;
+}
+
+.view-toggle-button:hover {
+  border-color: #cbd5e1;
+}
+
 .search-box {
   display: flex;
   align-items: center;
@@ -106,6 +141,10 @@
   background: #3b82f6;
   border-color: #3b82f6;
   color: white;
+}
+
+.contacts-grid.list-view {
+  display: block;
 }
 
 .contacts-grid {
@@ -203,6 +242,70 @@
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
+}
+
+.contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.contact-list-header {
+  display: grid;
+  grid-template-columns: 2fr 1.4fr 1fr 0.9fr;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.contact-list-row {
+  display: grid;
+  grid-template-columns: 2fr 1.4fr 1fr 0.9fr;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.contact-list-row:last-child {
+  border-bottom: none;
+}
+
+.contact-list-row:hover {
+  background: #f8fafc;
+}
+
+.contact-list-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.list-detail {
+  align-items: center;
+}
+
+.list-detail.secondary span {
+  font-size: 13px;
+  color: #475569;
+}
+
+.contact-list-stage {
+  justify-content: flex-start;
+}
+
+.contact-stage--list {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
 }
 
 /* Modal Styles */

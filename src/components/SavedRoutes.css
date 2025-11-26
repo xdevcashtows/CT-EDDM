@@ -1,0 +1,157 @@
+.saved-routes {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(249, 250, 255, 0.95));
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 1.35rem;
+  padding: 1.2rem 1.35rem 1.2rem;
+  box-shadow: 0 28px 50px rgba(15, 23, 42, 0.15);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-height: 420px;
+  max-height: 620px;
+}
+
+.saved-routes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.saved-routes-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.saved-routes-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.loading-message,
+.empty-message {
+  color: #94a3b8;
+  font-size: 14px;
+  text-align: center;
+  padding: 24px 0;
+}
+
+.routes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.saved-route-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  background: rgba(248, 250, 252, 0.9);
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.saved-route-item.clickable {
+  cursor: pointer;
+}
+
+.saved-route-item.clickable:hover {
+  border-color: rgba(79, 70, 229, 0.35);
+  background: rgba(79, 70, 229, 0.1);
+  transform: translateY(-1px);
+}
+
+.saved-route-content {
+  flex: 1;
+}
+
+.saved-route-name {
+  font-weight: 600;
+  color: #0b1232;
+  margin-bottom: 4px;
+  font-size: 1rem;
+}
+
+.saved-route-info {
+  font-size: 13px;
+  color: #65708f;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.locked-badge {
+  display: inline-flex;
+  padding: 3px 8px;
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.saved-route-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.saved-route-actions button {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.saved-route-actions button:focus-visible {
+  outline: 2px solid rgba(79, 70, 229, 0.8);
+  outline-offset: 2px;
+}
+
+.edit-button {
+  background: #312e81;
+  color: white;
+  box-shadow: 0 10px 20px rgba(49, 46, 129, 0.25);
+}
+
+.edit-button:hover {
+  background: #1e1b4b;
+  transform: translateY(-1px);
+}
+
+.delete-button {
+  background: #ef4444;
+  color: white;
+}
+
+.delete-button:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+.delete-button:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (max-width: 640px) {
+  .saved-route-actions button {
+    width: 34px;
+    height: 34px;
+  }
+}
+

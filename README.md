@@ -9,7 +9,7 @@ A professional web application for analyzing and managing EDDM (Every Door Direc
 - **Route Analysis**: View comprehensive metrics including residential/business counts, demographics, income, and costs
 - **Data Table**: Sortable table with batch selection capabilities
 - **Optimization Tools**: Optimize route selections for target quantities (2,500, 5,000, 10,000, 15,000)
-- **Saved Selections**: Save and manage route selections
+- **Saved Routes**: Save and manage route selections
 - **Campaign Summary**: Generate EDDM campaign summaries with key metrics
 - **Print Support**: Print route selection summaries with customizable display options
 

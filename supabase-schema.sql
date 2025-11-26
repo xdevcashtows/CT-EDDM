@@ -29,6 +29,36 @@ CREATE POLICY "Users can view own profile" ON profiles
 CREATE POLICY "Users can update own profile" ON profiles
   FOR UPDATE USING (auth.uid() = id);
 
+CREATE POLICY "Users can insert own profile" ON profiles
+  FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- ============================================
+-- ACCOUNT TEAM MANAGEMENT
+-- ============================================
+
+CREATE TABLE account_members (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  owner_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  profile_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  email TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member', 'viewer')),
+  status TEXT NOT NULL DEFAULT 'invited' CHECK (status IN ('invited', 'active')),
+  invited_at TIMESTAMPTZ DEFAULT NOW(),
+  joined_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE account_members ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Owners manage account members" ON account_members
+  FOR ALL
+  USING (auth.uid() = owner_id)
+  WITH CHECK (auth.uid() = owner_id);
+
+CREATE POLICY "Invited users can view their membership" ON account_members
+  FOR SELECT USING (auth.uid() = profile_id);
+
 -- ============================================
 -- NICHES (Business Categories)
 -- ============================================
@@ -595,6 +625,9 @@ $$ LANGUAGE plpgsql;
 
 -- Apply updated_at trigger to all relevant tables
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_account_members_updated_at BEFORE UPDATE ON account_members
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_cities_updated_at BEFORE UPDATE ON cities

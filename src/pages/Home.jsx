@@ -105,7 +105,7 @@ function Home() {
 
   if (loading) {
     return (
-      <PageLayout {...layoutProps}>
+      <PageLayout {...layoutProps} className="page-shell--fullwidth">
         <div className="home-page">
           <div className="loading-state">
             <div className="spinner-large"></div>
@@ -117,7 +117,7 @@ function Home() {
   }
 
   return (
-    <PageLayout {...layoutProps}>
+    <PageLayout {...layoutProps} className="page-shell--fullwidth">
       <div className="home-page">
         <DevNotice />
 

@@ -72,20 +72,7 @@ function ImportPanel({ onProcessData }) {
 
   return (
     <div className="import-panel">
-      <h2>Import EDDM Route Data</h2>
-      <p className="panel-description">Paste your tab-separated route data here:</p>
-      
       <div className="import-textarea-container">
-        <div className="import-headers">
-          <span>Route</span>
-          <span>Residential</span>
-          <span>Business</span>
-          <span>Total</span>
-          <span>Age: 30-65</span>
-          <span>Size</span>
-          <span>Income</span>
-          <span>Cost</span>
-        </div>
         <textarea
           className="import-textarea"
           value={inputData}
@@ -93,7 +80,6 @@ function ImportPanel({ onProcessData }) {
           placeholder="Paste your tab-separated data here..."
         />
       </div>
-      
       <button className="process-button" onClick={handleProcess}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" fill="currentColor"/>

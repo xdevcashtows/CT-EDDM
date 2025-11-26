@@ -6,6 +6,18 @@
   box-sizing: border-box;
 }
 
+.page-shell.page-shell--fullwidth {
+  max-width: none;
+  margin: 0;
+  padding: 32px 40px 48px;
+}
+
+.page-shell.page-shell--fullwidth .page-shell-header,
+.page-shell.page-shell--fullwidth .page-shell-content {
+  width: 100%;
+  max-width: none;
+}
+
 .page-shell-header {
   display: flex;
   align-items: flex-start;

@@ -90,7 +90,7 @@ function Campaigns() {
 
   if (loading) {
     return (
-      <PageLayout {...layoutProps}>
+      <PageLayout {...layoutProps} className="page-shell--fullwidth">
         <div className="campaigns-page">
           <div className="loading-state">
             <div className="spinner-large"></div>
@@ -110,6 +110,7 @@ function Campaigns() {
           New Campaign
         </button>
       }
+      className="page-shell--fullwidth"
     >
       <div className="campaigns-page">
         {/* Status Filters */}
@@ -181,11 +182,40 @@ function CampaignCard({ campaign, onEdit, onDelete, onComplete }) {
             {campaign.mail_date && ` • Mail: ${new Date(campaign.mail_date).toLocaleDateString()}`}
           </div>
         </div>
+        <div className="campaign-header-actions">
         <div
           className="campaign-status"
           style={{ background: status?.color + '20', color: status?.color }}
         >
           {status?.label}
+          </div>
+          <div className="header-action-buttons">
+            <button
+              className="header-action-btn"
+              onClick={() => onEdit(campaign)}
+              disabled={campaign.status === 'completed'}
+              aria-label="Edit campaign"
+            >
+              <Edit size={16} />
+            </button>
+            {campaign.status !== 'completed' && (
+              <button
+                className="header-action-btn header-action-btn--success"
+                onClick={() => onComplete(campaign.id)}
+                aria-label="Mark campaign complete"
+              >
+                <CheckCircle size={16} />
+              </button>
+            )}
+            <button
+              className="header-action-btn header-action-btn--danger"
+              onClick={() => onDelete(campaign.id)}
+              disabled={campaign.status === 'completed'}
+              aria-label="Delete campaign"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -202,34 +232,6 @@ function CampaignCard({ campaign, onEdit, onDelete, onComplete }) {
           <span className="price-label">Large:</span>
           <span className="price-value">${campaign.price_large || 0}</span>
         </div>
-      </div>
-
-      <div className="campaign-actions">
-        <button
-          className="action-btn"
-          onClick={() => onEdit(campaign)}
-          disabled={campaign.status === 'completed'}
-        >
-          <Edit size={16} />
-          Edit
-        </button>
-        {campaign.status !== 'completed' && (
-          <button
-            className="action-btn success"
-            onClick={() => onComplete(campaign.id)}
-          >
-            <CheckCircle size={16} />
-            Complete
-          </button>
-        )}
-        <button
-          className="action-btn danger"
-          onClick={() => onDelete(campaign.id)}
-          disabled={campaign.status === 'completed'}
-        >
-          <Trash2 size={16} />
-          Delete
-        </button>
       </div>
     </div>
   );
@@ -256,6 +258,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   const [contacts, setContacts] = useState([]);
   const [niches, setNiches] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -286,6 +289,9 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     if (!error) setSlots(data || []);
   };
 
+  const selectedRoute = savedRoutes.find(r => r.id === formData.saved_route_id);
+  const selectedDesign = designs.find(d => d.id === formData.design_id);
+
   const handleSubmit = async () => {
     setLoading(true);
 
@@ -296,9 +302,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         if (error) throw error;
       } else {
         // Create new with snapshots
-        const selectedRoute = savedRoutes.find(r => r.id === formData.saved_route_id);
-        const selectedDesign = designs.find(d => d.id === formData.design_id);
-
         const campaignData = {
           ...formData,
           user_id: userId,
@@ -343,8 +346,49 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     }
   };
 
-  const selectedRoute = savedRoutes.find(r => r.id === formData.saved_route_id);
-  const selectedDesign = designs.find(d => d.id === formData.design_id);
+  const handleSaveDraft = async () => {
+    const trimmedName = (formData.name || '').trim();
+    if (!trimmedName) {
+      alert('Please name your campaign before saving the draft.');
+      return;
+    }
+
+    setFormData(prev => ({ ...prev, name: trimmedName }));
+    setSavingDraft(true);
+
+    try {
+      const draftPayload = { ...formData, name: trimmedName, status: 'draft' };
+      if (campaign?.id) {
+        const { error } = await campaignsAPI.update(campaign.id, draftPayload);
+        if (error) throw error;
+      } else {
+        const campaignData = {
+          ...draftPayload,
+          name: trimmedName,
+          user_id: userId,
+          route_snapshot: selectedRoute?.routes || [],
+          design_snapshot: selectedDesign || {},
+          total_pieces: selectedRoute?.total_households || 0,
+          status: 'draft'
+        };
+
+        const { data: newCampaign, error } = await campaignsAPI.create(campaignData);
+        if (error) throw error;
+
+        if (formData.saved_route_id) {
+          await savedRoutesAPI.lock(formData.saved_route_id);
+        }
+      }
+
+      onSave();
+      onClose();
+    } catch (error) {
+      console.error('Error saving draft campaign:', error);
+      alert('Failed to save draft campaign');
+    } finally {
+      setSavingDraft(false);
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -524,12 +568,19 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         </div>
 
         <div className="modal-footer">
-          {step > 1 && !campaign && (
+          {step > 1 && (
             <button className="btn-secondary" onClick={() => setStep(step - 1)}>
               Back
             </button>
           )}
-          {step < 3 && !campaign ? (
+          <button
+            className="btn-secondary"
+            onClick={handleSaveDraft}
+            disabled={savingDraft || !formData.name?.trim()}
+          >
+            {savingDraft ? 'Saving draft...' : 'Save draft'}
+          </button>
+          {step < 3 ? (
             <button
               className="btn-primary"
               onClick={() => setStep(step + 1)}

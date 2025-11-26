@@ -1,48 +1,23 @@
 .import-panel {
   background: white;
   border-radius: 8px;
-  padding: 24px;
+  padding: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   flex: 1;
   margin-right: 16px;
-}
-
-.import-panel h2 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1a202c;
-  margin-bottom: 8px;
-}
-
-.panel-description {
-  color: #718096;
-  font-size: 14px;
-  margin-bottom: 16px;
 }
 
 .import-textarea-container {
   border: 2px solid #e2e8f0;
   border-radius: 8px;
   overflow: hidden;
-  margin-bottom: 16px;
-}
-
-.import-headers {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 8px;
-  padding: 12px;
-  background: #f7fafc;
-  border-bottom: 1px solid #e2e8f0;
-  font-size: 12px;
-  font-weight: 600;
-  color: #4a5568;
+  margin-bottom: 12px;
 }
 
 .import-textarea {
   width: 100%;
-  min-height: 200px;
-  padding: 16px;
+  min-height: 150px;
+  padding: 12px;
   border: none;
   font-family: 'Courier New', monospace;
   font-size: 13px;

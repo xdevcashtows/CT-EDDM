@@ -24,7 +24,7 @@
 
 ### 4. Components
 - ✅ ImageUploader component with validation
-- ✅ Updated SavedSelections component with load/delete
+- ✅ Updated SavedRoutes component with load/delete
 - ✅ All existing components maintained
 
 ### 5. Pages

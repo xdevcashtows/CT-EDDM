@@ -112,7 +112,7 @@ function Designs() {
 
   if (loading) {
     return (
-      <PageLayout {...layoutProps}>
+      <PageLayout {...layoutProps} className="page-shell--fullwidth">
         <div className="designs-page">
           <div className="loading-state">
             <div className="spinner-large"></div>
@@ -132,6 +132,7 @@ function Designs() {
           New Design
         </button>
       }
+      className="page-shell--fullwidth"
     >
       <div className="designs-page">
         <div className="designs-grid">

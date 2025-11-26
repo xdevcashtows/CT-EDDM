@@ -64,7 +64,7 @@
 - **Files**: `src/pages/Designs.jsx`, `src/pages/Designs.css`
 
 #### 5. **Updated Components**
-- ✅ SavedSelections (with load/delete functionality)
+- ✅ SavedRoutes (with load/delete functionality)
 - ✅ ImageUploader (reusable upload component)
 - ✅ All existing components maintained
 

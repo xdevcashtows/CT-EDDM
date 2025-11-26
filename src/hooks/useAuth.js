@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { auth } from '../lib/supabase';
+import { profiles as profilesAPI } from '../lib/api';
 
 const DEV_AUTH_ENABLED = import.meta.env.VITE_ENABLE_DEV_AUTH === 'true';
 
@@ -28,14 +29,19 @@ export function useAuth() {
 
     auth.getCurrentUser().then(({ user, error }) => {
       if (error) {
-        console.error('Auth error:', error);
+        // suppress the expected "AuthSessionMissingError" that fires before a user signs in
+        if (error.name !== 'AuthSessionMissingError') {
+          console.error('Auth error:', error);
+        }
         setUser(null);
       } else {
         setUser(user);
       }
       setLoading(false);
     }).catch((err) => {
-      console.error('Auth initialization error:', err);
+      if (err?.name !== 'AuthSessionMissingError') {
+        console.error('Auth initialization error:', err);
+      }
       setUser(null);
       setLoading(false);
     });
@@ -51,6 +57,19 @@ export function useAuth() {
       console.error('Auth subscription error:', error);
     }
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const ensureProfile = async () => {
+      const { error } = await profilesAPI.ensure(user);
+      if (error) {
+        console.error('Unable to ensure profile record exists:', error);
+      }
+    };
+
+    ensureProfile();
+  }, [user]);
 
   return {
     user,

@@ -3,7 +3,7 @@ import './Dashboard.css'
 import ImportPanel from '../components/ImportPanel'
 import RouteAnalysisSummary from '../components/RouteAnalysisSummary'
 import DataTable from '../components/DataTable'
-import SavedSelections from '../components/SavedSelections'
+import SavedRoutes from '../components/SavedRoutes'
 import RouteSelectionSummary from '../components/RouteSelectionSummary'
 import EDDMCampaignSummary from '../components/EDDMCampaignSummary'
 import { optimizeRoutes } from '../utils/optimizeRoutes'
@@ -12,7 +12,7 @@ function Dashboard({ onSignOut }) {
   const [routeData, setRouteData] = useState([])
   const [selectedRoutes, setSelectedRoutes] = useState(new Set())
   const [residentialOnly, setResidentialOnly] = useState(false)
-  const [savedSelections, setSavedSelections] = useState([])
+  const [savedRoutes, setSavedRoutes] = useState([])
   const [lastOptimizationTarget, setLastOptimizationTarget] = useState(null)
 
   const handleProcessData = (data) => {
@@ -93,23 +93,62 @@ function Dashboard({ onSignOut }) {
     return filteredData.filter(route => selectedRoutes.has(route.id))
   }, [filteredData, selectedRoutes])
 
-  const handleSaveSelection = () => {
-    if (selectedData.length > 0) {
-      const newSelection = {
+  const handleSaveRoute = () => {
+    if (selectedData.length === 0) return;
+
+    const defaultName = `Saved Route ${savedRoutes.length + 1}`;
+    const rawName = prompt('Name this saved route', defaultName);
+    if (rawName === null) return;
+
+    const routeName = rawName.trim();
+    if (!routeName) {
+      alert('Please provide a name for the saved route.');
+      return;
+    }
+
+    const newRoute = {
         id: Date.now(),
-        name: `Selection ${savedSelections.length + 1}`,
+      name: routeName,
         routes: selectedData,
         timestamp: new Date().toISOString()
-      }
-      setSavedSelections([...savedSelections, newSelection])
-    }
-  }
+    };
+
+    setSavedRoutes(prev => [...prev, newRoute]);
+  };
 
   const handleOptimize = (targetPostcards) => {
     const result = optimizeRoutes(filteredData, targetPostcards, residentialOnly)
     setSelectedRoutes(new Set(result.routeIds))
     updateBatchNumbers(result.batchMap)
     setLastOptimizationTarget(targetPostcards)
+  }
+
+  const handleLoadSavedRoute = (routeId) => {
+    const savedRoute = savedRoutes.find(route => route.id === routeId)
+    if (!savedRoute) return
+
+    setRouteData(savedRoute.routes)
+    const routeIds = savedRoute.routes.map(route => route.id)
+    setSelectedRoutes(new Set(routeIds))
+  }
+
+  const handleDeleteSavedRoute = (routeId) => {
+    setSavedRoutes(prev => prev.filter(route => route.id !== routeId))
+  }
+
+  const handleRenameSavedRoute = (route) => {
+    if (!route) return;
+
+    const rawName = prompt('Name this saved route', route.name || '');
+    if (rawName === null) return;
+
+    const trimmedName = rawName.trim();
+    if (!trimmedName) {
+      alert('Please provide a name for the saved route.');
+      return;
+    }
+
+    setSavedRoutes(prev => prev.map(r => r.id === route.id ? { ...r, name: trimmedName } : r))
   }
 
   const handleBatchChange = (routeId, batchNumber) => {
@@ -130,7 +169,7 @@ function Dashboard({ onSignOut }) {
             data={filteredData}
             residentialOnly={residentialOnly}
             onResidentialOnlyChange={setResidentialOnly}
-            onSaveSelection={handleSaveSelection}
+            onSaveSelection={handleSaveRoute}
             selectedData={selectedData}
             onOptimize={handleOptimize}
             activeTarget={lastOptimizationTarget}
@@ -146,9 +185,11 @@ function Dashboard({ onSignOut }) {
               onSelectAll={handleSelectAll}
               onBatchChange={handleBatchChange}
             />
-            <SavedSelections 
-              selections={savedSelections}
-              remaining={2 - savedSelections.length}
+            <SavedRoutes 
+              routes={savedRoutes}
+              onLoad={handleLoadSavedRoute}
+              onDelete={handleDeleteSavedRoute}
+              onRename={handleRenameSavedRoute}
             />
           </div>
         </div>

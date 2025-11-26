@@ -4,6 +4,31 @@ import { supabase } from './supabase';
 const isMockMode = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // ============================================
+// PROFILES
+// ============================================
+export const profiles = {
+  ensure: async (user) => {
+    if (!user?.id) {
+      return { data: null, error: new Error('Missing user information') };
+    }
+
+    const payload = {
+      id: user.id,
+      email: user.email,
+      full_name: user.user_metadata?.full_name || user.email || ''
+    };
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert(payload, { onConflict: 'id' })
+      .select()
+      .single();
+
+    return { data, error };
+  }
+};
+
+// ============================================
 // CONTACTS / CRM
 // ============================================
 export const contacts = {
@@ -543,6 +568,102 @@ export const packingSlips = {
     return { error };
   }
 };
+
+const mockTeamMembers = [
+  {
+    id: 'mock-owner',
+    email: 'owner@demo.com',
+    role: 'admin',
+    status: 'active',
+    invited_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    joined_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+    created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    profile: {
+      full_name: 'Account Owner',
+      email: 'owner@demo.com'
+    }
+  },
+  {
+    id: 'mock-staff',
+    email: 'team.member@demo.com',
+    role: 'member',
+    status: 'active',
+    invited_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    joined_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+    created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    profile: {
+      full_name: 'Team Member',
+      email: 'team.member@demo.com'
+    }
+  },
+  {
+    id: 'mock-invite',
+    email: 'new.collaborator@demo.com',
+    role: 'viewer',
+    status: 'invited',
+    invited_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    joined_at: null,
+    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    profile: null
+  }
+]
+
+export const accountMembers = {
+  listForOwner: async (ownerId) => {
+    if (isMockMode) {
+      return { data: mockTeamMembers, error: null }
+    }
+
+    if (!ownerId) {
+      return { data: [], error: null }
+    }
+
+    const { data, error } = await supabase
+      .from('account_members')
+      .select(
+        'id, email, role, status, created_at, invited_at, joined_at, profile:profiles(full_name, email)'
+      )
+      .eq('owner_id', ownerId)
+      .order('created_at', { ascending: false })
+
+    return { data, error }
+  },
+
+  invite: async (ownerId, payload) => {
+    if (isMockMode) {
+      const mockEntry = {
+        id: `mock-${Date.now()}`,
+        owner_id: ownerId,
+        email: payload.email,
+        role: payload.role || 'member',
+        status: 'invited',
+        invited_at: new Date().toISOString(),
+        joined_at: null,
+        created_at: new Date().toISOString(),
+        profile: null
+      }
+      return { data: mockEntry, error: null }
+    }
+
+    if (!ownerId) {
+      return { data: null, error: new Error('Missing owner id') }
+    }
+
+    const { data, error } = await supabase
+      .from('account_members')
+      .insert({
+        owner_id: ownerId,
+        email: payload.email,
+        role: payload.role || 'member'
+      })
+      .select(
+        'id, email, role, status, created_at, invited_at, joined_at, profile:profiles(full_name, email)'
+      )
+      .single()
+
+    return { data, error }
+  }
+}
 
 // ============================================
 // EMAIL SENDING (via Netlify function)

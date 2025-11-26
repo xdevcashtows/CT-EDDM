@@ -13,7 +13,9 @@ import {
   Calendar,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import './Contacts.css';
 import { contacts as contactsAPI, niches as nichesAPI, clientAds, activities } from '../lib/api';
@@ -28,11 +30,38 @@ const PIPELINE_STAGES = [
   { value: 'qualified', label: 'Qualified', color: '#f59e0b' },
   { value: 'proposal_sent', label: 'Proposal Sent', color: '#ec4899' },
   { value: 'negotiating', label: 'Negotiating', color: '#8b5cf6' },
-  { value: 'won', label: 'Won', color: '#10b981' },
   { value: 'active', label: 'Active', color: '#22c55e' },
-  { value: 'past', label: 'Past Client', color: '#64748b' },
-  { value: 'lost', label: 'Lost', color: '#ef4444' }
+  { value: 'past', label: 'Past Client', color: '#64748b' }
 ];
+
+const ALLOWED_CONTACT_FIELDS = [
+  'business_name',
+  'owner_name',
+  'email',
+  'phone',
+  'website',
+  'address',
+  'city',
+  'state',
+  'zip',
+  'niche_id',
+  'stage',
+  'notes',
+  'tags',
+  'first_contact_date',
+  'last_contact_date',
+  'next_follow_up_date'
+];
+
+const sanitizeContactPayload = (contact = {}) => {
+  const payload = {};
+  ALLOWED_CONTACT_FIELDS.forEach(field => {
+    if (Object.prototype.hasOwnProperty.call(contact, field)) {
+      payload[field] = contact[field];
+    }
+  });
+  return payload;
+};
 
 function Contacts() {
   const { user } = useAuth();
@@ -46,6 +75,7 @@ function Contacts() {
   const [showAdUpload, setShowAdUpload] = useState(false);
   const [contactAds, setContactAds] = useState([]);
   const [contactActivities, setContactActivities] = useState([]);
+  const [viewMode, setViewMode] = useState('grid');
 
   useEffect(() => {
     if (user) {
@@ -113,23 +143,27 @@ function Contacts() {
   };
 
   const handleSaveContact = async (contactData) => {
+    const payload = sanitizeContactPayload(contactData);
+
     if (selectedContact.id) {
       // Update existing
-      const { data, error } = await contactsAPI.update(selectedContact.id, contactData);
+      const { data, error } = await contactsAPI.update(selectedContact.id, payload);
       if (!error) {
         setContacts(contacts.map(c => c.id === selectedContact.id ? data : c));
         setShowModal(false);
       } else {
-        alert('Failed to update contact');
+        console.error('Failed to update contact', error);
+        alert(`Failed to update contact: ${error?.message || 'Unknown error'}`);
       }
     } else {
       // Create new
-      const { data, error } = await contactsAPI.create({ ...contactData, user_id: user.id });
+      const { data, error } = await contactsAPI.create({ ...payload, user_id: user.id });
       if (!error) {
         setContacts([data, ...contacts]);
         setShowModal(false);
       } else {
-        alert('Failed to create contact');
+        console.error('Failed to create contact', error);
+        alert(`Failed to create contact: ${error?.message || 'Unknown error'}`);
       }
     }
   };
@@ -217,7 +251,7 @@ function Contacts() {
 
   if (loading) {
     return (
-      <PageLayout {...layoutProps}>
+      <PageLayout {...layoutProps} className="page-shell--fullwidth">
         <div className="contacts-page">
           <div className="loading-state">
             <div className="spinner-large"></div>
@@ -237,6 +271,7 @@ function Contacts() {
           Add Contact
         </button>
       }
+      className="page-shell--fullwidth"
     >
       <div className="contacts-page">
         {/* Filters */}
@@ -272,15 +307,35 @@ function Contacts() {
             );
           })}
         </div>
+        <div className="view-toggle">
+          <button
+            type="button"
+            className={`view-toggle-button ${viewMode === 'grid' ? 'active' : ''}`}
+            onClick={() => setViewMode('grid')}
+            title="Grid view"
+          >
+            <LayoutGrid size={16} />
+            <span>Grid</span>
+          </button>
+          <button
+            type="button"
+            className={`view-toggle-button ${viewMode === 'list' ? 'active' : ''}`}
+            onClick={() => setViewMode('list')}
+            title="List view"
+          >
+            <List size={16} />
+            <span>List</span>
+          </button>
+        </div>
       </div>
 
       {/* Contacts Grid */}
-      <div className="contacts-grid">
+      <div className={`contacts-grid ${viewMode === 'list' ? 'list-view' : ''}`}>
         {filteredContacts.length === 0 ? (
           <div className="empty-state">
             <p>No contacts found</p>
           </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
           filteredContacts.map(contact => (
             <div
               key={contact.id}
@@ -328,6 +383,63 @@ function Contacts() {
               </div>
             </div>
           ))
+        ) : (
+          <div className="contact-list">
+            <div className="contact-list-header">
+              <span>Business</span>
+              <span>Contact</span>
+              <span>Location</span>
+              <span>Stage</span>
+            </div>
+            {filteredContacts.map(contact => (
+              <div
+                key={contact.id}
+                className="contact-list-row"
+                onClick={() => handleContactClick(contact)}
+              >
+                <div className="contact-list-cell">
+                  <div className="contact-name">{contact.business_name}</div>
+                  <div className="contact-owner">{contact.owner_name}</div>
+                </div>
+                <div className="contact-list-cell">
+                  {contact.email && (
+                    <div className="contact-detail list-detail">
+                      <Mail size={14} />
+                      <span>{contact.email}</span>
+                    </div>
+                  )}
+                  {contact.phone && (
+                    <div className="contact-detail list-detail">
+                      <Phone size={14} />
+                      <span>{contact.phone}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="contact-list-cell">
+                  <div className="contact-detail list-detail">
+                    <MapPin size={14} />
+                    <span>{contact.city || '—'}, {contact.state || '—'}</span>
+                  </div>
+                  {contact.address && (
+                    <div className="contact-detail list-detail secondary">
+                      <span>{contact.address}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="contact-list-cell contact-list-stage">
+                  <div
+                    className="contact-stage contact-stage--list"
+                    style={{
+                      background: PIPELINE_STAGES.find(s => s.value === contact.stage)?.color + '20',
+                      color: PIPELINE_STAGES.find(s => s.value === contact.stage)?.color
+                    }}
+                  >
+                    {PIPELINE_STAGES.find(s => s.value === contact.stage)?.label}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 

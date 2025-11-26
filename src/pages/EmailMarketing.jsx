@@ -33,7 +33,7 @@ function EmailMarketing() {
 
   if (loading) {
     return (
-      <PageLayout {...layoutProps}>
+      <PageLayout {...layoutProps} className="page-shell--fullwidth">
         <div className="email-marketing-page">
           <div className="loading-state">
             <div className="spinner-large"></div>
@@ -53,6 +53,7 @@ function EmailMarketing() {
           New Email Campaign
         </button>
       }
+      className="page-shell--fullwidth"
     >
       <div className="email-marketing-page">
         <div className="coming-soon">

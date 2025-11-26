@@ -127,7 +127,7 @@ function DataTable({ data = [], selectedRoutes = new Set(), onRouteToggle, onSel
         </thead>
         <tbody>
           {sortedData.length === 0 ? (
-            <tr>
+            <tr className="empty-row">
               <td colSpan="11" className="empty-state">
                 No route data. Import data to get started.
               </td>

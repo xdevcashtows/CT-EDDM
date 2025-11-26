@@ -7,6 +7,7 @@ import Designs from './pages/Designs'
 import Campaigns from './pages/Campaigns'
 import EmailMarketing from './pages/EmailMarketing'
 import PackingSlips from './pages/PackingSlips'
+import Settings from './pages/Settings'
 import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
 import DashboardLayout from './components/DashboardLayout'
@@ -26,6 +27,7 @@ function App() {
           <Route path="campaigns" element={<Campaigns />} />
           <Route path="email-marketing" element={<EmailMarketing />} />
           <Route path="packing-slips" element={<PackingSlips />} />
+          <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Route>
       </Routes>

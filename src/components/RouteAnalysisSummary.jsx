@@ -1,6 +1,20 @@
 import './RouteAnalysisSummary.css'
 
-function RouteAnalysisSummary({ data = [], residentialOnly, onResidentialOnlyChange, onSaveSelection, selectedData = [], onOptimize, activeTarget = null }) {
+const QUICK_TARGETS = [
+  { value: 2500, label: '2,500', detail: 'pieces' },
+  { value: 5000, label: '5,000', detail: 'pieces' },
+  { value: 10000, label: '10,000', detail: 'pieces' },
+  { value: 15000, label: '15,000', detail: 'pieces' }
+]
+
+function RouteAnalysisSummary({
+  data = [],
+  residentialOnly,
+  onResidentialOnlyChange,
+  selectedData = [],
+  onOptimize,
+  activeTarget = null
+}) {
   const safeData = Array.isArray(data) ? data : []
   const safeSelectedData = Array.isArray(selectedData) ? selectedData : []
 
@@ -20,6 +34,8 @@ function RouteAnalysisSummary({ data = [], residentialOnly, onResidentialOnlyCha
       : 0,
     totalCost: safeSelectedData.reduce((sum, r) => sum + (r?.cost || 0), 0).toFixed(2)
   }
+  const mixRatio = metrics.residential + metrics.business
+  const ratioPercent = mixRatio > 0 ? ((metrics.residential / mixRatio) * 100).toFixed(1) : '—'
 
   // Calculate batch totals (handle PBOX routes - use total for PBOX, otherwise use residential if residentialOnly)
   const batch1 = safeSelectedData
@@ -52,49 +68,14 @@ function RouteAnalysisSummary({ data = [], residentialOnly, onResidentialOnlyCha
       return sum + (residentialOnly ? (r.residential || 0) : (r.total || 0))
     }, 0)
 
-  const handleOptimize = (target) => {
-    if (onOptimize) {
-      onOptimize(target)
-    }
-  }
-
-  const handleCopyToClipboard = () => {
-    if (safeSelectedData.length === 0) return
-    const text = safeSelectedData.map(r => 
-      `${r?.route || ''}\t${r?.residential || 0}\t${r?.business || 0}\t${r?.total || 0}\t${r?.age || 0}\t${r?.size || 0}\t${r?.income || 0}\t${r?.cost || 0}`
-    ).join('\n')
-    navigator.clipboard.writeText(text)
-  }
+  const hasBatches = batch1 > 0 || batch2 > 0 || batch3 > 0
 
   return (
     <div className="route-analysis-summary">
-      <div className="summary-header">
-        <h2>Route Analysis Summary</h2>
-        <div className="summary-controls">
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={residentialOnly}
-              onChange={(e) => onResidentialOnlyChange(e.target.checked)}
-            />
-            Residential Only
-          </label>
-          <button 
-            className="save-selection-button"
-            onClick={onSaveSelection}
-            disabled={selectedData.length === 0}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z" fill="currentColor"/>
-            </svg>
-            Save Selection
-          </button>
-        </div>
-      </div>
-
       <div className="metrics-grid">
         <MetricCard icon="🏠" label="Residential" value={metrics.residential.toLocaleString()} />
         <MetricCard icon="🏢" label="Business" value={metrics.business.toLocaleString()} />
+        <MetricCard icon="⚖️" label="Residential share" value={ratioPercent === '—' ? '—' : `${ratioPercent}%`} />
         <MetricCard icon="📍" label="Total" value={metrics.total.toLocaleString()} />
         <MetricCard icon="👥" label="Age 30-65%" value={`${metrics.ageAvg}%`} />
         <MetricCard icon="📊" label="Avg Size" value={metrics.sizeAvg} />
@@ -102,7 +83,7 @@ function RouteAnalysisSummary({ data = [], residentialOnly, onResidentialOnlyCha
         <MetricCard icon="📋" label="Total Cost" value={`$${metrics.totalCost}`} />
       </div>
 
-      {(batch1 > 0 || batch2 > 0 || batch3 > 0) && (
+      <div className="batch-optimization-row">
         <div className="batch-details-section">
           <div className="batch-details-header">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -129,54 +110,46 @@ function RouteAnalysisSummary({ data = [], residentialOnly, onResidentialOnlyCha
                 <p className="batch-value">{batch3.toLocaleString()} pieces</p>
               </div>
             )}
+            {!hasBatches && (
+              <div className="batch-empty">
+                <p>Select routes or run a quick optimization to see batch totals.</p>
+              </div>
+            )}
           </div>
         </div>
-      )}
-
-      <div className="optimize-section">
-        <div className="optimize-section-header">
-          <h3>Quick Optimization</h3>
-          <p className="optimize-section-description">Automatically select routes for target quantities</p>
-        </div>
-        <div className="optimize-buttons-grid">
-          <button 
-            className={`optimize-btn ${activeTarget === 2500 ? 'active' : ''}`} 
-            onClick={() => handleOptimize(2500)}
-          >
-            <span className="optimize-btn-number">2,500</span>
-            <span className="optimize-btn-label">Optimize</span>
-          </button>
-          <button 
-            className={`optimize-btn ${activeTarget === 5000 ? 'active' : ''}`} 
-            onClick={() => handleOptimize(5000)}
-          >
-            <span className="optimize-btn-number">5,000</span>
-            <span className="optimize-btn-label">Optimize</span>
-          </button>
-          <button 
-            className={`optimize-btn ${activeTarget === 10000 ? 'active' : ''}`} 
-            onClick={() => handleOptimize(10000)}
-          >
-            <span className="optimize-btn-number">10,000</span>
-            <span className="optimize-btn-label">2 x 5,000</span>
-          </button>
-          <button 
-            className={`optimize-btn ${activeTarget === 15000 ? 'active' : ''}`} 
-            onClick={() => handleOptimize(15000)}
-          >
-            <span className="optimize-btn-number">15,000</span>
-            <span className="optimize-btn-label">3 x 5,000</span>
-          </button>
-        </div>
-        <div className="action-buttons">
-          <button className="copy-clipboard-button" onClick={handleCopyToClipboard}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="currentColor"/>
-            </svg>
-            Copy Selected to Clipboard
-          </button>
+        <div className="quick-optimization-inline">
+          <div className="quick-optimization-header">
+          <div>
+            <p className="quick-optimization-title">Quick Optimization</p>
+          </div>
+            <label className="quick-optimization-toggle">
+              <input
+                type="checkbox"
+                checked={residentialOnly}
+                onChange={(e) => onResidentialOnlyChange?.(e.target.checked)}
+              />
+              Residential only
+            </label>
+          </div>
+          <div className="quick-optimization-buttons">
+            {QUICK_TARGETS.map((target) => (
+              <button
+                key={target.value}
+                type="button"
+                className={`quick-optimization-btn ${activeTarget === target.value ? 'active' : ''}`}
+                onClick={() => onOptimize?.(target.value)}
+              >
+                <span className="quick-optimization-value">{target.label}</span>
+                <span className="quick-optimization-detail">{target.detail}</span>
+              </button>
+            ))}
+          </div>
+          <p className="quick-optimization-note">
+            {selectedData.length.toLocaleString()} routes selected
+          </p>
         </div>
       </div>
+
     </div>
   )
 }

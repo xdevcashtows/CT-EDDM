@@ -63,6 +63,13 @@
   margin-bottom: 16px;
 }
 
+.campaign-header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
 .campaign-name {
   font-size: 20px;
   font-weight: 600;
@@ -92,6 +99,48 @@
   margin-bottom: 16px;
 }
 
+.header-action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.header-action-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #475569;
+}
+
+.header-action-btn:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  color: #1f2a44;
+  background: #f8fafc;
+}
+
+.header-action-btn--success:hover:not(:disabled) {
+  color: #16a34a;
+  border-color: #a7f3d0;
+  background: #d1fae5;
+}
+
+.header-action-btn--danger:hover:not(:disabled) {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: #fee2e2;
+}
+
+.header-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .price-item {
   display: flex;
   flex-direction: column;
@@ -109,49 +158,6 @@
   font-size: 18px;
   font-weight: 700;
   color: #1e293b;
-}
-
-.campaign-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.action-btn:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-  color: #3b82f6;
-}
-
-.action-btn.success:hover:not(:disabled) {
-  color: #22c55e;
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-}
-
-.action-btn.danger:hover:not(:disabled) {
-  color: #ef4444;
-  border-color: #fecaca;
-  background: #fef2f2;
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* Campaign Modal */
