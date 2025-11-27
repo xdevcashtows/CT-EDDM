@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Edit, Trash2 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
+import { designs as designsAPI } from '../lib/api';
+import { useAuth } from '../hooks/useAuth';
 import './Designs.css';
 
 const GRID_COLUMNS = 4;
@@ -25,6 +27,7 @@ const createInitialGridCells = () =>
   }));
 
 function Designs() {
+  const { user } = useAuth();
   const [gridCells, setGridCells] = useState(() => createInitialGridCells());
   const [adSlots, setAdSlots] = useState(DEFAULT_AD_SLOTS);
   const [placements, setPlacements] = useState([]);
@@ -36,6 +39,9 @@ function Designs() {
   const [highlightedCellId, setHighlightedCellId] = useState(null);
   const [templateTab, setTemplateTab] = useState('canvas');
   const [activePlacementId, setActivePlacementId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [templateSide, setTemplateSide] = useState('front');
+  const [editingTemplateId, setEditingTemplateId] = useState(null);
 
   const slotMap = useMemo(() => {
     return adSlots.reduce((acc, slot) => {
@@ -55,6 +61,31 @@ function Designs() {
   const remainingCells = activePlacement
     ? activePlacement.totalCells - activePlacement.cellIds.length
     : 0;
+
+  // Load saved templates from the database
+  useEffect(() => {
+    if (user) {
+      loadTemplates();
+    }
+  }, [user]);
+
+  const loadTemplates = async () => {
+    setLoading(true);
+    const { data, error } = await designsAPI.getAll(user.id);
+    if (!error && data) {
+      setSavedTemplates(data);
+      // Auto-increment template name based on existing templates
+      const templateNumbers = data
+        .map(t => {
+          const match = t.name.match(/^Template (\d+)$/);
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter(n => n > 0);
+      const nextNumber = templateNumbers.length > 0 ? Math.max(...templateNumbers) + 1 : 1;
+      setTemplateName(`Template ${nextNumber}`);
+    }
+    setLoading(false);
+  };
 
   // Helper function to check if a cell is adjacent to any cell in the placement
   const isCellAdjacentToPlacement = (cellId, placement) => {
@@ -247,33 +278,151 @@ const addCellToPlacement = (placementId, cellId) => {
     setPlacements([]);
     setHighlightedCellId(null);
     setDraggedSlotId(null);
-    setTemplateName('Favorite');
+    setEditingTemplateId(null);
+    setActivePlacementId(null);
+    setTemplateSide('front');
+    // Auto-increment template name
+    const templateNumbers = savedTemplates
+      .map(t => {
+        const match = t.name.match(/^Template (\d+)$/);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(n => n > 0);
+    const nextNumber = templateNumbers.length > 0 ? Math.max(...templateNumbers) + 1 : 1;
+    setTemplateName(`Template ${nextNumber}`);
     setTemplateTab('canvas');
   };
 
-  const handleSaveTemplate = () => {
-    if (!canSaveTemplate) {
+  const handleSaveTemplate = async () => {
+    if (!canSaveTemplate || !user) {
       return;
     }
-    const nextTemplate = {
-      id: `template-${Date.now()}`,
+
+    // Convert placements to slot_config format for database
+    const slotConfig = placements.map((placement, index) => {
+      // Find the top-left cell of this placement to determine x, y position
+      const cellIndices = placement.cellIds.map(cellId => 
+        gridCells.findIndex(c => c.id === cellId)
+      ).sort((a, b) => a - b);
+      
+      const firstCellIndex = cellIndices[0];
+      const sectionIndex = Math.floor(firstCellIndex / CELLS_PER_SECTION);
+      const positionInSection = firstCellIndex % CELLS_PER_SECTION;
+      const rowInSection = Math.floor(positionInSection / GRID_COLUMNS);
+      const colInSection = positionInSection % GRID_COLUMNS;
+      
+      const slot = slotMap[placement.slotId];
+      
+      // Determine size category based on total cells
+      let size = 'small';
+      if (placement.totalCells >= 8) size = 'large';
+      else if (placement.totalCells >= 4) size = 'medium';
+
+      return {
+        position: `${index + 1}`,
+        size: size,
+        width: slot.widthCells,
+        height: slot.heightCells,
+        x: colInSection,
+        y: sectionIndex * GRID_ROWS_PER_SECTION + rowInSection
+      };
+    });
+
+    const designData = {
+      user_id: user.id,
       name: templateName.trim(),
-      slotCount: assignedCount,
-      savedAt: new Date().toISOString(),
-      layout: {
-        gridCells: gridCells.map(cell => ({ ...cell })),
-        placements: placements.map(placement => ({ ...placement }))
-      }
+      card_size: '9x12',
+      num_slots: assignedCount,
+      slot_config: slotConfig,
+      template_side: templateSide,
+      is_locked: false
     };
-    setSavedTemplates(prev => [nextTemplate, ...prev]);
-    setTemplateName('Favorite');
-    setActivePlacementId(null);
+
+    let result;
+    if (editingTemplateId) {
+      // Update existing template
+      result = await designsAPI.update(editingTemplateId, designData);
+    } else {
+      // Create new template
+      result = await designsAPI.create(designData);
+    }
+    
+    if (result.error) {
+      alert(`Failed to ${editingTemplateId ? 'update' : 'save'} template`);
+      console.error('Error saving template:', result.error);
+      return;
+    }
+
+    if (result.data) {
+      await loadTemplates();
+      handleClearCanvas();
+      setEditingTemplateId(null);
+      setTemplateTab('saved');
+    }
+  };
+
+  const handleEditTemplate = (template) => {
+    // Load template data into the canvas for editing
+    setEditingTemplateId(template.id);
+    setTemplateName(template.name);
+    setTemplateSide(template.template_side || 'front');
+    
+    // Convert slot_config back to placements and gridCells
+    const slotConfig = template.slot_config || [];
+    const newPlacements = [];
+    const newGridCells = createInitialGridCells();
+    
+    slotConfig.forEach((slotConfigItem, index) => {
+      // Find matching slot from adSlots based on width/height
+      const matchingSlot = adSlots.find(s => 
+        s.widthCells === slotConfigItem.width && 
+        s.heightCells === slotConfigItem.height
+      );
+      
+      if (!matchingSlot) return;
+      
+      const placementId = `placement-${Date.now()}-${index}`;
+      const cellIds = [];
+      
+      // Calculate which cells this slot occupies
+      for (let row = 0; row < slotConfigItem.height; row++) {
+        for (let col = 0; col < slotConfigItem.width; col++) {
+          const cellRow = slotConfigItem.y + row;
+          const cellCol = slotConfigItem.x + col;
+          const cellIndex = cellRow * GRID_COLUMNS + cellCol;
+          
+          if (cellIndex < newGridCells.length) {
+            const cellId = newGridCells[cellIndex].id;
+            cellIds.push(cellId);
+            newGridCells[cellIndex].placementId = placementId;
+          }
+        }
+      }
+      
+      newPlacements.push({
+        id: placementId,
+        slotId: matchingSlot.id,
+        totalCells: slotConfigItem.width * slotConfigItem.height,
+        cellIds: cellIds
+      });
+    });
+    
+    setGridCells(newGridCells);
+    setPlacements(newPlacements);
     setTemplateTab('canvas');
   };
 
-  const handleDeleteTemplate = (templateId, templateName) => {
+  const handleDeleteTemplate = async (templateId, templateName) => {
     if (window.confirm(`Are you sure you want to delete "${templateName}"? This action cannot be undone.`)) {
-      setSavedTemplates(prev => prev.filter(template => template.id !== templateId));
+      const { error } = await designsAPI.delete(templateId);
+      
+      if (error) {
+        alert('Failed to delete template');
+        console.error('Error deleting template:', error);
+        return;
+      }
+      
+      await loadTemplates();
     }
   };
 
@@ -376,6 +525,7 @@ const addCellToPlacement = (placementId, cellId) => {
             </div>
             <div className="template-header-right">
               <label className="template-name-field">
+                <span style={{ fontSize: '13px', color: '#475569', marginBottom: '4px' }}>Template Name</span>
                 <input
                   type="text"
                   placeholder="Favorite"
@@ -383,6 +533,24 @@ const addCellToPlacement = (placementId, cellId) => {
                   value={templateName}
                   onChange={(event) => setTemplateName(event.target.value)}
                 />
+              </label>
+              <label className="template-name-field">
+                <span style={{ fontSize: '13px', color: '#475569', marginBottom: '4px' }}>Template Side</span>
+                <select
+                  value={templateSide}
+                  onChange={(e) => setTemplateSide(e.target.value)}
+                  style={{ 
+                    width: '140px',
+                    padding: '8px 12px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '14px'
+                  }}
+                >
+                  <option value="front">Front</option>
+                  <option value="back">Back</option>
+                  <option value="both">Both</option>
+                </select>
               </label>
               <div className="template-tabs">
                 <button
@@ -497,10 +665,23 @@ const addCellToPlacement = (placementId, cellId) => {
               )}
 
               <div className="template-footer">
-                <p className="template-footer-left">{assignedCount}/{gridCells.length} slots placed</p>
+                <p className="template-footer-left">
+                  {editingTemplateId && <span style={{ color: '#3b82f6', marginRight: '12px', fontWeight: '600' }}>✏️ Editing</span>}
+                  {assignedCount}/{gridCells.length} slots placed
+                </p>
                 <p className="template-footer-center">Use the canvas to model what the finished card will look like.</p>
                 <div className="template-footer-actions">
-                  <button type="button" className="btn-outline" onClick={handleClearCanvas}>
+                  {editingTemplateId && (
+                    <button type="button" className="btn-outline" onClick={handleClearCanvas}>
+                      Cancel
+                    </button>
+                  )}
+                  <button 
+                    type="button" 
+                    className="btn-outline" 
+                    onClick={handleClearCanvas}
+                    style={editingTemplateId ? { display: 'none' } : {}}
+                  >
                     Clear
                   </button>
                   <button
@@ -509,7 +690,7 @@ const addCellToPlacement = (placementId, cellId) => {
                     onClick={handleSaveTemplate}
                     disabled={!canSaveTemplate}
                   >
-                    Save Template
+                    {editingTemplateId ? 'Update Template' : 'Save Template'}
                   </button>
                 </div>
               </div>
@@ -529,73 +710,64 @@ const addCellToPlacement = (placementId, cellId) => {
               ) : (
                 <div className="saved-list">
                   {savedTemplates.map(template => {
-                    // Helper to calculate grid position and span for a placement
-                    const getPlacementGridInfo = (placement) => {
-                      if (!placement || placement.cellIds.length === 0) return null;
-
-                      // Find all cell indices for this placement
-                      const cellIndices = placement.cellIds.map(cellId => 
-                        template.layout.gridCells.findIndex(c => c.id === cellId)
-                      );
-
-                      // Calculate min/max row and column
-                      const positions = cellIndices.map(idx => {
-                        const row = Math.floor(idx / GRID_COLUMNS) + 1; // 1-indexed for CSS grid
-                        const col = (idx % GRID_COLUMNS) + 1;
-                        return { row, col };
-                      });
-
-                      const minRow = Math.min(...positions.map(p => p.row));
-                      const maxRow = Math.max(...positions.map(p => p.row));
-                      const minCol = Math.min(...positions.map(p => p.col));
-                      const maxCol = Math.max(...positions.map(p => p.col));
-
-                      return {
-                        gridRowStart: minRow,
-                        gridRowEnd: maxRow + 1,
-                        gridColumnStart: minCol,
-                        gridColumnEnd: maxCol + 1
-                      };
-                    };
-
-                    // Get unique placements (only render each placement once)
-                    const uniquePlacements = template.layout.placements.map(placement => {
-                      const slot = slotMap[placement.slotId];
-                      const gridInfo = getPlacementGridInfo(placement);
-                      return { placement, slot, gridInfo };
-                    });
-
+                    const slotConfig = template.slot_config || [];
+                    
                     return (
                       <div key={template.id} className="saved-template-card">
                         <div className="saved-template-preview">
                           <div className="saved-template-grid">
-                            {uniquePlacements.map(({ placement, slot, gridInfo }) => (
-                              <div
-                                key={placement.id}
-                                className="saved-template-cell saved-template-cell--filled"
-                                style={{
-                                  background: slot?.color ?? '#f8fafc',
-                                  gridRowStart: gridInfo.gridRowStart,
-                                  gridRowEnd: gridInfo.gridRowEnd,
-                                  gridColumnStart: gridInfo.gridColumnStart,
-                                  gridColumnEnd: gridInfo.gridColumnEnd
-                                }}
-                              />
-                            ))}
+                            {Array.from({ length: 32 }).map((_, idx) => {
+                              const gridRow = Math.floor(idx / 4);
+                              const gridCol = idx % 4;
+                              const isFilled = slotConfig.some(slot => {
+                                return (
+                                  gridCol >= slot.x &&
+                                  gridCol < slot.x + slot.width &&
+                                  gridRow >= slot.y &&
+                                  gridRow < slot.y + slot.height
+                                );
+                              });
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`saved-template-cell ${isFilled ? 'saved-template-cell--filled' : ''}`}
+                                  style={
+                                    isFilled
+                                      ? {
+                                          background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                                          borderColor: '#93c5fd'
+                                        }
+                                      : {}
+                                  }
+                                />
+                              );
+                            })}
                           </div>
                         </div>
                         <div className="saved-template-info">
                           <strong>{template.name}</strong>
-                          <p>{template.slotCount} slots · {formatDateLabel(template.savedAt)}</p>
+                          <p>{template.num_slots} slots · {template.template_side || 'both'} · {formatDateLabel(template.created_at)}</p>
                         </div>
-                        <button
-                          type="button"
-                          className="saved-template-delete"
-                          onClick={() => handleDeleteTemplate(template.id, template.name)}
-                          aria-label={`Delete ${template.name}`}
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <div style={{ position: 'absolute', top: '8px', right: '8px', display: 'flex', gap: '8px' }}>
+                          <button
+                            type="button"
+                            className="saved-template-delete"
+                            style={{ background: '#dbeafe', color: '#1e40af', position: 'static' }}
+                            onClick={() => handleEditTemplate(template)}
+                            aria-label={`Edit ${template.name}`}
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            className="saved-template-delete"
+                            style={{ position: 'static' }}
+                            onClick={() => handleDeleteTemplate(template.id, template.name)}
+                            aria-label={`Delete ${template.name}`}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Trash2, CheckCircle } from 'lucide-react';
 import './Campaigns.css';
 import { 
@@ -31,6 +31,74 @@ const cloneLayout = (layout = getDefaultMockLayout('9x12')) => ({
   front: { ...layout.front },
   back: { ...layout.back }
 });
+
+const getEmptyCampaignFormData = () => ({
+  name: '',
+  saved_route_id: null,
+  design_id: null,
+  front_design_id: null,
+  back_design_id: null,
+  price_small: 0,
+  price_medium: 0,
+  price_large: 0,
+  unique_niche_per_slot: true,
+  mail_date: '',
+  notes: ''
+});
+
+const mapCampaignToFormData = (campaign) => {
+  const base = { ...getEmptyCampaignFormData(), ...campaign };
+  if (!campaign) {
+    return base;
+  }
+
+  const frontFromSnapshot = campaign.design_snapshot?.front?.id ?? null;
+  const backFromSnapshot = campaign.design_snapshot?.back?.id ?? null;
+  const frontId = campaign.front_design_id || frontFromSnapshot || campaign.design_id || null;
+  const backId = campaign.back_design_id || backFromSnapshot || campaign.design_id || null;
+
+  return {
+    ...base,
+    design_id: frontId || base.design_id,
+    front_design_id: frontId,
+    back_design_id: backId
+  };
+};
+
+const buildCampaignDesignSnapshot = (frontDesign, backDesign) => {
+  const snapshot = {};
+  if (frontDesign) snapshot.front = frontDesign;
+  if (backDesign) snapshot.back = backDesign;
+
+  if (frontDesign?.card_size || backDesign?.card_size) {
+    snapshot.card_size = frontDesign?.card_size || backDesign?.card_size;
+  }
+
+  const frontName = frontDesign?.name;
+  const backName = backDesign?.name;
+  if (frontName || backName) {
+    snapshot.name =
+      frontName && backName && frontName !== backName
+        ? `${frontName} • ${backName}`
+        : frontName || backName;
+  }
+
+  return snapshot;
+};
+
+const resolveDesignSideLayout = (design, side) => {
+  if (!design) {
+    return getDefaultMockLayout('9x12')[side];
+  }
+
+  const layoutSource = design.mock_layout || getMockLayoutForDesign(design.id, design.card_size);
+  if (layoutSource?.[side]) {
+    return layoutSource[side];
+  }
+
+  const fallback = getDefaultMockLayout(design.card_size || '9x12');
+  return fallback[side];
+};
 
 function Campaigns() {
   const { user } = useAuth();
@@ -313,8 +381,20 @@ function CampaignCard({ campaign, onEdit, onDelete, onComplete, onStatusChange }
   const status = CAMPAIGN_STATUSES.find(s => s.value === campaign.status);
   const routeCount = campaign.route_snapshot?.length || 0;
   const routeHouseholds = campaign.total_households || 0;
-  const designName = campaign.design_snapshot?.name || 'Design pending';
-  const designSize = campaign.design_snapshot?.card_size;
+  const designSnapshot = campaign.design_snapshot || {};
+  const frontSnapshot = designSnapshot.front;
+  const backSnapshot = designSnapshot.back;
+  const designNameParts = [];
+  if (frontSnapshot?.name) designNameParts.push(frontSnapshot.name);
+  if (backSnapshot?.name && backSnapshot.name !== frontSnapshot?.name) {
+    designNameParts.push(backSnapshot.name);
+  }
+  const designName =
+    designNameParts.length > 0
+      ? designNameParts.join(' / ')
+      : designSnapshot?.name || 'Design pending';
+  const designSize =
+    frontSnapshot?.card_size || backSnapshot?.card_size || designSnapshot?.card_size;
   const mailDateLabel = campaign.mail_date
     ? new Date(campaign.mail_date).toLocaleDateString()
     : 'TBD';
@@ -442,17 +522,10 @@ function CampaignCard({ campaign, onEdit, onDelete, onComplete, onStatusChange }
 
 // Campaign Modal Component
 function CampaignModal({ campaign, userId, onClose, onSave }) {
-  const [formData, setFormData] = useState(campaign || {
-    name: '',
-    saved_route_id: null,
-    design_id: null,
-    price_small: 0,
-    price_medium: 0,
-    price_large: 0,
-    unique_niche_per_slot: true,
-    mail_date: '',
-    notes: ''
-  });
+  const [formData, setFormData] = useState(() => mapCampaignToFormData(campaign));
+  const [activeStep, setActiveStep] = useState(0);
+  const [templateSubStep, setTemplateSubStep] = useState('front'); // 'front', 'back', or 'complete'
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const defaultMockLayout = getDefaultMockLayout('9x12');
   const [mockDisplayCounts, setMockDisplayCounts] = useState(cloneLayout(defaultMockLayout));
   const [slotDiscounts, setSlotDiscounts] = useState({});
@@ -484,6 +557,18 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   useEffect(() => {
     if (campaign?.id) {
       loadSlots();
+    }
+  }, [campaign]);
+
+  useEffect(() => {
+    setFormData(mapCampaignToFormData(campaign));
+    setActiveStep(0);
+    // Reset template sub-step when modal opens
+    if (!campaign) {
+      setTemplateSubStep('front');
+    } else {
+      // If editing existing campaign, skip straight to complete
+      setTemplateSubStep('complete');
     }
   }, [campaign]);
 
@@ -524,14 +609,18 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   };
 
   const selectedRoute = savedRoutes.find(r => r.id === formData.saved_route_id);
-  const selectedDesign = designs.find(d => d.id === formData.design_id);
-  const designLayout = selectedDesign
-    ? (selectedDesign.mock_layout || getMockLayoutForDesign(selectedDesign.id, selectedDesign.card_size))
-    : defaultMockLayout;
+  const selectedFrontDesign = designs.find(d => d.id === formData.front_design_id);
+  const selectedBackDesign = designs.find(d => d.id === formData.back_design_id);
+  const selectedDesign = selectedFrontDesign || selectedBackDesign;
+
+  const layoutCaps = useMemo(() => ({
+    front: resolveDesignSideLayout(selectedFrontDesign, 'front'),
+    back: resolveDesignSideLayout(selectedBackDesign, 'back')
+  }), [selectedFrontDesign, selectedBackDesign]);
 
   useEffect(() => {
-    setMockDisplayCounts(cloneLayout(designLayout));
-  }, [designLayout]);
+    setMockDisplayCounts(cloneLayout(layoutCaps));
+  }, [layoutCaps]);
   
   const selectableContacts = contacts
     .filter(contact => contact.email)
@@ -566,6 +655,11 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
 
   const scheduleMinValue = getLocalDateTimeValue();
 
+  const getSanitizedFormData = () => {
+    const { front_design_id, back_design_id, ...rest } = formData;
+    return rest;
+  };
+
   const slotRateFields = [
     { key: 'price_small', title: 'Small Slot', subtitle: '1-slot placement' },
     { key: 'price_medium', title: 'Medium Slot', subtitle: '2-slot cluster' },
@@ -589,7 +683,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   const handleAdjustMockSpot = (side, size, delta) => {
     setMockDisplayCounts(prev => {
       const currentValue = prev?.[side]?.[size] ?? 0;
-      const maxValue = designLayout?.[side]?.[size] ?? 0;
+    const maxValue = layoutCaps?.[side]?.[size] ?? 0;
       const nextValue = Math.min(Math.max(currentValue + delta, 0), maxValue);
       return {
         ...prev,
@@ -601,30 +695,58 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     });
   };
 
+  const handleTemplateSelect = (designId, side) => {
+    if (side === 'front') {
+      setFormData(prev => ({
+        ...prev,
+        front_design_id: designId,
+        design_id: designId
+      }));
+      // Trigger transition to back selection
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setTemplateSubStep('back');
+        setIsTransitioning(false);
+      }, 400); // 400ms for disappear animation
+    } else if (side === 'back') {
+      setFormData(prev => ({
+        ...prev,
+        back_design_id: designId
+      }));
+      setTemplateSubStep('complete');
+    }
+  };
+
   const handleSubmit = async () => {
     const trimmedName = formData.name?.trim();
     if (!trimmedName) {
       alert('Please name your campaign before saving.');
       return;
     }
-    if (!formData.saved_route_id || !formData.design_id) {
-      alert('Please select a route and a design for the campaign.');
+
+    if (!formData.saved_route_id || !formData.front_design_id || !formData.back_design_id) {
+      alert('Please select a route and templates for both sides of the card.');
       return;
     }
 
+    const sanitizedForm = getSanitizedFormData();
     setLoading(true);
 
     try {
       if (campaign?.id) {
-        const { error } = await campaignsAPI.update(campaign.id, { ...formData, name: trimmedName });
+        const { error } = await campaignsAPI.update(campaign.id, {
+          ...sanitizedForm,
+          name: trimmedName,
+          design_snapshot: buildCampaignDesignSnapshot(selectedFrontDesign, selectedBackDesign)
+        });
         if (error) throw error;
       } else {
         const campaignData = {
-          ...formData,
+          ...sanitizedForm,
           name: trimmedName,
           user_id: userId,
           route_snapshot: selectedRoute?.routes || [],
-          design_snapshot: selectedDesign || {},
+          design_snapshot: buildCampaignDesignSnapshot(selectedFrontDesign, selectedBackDesign),
           total_pieces: selectedRoute?.total_households || 0,
           status: 'draft'
         };
@@ -632,11 +754,28 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         const { data: newCampaign, error } = await campaignsAPI.create(campaignData);
         if (error) throw error;
 
-        if (newCampaign && selectedDesign?.slot_config) {
-          for (const slotConfig of selectedDesign.slot_config) {
+        // Create ad slots for front template
+        if (newCampaign && selectedFrontDesign?.slot_config) {
+          for (const slotConfig of selectedFrontDesign.slot_config) {
             await adSlotsAPI.create({
               campaign_id: newCampaign.id,
-              slot_position: slotConfig.position,
+              slot_position: `Front-${slotConfig.position}`,
+              slot_size: slotConfig.size,
+              width: slotConfig.width,
+              height: slotConfig.height,
+              x_position: slotConfig.x,
+              y_position: slotConfig.y,
+              status: 'available'
+            });
+          }
+        }
+
+        // Create ad slots for back template
+        if (newCampaign && selectedBackDesign?.slot_config) {
+          for (const slotConfig of selectedBackDesign.slot_config) {
+            await adSlotsAPI.create({
+              campaign_id: newCampaign.id,
+              slot_position: `Back-${slotConfig.position}`,
               slot_size: slotConfig.size,
               width: slotConfig.width,
               height: slotConfig.height,
@@ -675,17 +814,21 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     setSavingDraft(true);
 
     try {
-      const draftPayload = { ...formData, name: trimmedName, status: 'draft' };
+      const sanitizedForm = getSanitizedFormData();
+      const draftPayload = { ...sanitizedForm, name: trimmedName, status: 'draft' };
+
       if (campaign?.id) {
-        const { error } = await campaignsAPI.update(campaign.id, draftPayload);
+        const { error } = await campaignsAPI.update(campaign.id, {
+          ...draftPayload,
+          design_snapshot: buildCampaignDesignSnapshot(selectedFrontDesign, selectedBackDesign)
+        });
         if (error) throw error;
       } else {
         const campaignData = {
           ...draftPayload,
-          name: trimmedName,
           user_id: userId,
           route_snapshot: selectedRoute?.routes || [],
-          design_snapshot: selectedDesign || {},
+          design_snapshot: buildCampaignDesignSnapshot(selectedFrontDesign, selectedBackDesign),
           total_pieces: selectedRoute?.total_households || 0,
           status: 'draft'
         };
@@ -816,74 +959,14 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     }
   };
 
-  const routeStepContent = (
-    <div className="form-section">
-      <div className="route-grid">
-        <div className="form-group">
-          <label>Select Route *</label>
-          <select
-            value={formData.saved_route_id || ''}
-            onChange={(e) => setFormData({ ...formData, saved_route_id: e.target.value })}
-            required
-          >
-            <option value="">Choose a saved route...</option>
-            {savedRoutes.filter(r => !r.is_locked).map(route => (
-              <option key={route.id} value={route.id}>
-                {route.name} ({route.total_households || 0} households)
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-group">
-          <label>Design Template *</label>
-          <select
-            value={formData.design_id || ''}
-            onChange={(e) => setFormData({ ...formData, design_id: e.target.value })}
-            required
-          >
-            <option value="">Choose a design...</option>
-            {designs.filter(d => !d.is_locked).map(design => (
-              <option key={design.id} value={design.id}>
-                {design.name} ({design.card_size}, {design.num_slots} slots)
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {(selectedRoute || selectedDesign) && (
-        <div className="route-preview-grid">
-          {selectedRoute && (
-            <div className="route-preview">
-              <strong>{selectedRoute.routes?.length || 0} routes</strong> •
-              <strong> {selectedRoute.total_households || 0} households</strong> •
-              <strong> ${selectedRoute.total_cost || 0}</strong>
-            </div>
-          )}
-          {selectedDesign && (
-            <div className="design-preview">
-              <strong>{selectedDesign.name}</strong> • 
-              <strong>{selectedDesign.card_size}</strong> • 
-              <strong>{selectedDesign.num_slots} slots</strong>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
   const pricingStepContent = (
-    <div className="form-section pricing-panel">
+    <div className="form-section">
       <div className="pricing-panel__header">
-        <div>
-          <h3>Slot Pricing</h3>
-          <p className="form-hint">Set the price for each slot size so clients know what to expect.</p>
-        </div>
-        <p className="pricing-panel__tip">Adjusting these values updates campaign totals immediately.</p>
+        <h3>Slot Pricing</h3>
+        <p>Set the price for each slot size so clients know what to expect.</p>
       </div>
 
-      <div className="pricing-grid pricing-grid--auto">
+      <div className="pricing-grid--auto">
         {slotRateFields.map(field => (
           <div key={field.key} className="pricing-card">
             <div>
@@ -1092,7 +1175,243 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   );
 
 
-  const previewLayout = mockDisplayCounts || cloneLayout(designLayout);
+  const frontTemplates = designs.filter(
+    design => !design.template_side || design.template_side === 'front'
+  );
+  const backTemplates = designs.filter(
+    design => !design.template_side || design.template_side === 'back'
+  );
+
+  const formatSlotCount = (design) => {
+    if (!design) return 'Slots TBD';
+    const count = design.num_slots ?? design.slot_config?.length;
+    return count ? `${count} slots` : 'Slots pending';
+  };
+
+  const renderTemplateGrid = (templates, side, selectedId) => {
+    if (!templates.length) {
+      return (
+        <div className="empty-state">
+          <p>No {side} templates available. Create templates on the Designs page.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className={`template-selection-grid ${isTransitioning ? 'transitioning' : ''}`}>
+        {templates.map(design => (
+          <div
+            key={design.id}
+            className={`template-thumbnail-card ${selectedId === design.id ? 'selected' : ''}`}
+            onClick={() => handleTemplateSelect(design.id, side)}
+          >
+            <div className="template-thumbnail-preview">
+              <div className="saved-template-grid">
+                {Array.from({ length: 32 }).map((_, idx) => {
+                  const slotConfig = design.slot_config || [];
+                  const isFilled = slotConfig.some(slot => {
+                    const gridRow = Math.floor(idx / 4);
+                    const gridCol = idx % 4;
+                    return (
+                      gridCol >= slot.x &&
+                      gridCol < slot.x + slot.width &&
+                      gridRow >= slot.y &&
+                      gridRow < slot.y + slot.height
+                    );
+                  });
+                  return (
+                    <div
+                      key={idx}
+                      className={`saved-template-cell ${isFilled ? 'saved-template-cell--filled' : ''}`}
+                      style={
+                        isFilled
+                          ? {
+                              background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                              borderColor: '#93c5fd'
+                            }
+                          : {}
+                      }
+                    />
+                  );
+                })}
+              </div>
+            </div>
+            <div className="template-thumbnail-info">
+              <strong>{design.name}</strong>
+              <p>{design.card_size} • {formatSlotCount(design)}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const templateStepContent = (
+    <div className="form-section">
+      {templateSubStep === 'front' && (
+        <>
+          <div className="section-heading template-selection-heading">
+            <div>
+              <h3>Select Front Template</h3>
+              <p>Choose a template for the front of your campaign mailer.</p>
+            </div>
+          </div>
+          {renderTemplateGrid(frontTemplates, 'front', formData.front_design_id)}
+        </>
+      )}
+      
+      {templateSubStep === 'back' && (
+        <>
+          <div className="section-heading template-selection-heading">
+            <div>
+              <h3>Select Back Template</h3>
+              <p>Choose a template for the back of your campaign mailer.</p>
+            </div>
+          </div>
+          {renderTemplateGrid(backTemplates, 'back', formData.back_design_id)}
+        </>
+      )}
+
+      {templateSubStep === 'complete' && (
+        <>
+          <div className="section-heading">
+            <div>
+              <h3>Campaign Details</h3>
+              <p>Give your campaign a name and review your template selections.</p>
+            </div>
+          </div>
+          <div className="campaign-modal__form-grid">
+            <div className="form-group">
+              <label>Campaign Name *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Minneapolis Fall 2025"
+                required
+              />
+            </div>
+          </div>
+          <div className="template-preview-grid">
+            <div className="template-preview-card template-preview-card--selected">
+              <strong>Front</strong>
+              <span>{selectedFrontDesign?.name || 'Template pending'}</span>
+              <small>{selectedFrontDesign?.card_size || 'Size TBD'}</small>
+              <small>{formatSlotCount(selectedFrontDesign)}</small>
+              <button
+                type="button"
+                className="template-change-btn"
+                onClick={() => setTemplateSubStep('front')}
+              >
+                Change
+              </button>
+            </div>
+            <div className="template-preview-card template-preview-card--selected">
+              <strong>Back</strong>
+              <span>{selectedBackDesign?.name || 'Template pending'}</span>
+              <small>{selectedBackDesign?.card_size || 'Size TBD'}</small>
+              <small>{formatSlotCount(selectedBackDesign)}</small>
+              <button
+                type="button"
+                className="template-change-btn"
+                onClick={() => setTemplateSubStep('back')}
+              >
+                Change
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  const routeStepContent = (
+    <div className="form-section">
+      <div className="section-heading">
+        <div>
+          <h3>Route Selection</h3>
+          <p>Choose which saved route you want to mail this campaign along.</p>
+        </div>
+      </div>
+      <div className="form-group">
+        <label>Select Route *</label>
+        <select
+          value={formData.saved_route_id || ''}
+          onChange={(e) => setFormData({ ...formData, saved_route_id: e.target.value })}
+          required
+        >
+          <option value="">Choose a saved route...</option>
+          {savedRoutes.filter(r => !r.is_locked).map(route => (
+            <option key={route.id} value={route.id}>
+              {route.name} ({route.total_households || 0} households)
+            </option>
+          ))}
+        </select>
+      </div>
+      {selectedRoute ? (
+        <div className="route-preview-grid">
+          <div className="route-preview">
+            <strong>{selectedRoute.routes?.length || 0} routes</strong> •
+            <strong> {selectedRoute.total_households || 0} households</strong> •
+            <strong> ${selectedRoute.total_cost || 0}</strong>
+          </div>
+          <div className="design-preview">
+            <strong>Front</strong>
+            <span>{selectedFrontDesign?.name || 'Pending template'}</span>
+            <strong>Back</strong>
+            <span>{selectedBackDesign?.name || 'Pending template'}</span>
+          </div>
+        </div>
+      ) : (
+        <p className="form-hint">Save a route in the Routes section to preview its details.</p>
+      )}
+    </div>
+  );
+
+  const communicationsStepContent = (
+    <>
+      {contactsStepContent}
+      {emailStepContent}
+    </>
+  );
+
+  const steps = ['Templates', 'Pricing', 'Route', 'Contacts'];
+  const stepContents = [
+    templateStepContent,
+    pricingStepContent,
+    routeStepContent,
+    communicationsStepContent
+  ];
+  const isTemplateStepComplete = Boolean(
+    formData.name?.trim() && formData.front_design_id && formData.back_design_id && templateSubStep === 'complete'
+  );
+  const isRouteStepComplete = Boolean(formData.saved_route_id);
+
+  const canAdvanceFromStep = (stepIndex) => {
+    if (stepIndex === 0) return isTemplateStepComplete;
+    if (stepIndex === 2) return isRouteStepComplete;
+    return true;
+  };
+
+  const handleNextStep = () => {
+    if (activeStep >= steps.length - 1) return;
+    if (!canAdvanceFromStep(activeStep)) return;
+    setActiveStep((prev) => prev + 1);
+  };
+
+  const handlePrevStep = () => {
+    setActiveStep((prev) => Math.max(prev - 1, 0));
+  };
+
+  const handleJumpToStep = (index) => {
+    if (index === activeStep) return;
+    if (index > activeStep && !canAdvanceFromStep(activeStep)) return;
+    setActiveStep(index);
+  };
+
+  const currentStepContent = stepContents[activeStep];
+
+  const previewLayout = mockDisplayCounts || cloneLayout(layoutCaps);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -1102,142 +1421,61 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
 
+        <div className="modal-steps">
+          {steps.map((step, index) => (
+            <button
+              type="button"
+              key={step}
+              className={`step ${activeStep === index ? 'active' : ''}`}
+              onClick={() => handleJumpToStep(index)}
+              disabled={index > activeStep && !canAdvanceFromStep(activeStep)}
+            >
+              {step}
+            </button>
+          ))}
+        </div>
+
         <div className="campaign-modal__body">
-          <div className="campaign-modal__grid">
-            <div className="campaign-modal__column">
-              <section className="campaign-modal__section">
-                <div className="section-heading">
-                  <div>
-                    <h3>Campaign Details</h3>
-                    <p>Update the basics, pricing, and mail timing.</p>
-                  </div>
-                </div>
-                <div className="campaign-modal__form-grid">
-                  <div className="form-group">
-                    <label>Campaign Name *</label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="e.g., Minneapolis Q1 2024"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Mail Date</label>
-                    <input
-                      type="date"
-                      value={formData.mail_date || ''}
-                      onChange={(e) => setFormData({ ...formData, mail_date: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={formData.unique_niche_per_slot}
-                        onChange={(e) => setFormData({ ...formData, unique_niche_per_slot: e.target.checked })}
-                      />
-                      <span className="checkbox-label">Enforce unique niche per slot</span>
-                    </label>
-                    <p className="form-hint">
-                      When enabled, only one business per category appears on this card.
-                    </p>
-                  </div>
-                  <div className="form-group">
-                    <label>Notes</label>
-                    <textarea
-                      value={formData.notes || ''}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      rows={3}
-                      placeholder="Campaign notes..."
-                    />
-                  </div>
-                </div>
-              </section>
-
-              <section className="campaign-modal__section">
-                <div className="section-heading">
-                  <div>
-                    <h3>Route & Design</h3>
-                    <p>Select the saved route and design template for this postcard.</p>
-                  </div>
-                </div>
-                {routeStepContent}
-              </section>
-
-              <section className="campaign-modal__section">
-                {pricingStepContent}
-              </section>
-
-              <section className="campaign-modal__section">
-                <div className="section-heading">
-                  <div>
-                    <h3>Email Outreach</h3>
-                    <p>Choose audiences, templates, and send timing.</p>
-                  </div>
-                </div>
-                {contactsStepContent}
-                {emailStepContent}
-              </section>
-            </div>
-
-            <div className="campaign-modal__column">
-              <section className="campaign-modal__section">
-                <div className="section-heading">
-                  <div>
-                    <h3>Advertiser Roster</h3>
-                    <p>Only the number of advertisers that match your slots.</p>
-                  </div>
-                </div>
-                <AdvertiserRoster
-                  slots={slots}
-                  campaign={campaign || formData}
-                  slotDiscounts={slotDiscounts}
-                  onDiscountChange={handleDiscountChange}
-                />
-              </section>
-
-              <section className="campaign-modal__section">
-                <div className="section-heading">
-                  <div>
-                    <h3>Mock Display</h3>
-                    <p>Preview the front and back mock spots that were configured in Design Studio.</p>
-                  </div>
-                </div>
-                <MockDisplay
-                  counts={previewLayout}
-                  caps={designLayout}
-                  onAdjust={handleAdjustMockSpot}
-                />
-              </section>
-            </div>
+          <div className="campaign-modal__step-content">
+            {currentStepContent}
           </div>
-
-          {campaign?.id && (
-            <div className="campaign-modal__section slot-assignment-block">
-              <h4>Slot Assignment</h4>
-              <SlotAssignment
-                slots={slots}
-                contacts={contacts}
-                niches={niches}
-                uniqueNichePerSlot={formData.unique_niche_per_slot}
-                onUpdate={loadSlots}
-              />
-            </div>
-          )}
         </div>
 
         <div className="modal-footer">
-          <button
-            className="btn-secondary"
-            onClick={handleSaveDraft}
-            disabled={savingDraft || !formData.name?.trim()}
-          >
-            {savingDraft ? 'Saving draft...' : 'Save draft'}
-          </button>
-          <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
-            {loading ? 'Saving...' : campaign ? 'Save Changes' : 'Create Campaign'}
-          </button>
+          <div className="modal-footer__navigation">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={handlePrevStep}
+              disabled={activeStep === 0}
+            >
+              Back
+            </button>
+            {activeStep < steps.length - 1 ? (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleNextStep}
+                disabled={!canAdvanceFromStep(activeStep)}
+              >
+                Next step
+              </button>
+            ) : (
+              <span className="modal-footer__step-hint">Review your selections before saving.</span>
+            )}
+          </div>
+          <div className="modal-footer__actions">
+            <button
+              className="btn-secondary"
+              onClick={handleSaveDraft}
+              disabled={savingDraft || !formData.name?.trim()}
+            >
+              {savingDraft ? 'Saving draft...' : 'Save draft'}
+            </button>
+            <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
+              {loading ? 'Saving...' : campaign ? 'Save Changes' : 'Create Campaign'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
