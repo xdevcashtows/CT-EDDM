@@ -193,9 +193,45 @@ export const campaigns = {
   getAll: async (userId) => {
     const { data, error } = await supabase
       .from('campaigns')
-      .select('*, city:cities(name, state)')
+      .select(`
+        *, 
+        city:cities(name, state),
+        ad_slots(id, status, contact_id)
+      `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
+    
+    // Calculate advertiser and revenue metrics for each campaign
+    if (data) {
+      const enrichedData = data.map(campaign => {
+        const slots = campaign.ad_slots || [];
+        const total_ad_slots = slots.length;
+        const booked_ad_slots = slots.filter(slot => 
+          slot.contact_id && (slot.status === 'booked' || slot.status === 'reserved')
+        ).length;
+        
+        // Calculate expected revenue (sum of all slot prices based on size)
+        const priceSmall = Number(campaign.price_small) || 0;
+        const priceMedium = Number(campaign.price_medium) || 0;
+        const priceLarge = Number(campaign.price_large) || 0;
+        
+        // For now, we'll estimate based on booked slots
+        // You can refine this based on actual slot sizes
+        const expected_revenue = (priceSmall + priceMedium + priceLarge) * booked_ad_slots;
+        
+        return {
+          ...campaign,
+          total_ad_slots,
+          booked_ad_slots,
+          expected_revenue,
+          revenue_collected: campaign.revenue_collected || 0,
+          revenue_total: campaign.revenue_total || expected_revenue
+        };
+      });
+      
+      return { data: enrichedData, error };
+    }
+    
     return { data, error };
   },
 

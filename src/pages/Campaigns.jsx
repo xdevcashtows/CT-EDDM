@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Trash2, CheckCircle } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import './Campaigns.css';
 import { 
   campaigns as campaignsAPI, 
@@ -13,19 +13,12 @@ import {
   emailCampaigns
 } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
-import PageLayout from '../components/PageLayout';
 import { enrichSavedRoutesWithLock } from '../utils/routeLocking';
 import { getMockLayoutForDesign, getDefaultMockLayout } from '../utils/mockLayouts';
+import { CampaignCard } from '../components/campaign/CampaignCard';
+import { StatusFilter } from '../components/campaign/StatusFilter';
+import { ViewToggle } from '../components/campaign/ViewToggle';
 
-const CAMPAIGN_STATUSES = [
-  { value: 'draft', label: 'Draft', color: '#64748b' },
-  { value: 'working', label: 'Working', color: '#3b82f6' },
-  { value: 'in_production', label: 'In Production', color: '#f59e0b' },
-  { value: 'printed', label: 'Printed', color: '#8b5cf6' },
-  { value: 'mailed', label: 'Mailed', color: '#10b981' },
-  { value: 'completed', label: 'Completed', color: '#22c55e' },
-  { value: 'cancelled', label: 'Cancelled', color: '#ef4444' }
-];
 
 const cloneLayout = (layout = getDefaultMockLayout('9x12')) => ({
   front: { ...layout.front },
@@ -106,7 +99,8 @@ function Campaigns() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [selectedStatuses, setSelectedStatuses] = useState([]);
+  const [viewMode, setViewMode] = useState('grid');
 
   useEffect(() => {
     if (user) {
@@ -123,9 +117,23 @@ function Campaigns() {
     setLoading(false);
   };
 
-  const filteredCampaigns = campaigns.filter(c => 
-    filterStatus === 'all' || c.status === filterStatus
-  );
+  const handleStatusToggle = (status) => {
+    setSelectedStatuses((prev) =>
+      prev.includes(status)
+        ? prev.filter((s) => s !== status)
+        : [...prev, status]
+    );
+  };
+
+  const handleClearFilters = () => {
+    setSelectedStatuses([]);
+  };
+
+  const filteredCampaigns = selectedStatuses.length === 0
+    ? campaigns
+    : campaigns.filter((campaign) =>
+        selectedStatuses.includes(campaign.status)
+      );
 
   const handleCreateCampaign = () => {
     setSelectedCampaign(null);
@@ -168,77 +176,78 @@ function Campaigns() {
     }
   };
 
-  const layoutProps = {
-    title: 'Campaigns',
-    subtitle: 'Manage your EDDM campaigns from planning through mailing.',
-    tip: 'Filters update as campaign status changes—use them to surface active work.'
-  };
-
   if (loading) {
     return (
-      <PageLayout {...layoutProps} className="page-shell--fullwidth">
-        <div className="campaigns-page">
-          <div className="loading-state">
-            <div className="spinner-large"></div>
-            <p>Loading campaigns...</p>
+      <div className="p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+            <p className="mt-4 text-gray-600">Loading campaigns...</p>
           </div>
         </div>
-      </PageLayout>
+      </div>
     );
   }
 
   return (
-    <PageLayout
-      {...layoutProps}
-      actions={
-        <button className="btn-primary" onClick={handleCreateCampaign}>
-          <Plus size={20} />
-          New Campaign
-        </button>
-      }
-      className="page-shell--fullwidth"
-    >
-      <div className="campaigns-page">
-        {/* Status Filters */}
-        <div className="status-filters">
-        <button
-          className={`status-filter ${filterStatus === 'all' ? 'active' : ''}`}
-          onClick={() => setFilterStatus('all')}
-        >
-          All ({campaigns.length})
-        </button>
-        {CAMPAIGN_STATUSES.map(status => {
-          const count = campaigns.filter(c => c.status === status.value).length;
-          return (
-            <button
-              key={status.value}
-              className={`status-filter ${filterStatus === status.value ? 'active' : ''}`}
-              onClick={() => setFilterStatus(status.value)}
-              style={{ borderColor: status.color }}
-            >
-              {status.label} ({count})
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Campaigns List */}
-      <div className="campaigns-list">
-        {filteredCampaigns.length === 0 ? (
-          <div className="empty-state">
-            <p>No campaigns found</p>
+    <div className="p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Campaign Cards
+              </h1>
+              <p className="text-gray-600">
+                EDDM postcard mailer campaigns with status tracking
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button 
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                onClick={handleCreateCampaign}
+              >
+                <Plus size={20} />
+                New Campaign
+              </button>
+              <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+            </div>
           </div>
-        ) : (
-          filteredCampaigns.map(campaign => (
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-medium text-gray-700">
+              Filter by status:
+            </span>
+            <StatusFilter
+              selectedStatuses={selectedStatuses}
+              onStatusToggle={handleStatusToggle}
+              onClearFilters={handleClearFilters}
+            />
+          </div>
+          <p className="text-sm text-gray-500">
+            Showing {filteredCampaigns.length} of {campaigns.length} campaigns
+          </p>
+        </div>
+        <div
+          className={
+            viewMode === 'grid'
+              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+              : 'flex flex-col gap-4'
+          }
+        >
+          {filteredCampaigns.map((campaign) => (
             <CampaignCard
               key={campaign.id}
               campaign={campaign}
-              onEdit={handleEditCampaign}
-              onDelete={handleDeleteCampaign}
-              onComplete={handleCompleteCampaign}
-              onStatusChange={handleStatusChange}
+              onClick={() => handleEditCampaign(campaign)}
             />
-          ))
+          ))}
+        </div>
+        {filteredCampaigns.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-500">
+              No campaigns match the selected filters
+            </p>
+          </div>
         )}
       </div>
 
@@ -251,7 +260,6 @@ function Campaigns() {
         />
       )}
     </div>
-  </PageLayout>
   );
 }
 
@@ -376,149 +384,6 @@ function MockDisplay({ counts, caps, onAdjust }) {
   );
 }
 
-// Campaign Card Component
-function CampaignCard({ campaign, onEdit, onDelete, onComplete, onStatusChange }) {
-  const status = CAMPAIGN_STATUSES.find(s => s.value === campaign.status);
-  const routeCount = campaign.route_snapshot?.length || 0;
-  const routeHouseholds = campaign.total_households || 0;
-  const designSnapshot = campaign.design_snapshot || {};
-  const frontSnapshot = designSnapshot.front;
-  const backSnapshot = designSnapshot.back;
-  const designNameParts = [];
-  if (frontSnapshot?.name) designNameParts.push(frontSnapshot.name);
-  if (backSnapshot?.name && backSnapshot.name !== frontSnapshot?.name) {
-    designNameParts.push(backSnapshot.name);
-  }
-  const designName =
-    designNameParts.length > 0
-      ? designNameParts.join(' / ')
-      : designSnapshot?.name || 'Design pending';
-  const designSize =
-    frontSnapshot?.card_size || backSnapshot?.card_size || designSnapshot?.card_size;
-  const mailDateLabel = campaign.mail_date
-    ? new Date(campaign.mail_date).toLocaleDateString()
-    : 'TBD';
-  const pieces = campaign.total_pieces || 0;
-
-  const handleStatusSelect = (event) => {
-    const nextStatus = event.target.value;
-    if (onStatusChange && nextStatus !== campaign.status) {
-      onStatusChange(campaign.id, nextStatus);
-    }
-  };
-
-  const handleCardClick = () => {
-    if (onEdit) onEdit(campaign);
-  };
-
-  const handleCardKeyDown = (event) => {
-    if ((event.key === 'Enter' || event.key === ' ') && onEdit) {
-      event.preventDefault();
-      onEdit(campaign);
-    }
-  };
-
-  return (
-    <div
-      className="campaign-card"
-      onClick={handleCardClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={handleCardKeyDown}
-    >
-      <div className="campaign-card__header">
-        <div>
-          <h3 className="campaign-name">{campaign.name}</h3>
-          <div className="campaign-meta">
-            {campaign.city?.name || 'No city'} • {pieces} pieces
-          </div>
-        </div>
-
-        <div className="campaign-card__status-actions">
-          <div
-            className="campaign-status"
-            style={{ background: status?.color + '20', color: status?.color }}
-          >
-            {status?.label}
-          </div>
-          <select
-            className="campaign-card__status-select"
-            value={campaign.status}
-            onChange={handleStatusSelect}
-            onClick={(e) => e.stopPropagation()}
-            aria-label="Update campaign status"
-          >
-            {CAMPAIGN_STATUSES.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <div className="header-action-buttons">
-            {campaign.status !== 'completed' && (
-              <button
-                className="header-action-btn header-action-btn--success"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onComplete(campaign.id);
-                }}
-                aria-label="Mark campaign complete"
-              >
-                <CheckCircle size={16} />
-              </button>
-            )}
-            <button
-              className="header-action-btn header-action-btn--danger"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(campaign.id);
-              }}
-              disabled={campaign.status === 'completed'}
-              aria-label="Delete campaign"
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="campaign-card__grid">
-        <div className="campaign-card__stat">
-          <span>Route summary</span>
-          <strong>{routeCount} route{routeCount === 1 ? '' : 's'}</strong>
-          <small>
-            {routeHouseholds ? `${routeHouseholds} households` : 'Route data missing'}
-          </small>
-        </div>
-        <div className="campaign-card__stat">
-          <span>Design</span>
-          <strong>{designName}</strong>
-          {designSize && <small>{designSize}</small>}
-        </div>
-        <div className="campaign-card__stat">
-          <span>Mail date</span>
-          <strong>{mailDateLabel}</strong>
-          <small>{pieces ? `${pieces} pieces scheduled` : 'Pricing pending'}</small>
-        </div>
-      </div>
-
-      <div className="campaign-card__pricing-grid">
-        <div className="price-item">
-          <span className="price-label">Small</span>
-          <span className="price-value">${campaign.price_small || 0}</span>
-        </div>
-        <div className="price-item">
-          <span className="price-label">Medium</span>
-          <span className="price-value">${campaign.price_medium || 0}</span>
-        </div>
-        <div className="price-item">
-          <span className="price-label">Large</span>
-          <span className="price-value">${campaign.price_large || 0}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // Campaign Modal Component
 function CampaignModal({ campaign, userId, onClose, onSave }) {
