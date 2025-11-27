@@ -6,6 +6,20 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['lucide-react', 'react-dropzone'],
+          'pdf-vendor': ['pdf-lib', 'pdfjs-dist'],
+          'supabase-vendor': ['@supabase/supabase-js'],
+          'stripe-vendor': ['@stripe/stripe-js']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
   }
 })
 

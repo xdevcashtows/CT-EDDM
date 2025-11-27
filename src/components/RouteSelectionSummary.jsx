@@ -16,7 +16,7 @@ function RouteSelectionSummary({ selectedData }) {
   }
 
   const handleGetAreaInsights = () => {
-    console.log('Get Area Insights clicked')
+    // TODO: Implement area insights feature
   }
 
   const handleMetricToggle = (metric) => {

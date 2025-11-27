@@ -12,12 +12,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
  */
 export async function extractRoutesFromPDF(file) {
   try {
-    console.log('Starting PDF extraction...');
     const arrayBuffer = await file.arrayBuffer();
-    console.log('File loaded into array buffer');
-
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    console.log(`PDF loaded, total pages: ${pdf.numPages}`);
 
     if (pdf.numPages < 3) {
       throw new Error('PDF must have at least 3 pages. Route data should start on page 3.');
@@ -28,12 +24,10 @@ export async function extractRoutesFromPDF(file) {
     let pageNum = 3;
 
     while (pageNum <= pdf.numPages) {
-      console.log(`Processing page ${pageNum} for routes`);
       const page = await pdf.getPage(pageNum);
       const { routes: pageRoutes, format, foundAtIndex } = await extractRoutesFromPage(page);
 
       if (pageRoutes.length > 0) {
-        console.log(`Found ${pageRoutes.length} routes on page ${pageNum}`);
         routes.push(...pageRoutes);
         routeSets.push({
           routes: pageRoutes,
@@ -47,15 +41,11 @@ export async function extractRoutesFromPDF(file) {
 
         if (pageNum + 1 <= pdf.numPages) {
           pageNum += 1;
-          console.log(`Skipping to next potential route listing at page ${pageNum}`);
         }
       } else {
         pageNum++;
       }
     }
-
-    console.log('Route sets:', routeSets);
-    console.log('All extracted routes:', routes);
 
     if (routes.length === 0) {
       throw new Error('No valid route data found in the PDF. Please ensure the PDF contains route lists in the correct format.');

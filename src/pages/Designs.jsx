@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import './Designs.css';
 
@@ -393,12 +393,6 @@ const addCellToPlacement = (placementId, cellId) => {
           {templateTab === 'canvas' && (
             <>
               <div className="canvas-container">
-                {assignedCount === 0 && (
-                  <div className="canvas-empty-state">
-                    <Plus size={32} />
-                    <p>Drag and drop ad slots here</p>
-              </div>
-            )}
                 <div className="canvas-sections">
                   {Array.from({ length: GRID_SECTION_COUNT }).map((_, sectionIndex) => {
                     const sectionStart = sectionIndex * CELLS_PER_SECTION;
@@ -429,49 +423,49 @@ const addCellToPlacement = (placementId, cellId) => {
                               >
                                 {!slot && <span className="canvas-cell-hint">Drop here</span>}
                                 {slot && (
-                        <div className={`canvas-slot ${isPrimary ? 'canvas-slot--primary' : 'canvas-slot--secondary'}`}>
-                          {isPrimary ? (
-                            <div
-                              className="canvas-slot-inner"
-                              style={{ background: slot.color ?? '#f8fafc' }}
-                            >
-                              <div className="slot-option-left">
-                                <div className="slot-plus">+</div>
-                                <div className="slot-option-title">
-                                  <p className="slot-option-label">{slot.label}</p>
-                                  <span className="slot-option-price">
-                                    ${slot.price.toLocaleString()}
-                                  </span>
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                className="slot-option-price-edit-btn canvas-slot-delete"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleCellRemoveAssignment(cell.id);
-                                }}
-                                aria-label={`Remove ${slot.label}`}
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="canvas-slot-secondary-label">
-                              Continues
-                            </span>
-                          )}
-                        </div>
-                )}
+                                  <div className={`canvas-slot ${isPrimary ? 'canvas-slot--primary' : 'canvas-slot--secondary'}`}>
+                                    {isPrimary ? (
+                                      <div
+                                        className="canvas-slot-inner"
+                                        style={{ background: slot.color ?? '#f8fafc' }}
+                                      >
+                                        <div className="slot-option-left">
+                                          <div className="slot-plus">+</div>
+                                          <div className="slot-option-title">
+                                            <p className="slot-option-label">{slot.label}</p>
+                                            <span className="slot-option-price">
+                                              ${slot.price.toLocaleString()}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className="slot-option-price-edit-btn canvas-slot-delete"
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            handleCellRemoveAssignment(cell.id);
+                                          }}
+                                          aria-label={`Remove ${slot.label}`}
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span className="canvas-slot-secondary-label">
+                                        Continues
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
                         </div>
                       </div>
                     );
-                          })}
-                      </div>
-                    </div>
+                  })}
+                </div>
+              </div>
 
               <div className="template-stats">
                 <p>{assignedCount}/{gridCells.length} slots placed</p>
@@ -481,9 +475,9 @@ const addCellToPlacement = (placementId, cellId) => {
                     Select {remainingCells} more cell{remainingCells === 1 ? '' : 's'} for slot {slotMap[activePlacement.slotId]?.label}.
                   </p>
                 )}
-                    </div>
-                  </>
-                )}
+              </div>
+            </>
+          )}
 
           {templateTab === 'saved' && (
             <div className="saved-templates">
