@@ -56,6 +56,51 @@ function Designs() {
     ? activePlacement.totalCells - activePlacement.cellIds.length
     : 0;
 
+  // Helper function to check if a cell is adjacent to any cell in the placement
+  const isCellAdjacentToPlacement = (cellId, placement) => {
+    if (!placement || placement.cellIds.length === 0) {
+      return false;
+    }
+
+    const cellIndex = gridCells.findIndex(c => c.id === cellId);
+    if (cellIndex === -1) {
+      return false;
+    }
+
+    // Determine which section and position within section
+    const sectionIndex = Math.floor(cellIndex / CELLS_PER_SECTION);
+    const positionInSection = cellIndex % CELLS_PER_SECTION;
+    const rowInSection = Math.floor(positionInSection / GRID_COLUMNS);
+    const colInSection = positionInSection % GRID_COLUMNS;
+
+    // Check each cell in the placement to see if any are adjacent
+    for (const placedCellId of placement.cellIds) {
+      const placedIndex = gridCells.findIndex(c => c.id === placedCellId);
+      if (placedIndex === -1) continue;
+
+      const placedSectionIndex = Math.floor(placedIndex / CELLS_PER_SECTION);
+      const placedPositionInSection = placedIndex % CELLS_PER_SECTION;
+      const placedRowInSection = Math.floor(placedPositionInSection / GRID_COLUMNS);
+      const placedColInSection = placedPositionInSection % GRID_COLUMNS;
+
+      // Only check adjacency within the same section
+      if (sectionIndex !== placedSectionIndex) {
+        continue;
+      }
+
+      // Check if adjacent (horizontally or vertically)
+      const rowDiff = Math.abs(rowInSection - placedRowInSection);
+      const colDiff = Math.abs(colInSection - placedColInSection);
+
+      // Adjacent if exactly one cell away in one direction and same in the other
+      if ((rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1)) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
 const assignCellsToSlot = (slotId, targetIndex = null) => {
   const slot = slotMap[slotId];
   if (!slot) {
@@ -106,6 +151,12 @@ const addCellToPlacement = (placementId, cellId) => {
   if (placement.cellIds.length >= placement.totalCells) {
     return false;
   }
+  
+  // Check adjacency - cell must be adjacent to at least one existing cell in the placement
+  if (!isCellAdjacentToPlacement(cellId, placement)) {
+    return false;
+  }
+  
   setPlacements(prev =>
     prev.map(p =>
       p.id === placementId ? { ...p, cellIds: [...p.cellIds, cellId] } : p
@@ -220,8 +271,10 @@ const addCellToPlacement = (placementId, cellId) => {
     setTemplateTab('canvas');
   };
 
-  const handleDeleteTemplate = (templateId) => {
-    setSavedTemplates(prev => prev.filter(template => template.id !== templateId));
+  const handleDeleteTemplate = (templateId, templateName) => {
+    if (window.confirm(`Are you sure you want to delete "${templateName}"? This action cannot be undone.`)) {
+      setSavedTemplates(prev => prev.filter(template => template.id !== templateId));
+    }
   };
 
   const startEditingPrice = (slotId) => {
@@ -297,6 +350,7 @@ const addCellToPlacement = (placementId, cellId) => {
                 className={`slot-option slot-option--${slot.variant} ${
                   draggedSlotId === slot.id ? 'slot-option--dragging' : ''
                 }`}
+                style={{ background: slot.color ?? '#ffffff' }}
                 draggable
                 role="button"
                 tabIndex={0}
@@ -307,35 +361,6 @@ const addCellToPlacement = (placementId, cellId) => {
                   <div className="slot-option-left">
                     <div className="slot-plus">+</div>
                     <p className="slot-option-label">{slot.label}</p>
-                  </div>
-                  <div className="slot-option-price-group">
-                    {editingSlotId === slot.id ? (
-                      <input
-                        type="number"
-                        min="0"
-                        className="slot-option-price-input"
-                        autoFocus
-                        value={priceInputs[slot.id] ?? slot.price}
-                        onChange={(event) => handlePriceInputChange(slot.id, event.target.value)}
-                        onKeyDown={(event) => handlePriceInputKeyDown(event, slot.id)}
-                        onBlur={() => handlePriceSave(slot.id)}
-                      />
-                    ) : (
-                      <span className="slot-option-price">
-                        ${slot.price.toLocaleString()}
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      className="slot-option-price-edit-btn"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        startEditingPrice(slot.id);
-                      }}
-                      aria-label={`Edit price for ${slot.label}`}
-                    >
-                      <Edit size={16} />
-                    </button>
                   </div>
                 </div>
               </div>
@@ -348,47 +373,35 @@ const addCellToPlacement = (placementId, cellId) => {
             <div className="template-header-title">
               <h2>Template Canvas (9x12)</h2>
               <p>Drop ad slots to capture how the postcard will look when it goes live.</p>
-                    </div>
-            <label className="template-name-field template-name-field--center">
-              <input
-                type="text"
-                placeholder="Favorite"
-                aria-label="Template name"
-                value={templateName}
-                onChange={(event) => setTemplateName(event.target.value)}
-              />
-            </label>
-            <div className="template-header-actions">
-              <button type="button" className="btn-outline" onClick={handleClearCanvas}>
-                Clear
-                            </button>
-                            <button
-                              type="button"
-                className="btn-primary"
-                onClick={handleSaveTemplate}
-                disabled={!canSaveTemplate}
-                            >
-                Save Template
-                            </button>
+            </div>
+            <div className="template-header-right">
+              <label className="template-name-field">
+                <input
+                  type="text"
+                  placeholder="Favorite"
+                  aria-label="Template name"
+                  value={templateName}
+                  onChange={(event) => setTemplateName(event.target.value)}
+                />
+              </label>
+              <div className="template-tabs">
+                <button
+                  type="button"
+                  className={`template-tab-button ${templateTab === 'canvas' ? 'active' : ''}`}
+                  onClick={() => setTemplateTab('canvas')}
+                >
+                  Canvas
+                </button>
+                <button
+                  type="button"
+                  className={`template-tab-button ${templateTab === 'saved' ? 'active' : ''}`}
+                  onClick={() => setTemplateTab('saved')}
+                >
+                  Saved Templates
+                </button>
+              </div>
             </div>
           </div>
-
-          <div className="template-tabs">
-          <button
-              type="button"
-              className={`template-tab-button ${templateTab === 'canvas' ? 'active' : ''}`}
-              onClick={() => setTemplateTab('canvas')}
-          >
-              Canvas
-          </button>
-          <button
-              type="button"
-              className={`template-tab-button ${templateTab === 'saved' ? 'active' : ''}`}
-              onClick={() => setTemplateTab('saved')}
-          >
-              Saved Templates
-          </button>
-        </div>
 
           {templateTab === 'canvas' && (
             <>
@@ -407,13 +420,23 @@ const addCellToPlacement = (placementId, cellId) => {
                             const placement = placementMap[cell.placementId];
                             const slot = placement ? slotMap[placement.slotId] : null;
                             const isPrimary = placement?.cellIds?.[0] === cell.id;
+                            
+                            // Check if this cell is adjacent to the active placement
+                            const isAdjacent = activePlacement && !slot 
+                              ? isCellAdjacentToPlacement(cell.id, activePlacement)
+                              : false;
+                            
+                            // Cell is targetable only if there's an active placement with remaining cells
+                            // AND the cell is adjacent to existing placement cells
+                            const isTargetable = !slot && activePlacement && remainingCells > 0 && isAdjacent;
+                            
                             return (
                               <div
                                 key={cell.id}
                                 className={`canvas-cell ${slot ? 'canvas-cell--filled' : ''} ${
                                   highlightedCellId === cell.id ? 'canvas-cell--highlighted' : ''
                                 } ${
-                                  !slot && activePlacement && remainingCells > 0 ? 'canvas-cell--targetable' : ''
+                                  isTargetable ? 'canvas-cell--targetable' : ''
                                 }`}
                                 onClick={() => handleCanvasCellClick(cell)}
                                 onDragOver={handleDragOverCell}
@@ -431,12 +454,7 @@ const addCellToPlacement = (placementId, cellId) => {
                                       >
                                         <div className="slot-option-left">
                                           <div className="slot-plus">+</div>
-                                          <div className="slot-option-title">
-                                            <p className="slot-option-label">{slot.label}</p>
-                                            <span className="slot-option-price">
-                                              ${slot.price.toLocaleString()}
-                                            </span>
-                                          </div>
+                                          <p className="slot-option-label">{slot.label}</p>
                                         </div>
                                         <button
                                           type="button"
@@ -451,9 +469,14 @@ const addCellToPlacement = (placementId, cellId) => {
                                         </button>
                                       </div>
                                     ) : (
-                                      <span className="canvas-slot-secondary-label">
-                                        Continues
-                                      </span>
+                                      <div
+                                        className="canvas-slot-inner"
+                                        style={{ background: slot.color ?? '#f8fafc' }}
+                                      >
+                                        <span className="canvas-slot-secondary-label">
+                                          Continues
+                                        </span>
+                                      </div>
                                     )}
                                   </div>
                                 )}
@@ -467,14 +490,28 @@ const addCellToPlacement = (placementId, cellId) => {
                 </div>
               </div>
 
-              <div className="template-stats">
-                <p>{assignedCount}/{gridCells.length} slots placed</p>
-                <p>Use the canvas to model what the finished card will look like.</p>
-                {activePlacement && remainingCells > 0 && (
-                  <p className="canvas-helper-text">
-                    Select {remainingCells} more cell{remainingCells === 1 ? '' : 's'} for slot {slotMap[activePlacement.slotId]?.label}.
-                  </p>
-                )}
+              {activePlacement && remainingCells > 0 && (
+                <p className="canvas-helper-text">
+                  Select {remainingCells} more cell{remainingCells === 1 ? '' : 's'} for slot {slotMap[activePlacement.slotId]?.label}.
+                </p>
+              )}
+
+              <div className="template-footer">
+                <p className="template-footer-left">{assignedCount}/{gridCells.length} slots placed</p>
+                <p className="template-footer-center">Use the canvas to model what the finished card will look like.</p>
+                <div className="template-footer-actions">
+                  <button type="button" className="btn-outline" onClick={handleClearCanvas}>
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={handleSaveTemplate}
+                    disabled={!canSaveTemplate}
+                  >
+                    Save Template
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -491,21 +528,77 @@ const addCellToPlacement = (placementId, cellId) => {
                 </div>
               ) : (
                 <div className="saved-list">
-                  {savedTemplates.map(template => (
-                    <div key={template.id} className="saved-template-card">
-                      <div>
-                        <strong>{template.name}</strong>
-                        <p>{template.slotCount} slots · {formatDateLabel(template.savedAt)}</p>
+                  {savedTemplates.map(template => {
+                    // Helper to calculate grid position and span for a placement
+                    const getPlacementGridInfo = (placement) => {
+                      if (!placement || placement.cellIds.length === 0) return null;
+
+                      // Find all cell indices for this placement
+                      const cellIndices = placement.cellIds.map(cellId => 
+                        template.layout.gridCells.findIndex(c => c.id === cellId)
+                      );
+
+                      // Calculate min/max row and column
+                      const positions = cellIndices.map(idx => {
+                        const row = Math.floor(idx / GRID_COLUMNS) + 1; // 1-indexed for CSS grid
+                        const col = (idx % GRID_COLUMNS) + 1;
+                        return { row, col };
+                      });
+
+                      const minRow = Math.min(...positions.map(p => p.row));
+                      const maxRow = Math.max(...positions.map(p => p.row));
+                      const minCol = Math.min(...positions.map(p => p.col));
+                      const maxCol = Math.max(...positions.map(p => p.col));
+
+                      return {
+                        gridRowStart: minRow,
+                        gridRowEnd: maxRow + 1,
+                        gridColumnStart: minCol,
+                        gridColumnEnd: maxCol + 1
+                      };
+                    };
+
+                    // Get unique placements (only render each placement once)
+                    const uniquePlacements = template.layout.placements.map(placement => {
+                      const slot = slotMap[placement.slotId];
+                      const gridInfo = getPlacementGridInfo(placement);
+                      return { placement, slot, gridInfo };
+                    });
+
+                    return (
+                      <div key={template.id} className="saved-template-card">
+                        <div className="saved-template-preview">
+                          <div className="saved-template-grid">
+                            {uniquePlacements.map(({ placement, slot, gridInfo }) => (
+                              <div
+                                key={placement.id}
+                                className="saved-template-cell saved-template-cell--filled"
+                                style={{
+                                  background: slot?.color ?? '#f8fafc',
+                                  gridRowStart: gridInfo.gridRowStart,
+                                  gridRowEnd: gridInfo.gridRowEnd,
+                                  gridColumnStart: gridInfo.gridColumnStart,
+                                  gridColumnEnd: gridInfo.gridColumnEnd
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="saved-template-info">
+                          <strong>{template.name}</strong>
+                          <p>{template.slotCount} slots · {formatDateLabel(template.savedAt)}</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="saved-template-delete"
+                          onClick={() => handleDeleteTemplate(template.id, template.name)}
+                          aria-label={`Delete ${template.name}`}
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTemplate(template.id)}
-                        aria-label={`Delete ${template.name}`}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
               </div>
             )}
             </div>
