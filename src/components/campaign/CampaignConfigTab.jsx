@@ -181,71 +181,85 @@ export const CampaignConfigTab = ({ campaign, onUpdate }) => {
       {/* Settings Section */}
       <div className="config-section">
         <h3 className="config-section-title">Campaign Settings</h3>
-        <div className="config-form">
-          {/* Campaign Name */}
-          <div className="form-group">
-            <label htmlFor="campaign-name">Campaign Name</label>
-            <input
-              id="campaign-name"
-              type="text"
-              value={formData.name}
-              onChange={(e) => handleChange('name', e.target.value)}
-              className="form-input"
-            />
-          </div>
+        <div className="config-form config-form--compact">
+          {/* Row 1: Name and Status */}
+          <div className="form-row">
+            <div className="form-group form-group--flex-2">
+              <label htmlFor="campaign-name" className="form-label-with-icon">
+                <Edit3 size={14} style={{ color: '#3b82f6' }} />
+                Campaign Name
+              </label>
+              <input
+                id="campaign-name"
+                type="text"
+                value={formData.name}
+                onChange={(e) => handleChange('name', e.target.value)}
+                className="form-input"
+              />
+            </div>
 
-          {/* Status */}
-          <div className="form-group">
-            <label htmlFor="campaign-status">Status</label>
-            <select
-              id="campaign-status"
-              value={formData.status}
-              onChange={(e) => handleChange('status', e.target.value)}
-              className="form-input"
-            >
-              {statusOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Mail Date */}
-          <div className="form-group">
-            <label htmlFor="mail-date">
-              <Calendar size={16} />
-              Mail Date
-            </label>
-            <input
-              id="mail-date"
-              type="date"
-              value={formData.mail_date ? new Date(formData.mail_date).toISOString().split('T')[0] : ''}
-              onChange={(e) => handleChange('mail_date', e.target.value)}
-              className="form-input"
-            />
-          </div>
-
-          {/* Location Info (Read-only) */}
-          <div className="form-group">
-            <label>
-              <MapPin size={16} />
-              Location
-            </label>
-            <div className="form-readonly">
-              {campaign.city?.name || campaign.city || 'Not set'}
+            <div className="form-group">
+              <label htmlFor="campaign-status" className="form-label-with-icon">
+                <TrendingUp size={14} style={{ color: '#22c55e' }} />
+                Status
+              </label>
+              <select
+                id="campaign-status"
+                value={formData.status}
+                onChange={(e) => handleChange('status', e.target.value)}
+                className="form-input"
+                style={{ 
+                  borderLeft: `3px solid ${statusOptions.find(s => s.value === formData.status)?.color || '#6b7280'}`
+                }}
+              >
+                {statusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {/* Notes */}
+          {/* Row 2: Mail Date and Location */}
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="mail-date" className="form-label-with-icon">
+                <Calendar size={14} style={{ color: '#8b5cf6' }} />
+                Mail Date
+              </label>
+              <input
+                id="mail-date"
+                type="date"
+                value={formData.mail_date ? new Date(formData.mail_date).toISOString().split('T')[0] : ''}
+                onChange={(e) => handleChange('mail_date', e.target.value)}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label-with-icon">
+                <MapPin size={14} style={{ color: '#f59e0b' }} />
+                Location
+              </label>
+              <div className="form-readonly">
+                {campaign.city?.name || campaign.city || 'Not set'}
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3: Notes */}
           <div className="form-group">
-            <label htmlFor="campaign-notes">Notes</label>
+            <label htmlFor="campaign-notes" className="form-label-with-icon">
+              <Mail size={14} style={{ color: '#64748b' }} />
+              Notes
+            </label>
             <textarea
               id="campaign-notes"
               value={formData.notes}
               onChange={(e) => handleChange('notes', e.target.value)}
               className="form-input"
-              rows={4}
+              rows={3}
               placeholder="Add any notes about this campaign..."
             />
           </div>

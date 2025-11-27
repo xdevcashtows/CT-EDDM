@@ -76,8 +76,253 @@
 
 .canvas-content {
   padding: 2rem;
-  max-width: 1600px;
+  max-width: 1400px;
   margin: 0 auto;
+}
+
+/* Side Toggle */
+.canvas-side-toggle {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  width: fit-content;
+  margin: 0 auto 2rem auto;
+}
+
+.side-toggle-btn {
+  padding: 12px 32px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.side-toggle-btn:hover:not(:disabled) {
+  background: white;
+  color: #475569;
+}
+
+.side-toggle-btn.active {
+  background: white;
+  border-color: #3b82f6;
+  color: #1e40af;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+}
+
+.side-toggle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: #94a3b8;
+}
+
+/* Canvas Layout */
+.canvas-layout-container {
+  width: 100%;
+}
+
+.canvas-layout-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.canvas-no-design {
+  padding: 4rem;
+  text-align: center;
+  color: #6b7280;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 2px dashed #e5e7eb;
+}
+
+/* Canvas Container - matches design page */
+.canvas-container {
+  margin-top: 8px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  position: relative;
+  min-height: 520px;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  width: 90%;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.canvas-sections {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 60px;
+  position: relative;
+  z-index: 1;
+}
+
+.canvas-section {
+  flex: 1;
+  display: flex;
+}
+
+.canvas-grid-positioned {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  position: relative;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+/* Positioned Canvas Slots */
+.canvas-slot-positioned {
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  position: relative;
+}
+
+.canvas-slot-positioned:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.canvas-slot-positioned.booked {
+  border-color: #22c55e;
+}
+
+/* Canvas Slot Image */
+.canvas-slot-image-wrapper {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.canvas-slot-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Canvas Slot Placeholder */
+.canvas-slot-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #9ca3af;
+  padding: 8px;
+  text-align: center;
+}
+
+.canvas-slot-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Canvas Slot Booked Badge */
+.canvas-slot-booked-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: #22c55e;
+  background: white;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 2;
+}
+
+/* Canvas Slot Info Overlay */
+.canvas-slot-info-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 1;
+}
+
+.canvas-slot-positioned:hover .canvas-slot-info-overlay {
+  opacity: 1;
+}
+
+.canvas-slot-info-top,
+.canvas-slot-info-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.canvas-slot-position {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+}
+
+.canvas-slot-size {
+  font-size: 0.625rem;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.canvas-slot-advertiser {
+  font-size: 0.625rem;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.canvas-slot-price {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(34, 197, 94, 0.9);
+  padding: 2px 8px;
+  border-radius: 6px;
 }
 
 .canvas-side {
@@ -497,10 +742,50 @@
 
   .progress-stats {
     gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .progress-stat-value {
+    font-size: 1.25rem;
   }
 
   .canvas-content {
     padding: 1rem;
+  }
+
+  .canvas-side-toggle {
+    width: 100%;
+  }
+
+  .side-toggle-btn {
+    flex: 1;
+    padding: 10px 16px;
+  }
+
+  .canvas-container {
+    width: 100%;
+    padding: 12px;
+  }
+
+  .canvas-grid-positioned {
+    min-height: 300px;
+  }
+
+  .canvas-slot-positioned {
+    min-width: 50px;
+    min-height: 50px;
+  }
+
+  .canvas-slot-placeholder {
+    gap: 4px;
+  }
+
+  .canvas-slot-label {
+    font-size: 0.625rem;
+  }
+
+  .canvas-slot-info-overlay {
+    padding: 6px 8px;
   }
 
   .canvas-slots-grid {
