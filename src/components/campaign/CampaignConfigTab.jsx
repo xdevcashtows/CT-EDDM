@@ -98,81 +98,6 @@ export const CampaignConfigTab = ({ campaign, onUpdate }) => {
 
   return (
     <div className="campaign-config-tab">
-      {/* Ad Slot Options & Rates Section */}
-      <div className="config-section slot-rates-section">
-        <div className="section-header-with-action">
-          <h3 className="config-section-title">Ad Slot Options & Rates</h3>
-          {!editingRates ? (
-            <button onClick={() => setEditingRates(true)} className="btn-edit-rates">
-              <Edit3 size={16} />
-              Edit Rates
-            </button>
-          ) : (
-            <div className="rates-actions">
-              <button onClick={handleCancelRates} className="btn-cancel-action">
-                <X size={16} />
-                Cancel
-              </button>
-              <button onClick={handleSave} disabled={isSaving} className="btn-save-action">
-                <Check size={16} />
-                {isSaving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="slot-options-grid">
-          {adSlotOptions.map((slot) => (
-            <div 
-              key={slot.id} 
-              className="slot-option-card"
-              style={{ backgroundColor: slot.color }}
-            >
-              <div className="slot-option-header">
-                <div 
-                  className="slot-option-badge"
-                  style={{ 
-                    backgroundColor: slot.color,
-                    border: '2px solid rgba(0, 0, 0, 0.1)'
-                  }}
-                >
-                  <span className="slot-number">{slot.slots}</span>
-                </div>
-                <div className="slot-option-info">
-                  <h4>{slot.label}</h4>
-                  <p>{slot.slots === 1 ? 'Single slot' : `${slot.slots}-slot placement`}</p>
-                </div>
-              </div>
-
-              <div className="slot-option-rate">
-                {editingRates ? (
-                  <div className="rate-input-wrapper">
-                    <label>Rate per slot</label>
-                    <div className="rate-input-group">
-                      <DollarSign size={18} className="rate-icon" />
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={formData[`${slot.id}_price`]}
-                        onChange={(e) => handleChange(`${slot.id}_price`, parseFloat(e.target.value) || 0)}
-                        className="rate-input"
-                        placeholder="0.00"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rate-display">
-                    <span className="rate-label">Rate per slot</span>
-                    <span className="rate-value">${(formData[`${slot.id}_price`] || 0).toFixed(2)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Analytics Section */}
       <div className="config-section">
         <h3 className="config-section-title">Campaign Analytics</h3>
@@ -337,6 +262,81 @@ export const CampaignConfigTab = ({ campaign, onUpdate }) => {
               </button>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Ad Slot Options & Rates Section */}
+      <div className="config-section slot-rates-section">
+        <div className="section-header-with-action">
+          <h3 className="config-section-title">Ad Slot Options & Rates</h3>
+          {!editingRates ? (
+            <button onClick={() => setEditingRates(true)} className="btn-edit-rates">
+              <Edit3 size={16} />
+              Edit Rates
+            </button>
+          ) : (
+            <div className="rates-actions">
+              <button onClick={handleCancelRates} className="btn-cancel-action">
+                <X size={16} />
+                Cancel
+              </button>
+              <button onClick={handleSave} disabled={isSaving} className="btn-save-action">
+                <Check size={16} />
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="slot-options-grid">
+          {adSlotOptions.map((slot) => (
+            <div 
+              key={slot.id} 
+              className="slot-option-card"
+              style={{ backgroundColor: slot.color }}
+            >
+              <div className="slot-option-header">
+                <div 
+                  className="slot-option-badge"
+                  style={{ 
+                    backgroundColor: slot.color,
+                    border: '2px solid rgba(0, 0, 0, 0.1)'
+                  }}
+                >
+                  <span className="slot-number">{slot.slots}</span>
+                </div>
+                <div className="slot-option-info">
+                  <h4>{slot.label}</h4>
+                  <p>{slot.slots === 1 ? 'Single slot' : `${slot.slots}-slot placement`}</p>
+                </div>
+              </div>
+
+              <div className="slot-option-rate">
+                {editingRates ? (
+                  <div className="rate-input-wrapper">
+                    <label>Rate per slot</label>
+                    <div className="rate-input-group">
+                      <DollarSign size={18} className="rate-icon" />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData[`${slot.id}_price`]}
+                        onChange={(e) => handleChange(`${slot.id}_price`, parseFloat(e.target.value) || 0)}
+                        className="rate-input"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rate-display">
+                    <span className="rate-label">Rate per slot</span>
+                    <span className="rate-value">${(formData[`${slot.id}_price`] || 0).toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
