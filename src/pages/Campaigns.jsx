@@ -18,6 +18,7 @@ import { getMockLayoutForDesign, getDefaultMockLayout } from '../utils/mockLayou
 import { CampaignCard } from '../components/campaign/CampaignCard';
 import { StatusFilter } from '../components/campaign/StatusFilter';
 import { ViewToggle } from '../components/campaign/ViewToggle';
+import CampaignDetailView from '../components/campaign/CampaignDetailView';
 
 
 const cloneLayout = (layout = getDefaultMockLayout('9x12')) => ({
@@ -101,6 +102,8 @@ function Campaigns() {
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [selectedStatuses, setSelectedStatuses] = useState([]);
   const [viewMode, setViewMode] = useState('grid');
+  const [showDetailView, setShowDetailView] = useState(false);
+  const [detailViewCampaign, setDetailViewCampaign] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -143,6 +146,20 @@ function Campaigns() {
   const handleEditCampaign = (campaign) => {
     setSelectedCampaign(campaign);
     setShowModal(true);
+  };
+
+  const handleOpenCampaignDetail = (campaign) => {
+    setDetailViewCampaign(campaign);
+    setShowDetailView(true);
+  };
+
+  const handleCloseDetailView = () => {
+    setShowDetailView(false);
+    setDetailViewCampaign(null);
+  };
+
+  const handleDetailViewUpdate = () => {
+    loadCampaigns();
   };
 
   const handleDeleteCampaign = async (campaignId) => {
@@ -238,7 +255,7 @@ function Campaigns() {
             <CampaignCard
               key={campaign.id}
               campaign={campaign}
-              onClick={() => handleEditCampaign(campaign)}
+              onClick={() => handleOpenCampaignDetail(campaign)}
             />
           ))}
         </div>
@@ -257,6 +274,15 @@ function Campaigns() {
           userId={user.id}
           onClose={() => setShowModal(false)}
           onSave={loadCampaigns}
+        />
+      )}
+
+      {showDetailView && detailViewCampaign && (
+        <CampaignDetailView
+          campaign={detailViewCampaign}
+          isOpen={showDetailView}
+          onClose={handleCloseDetailView}
+          onUpdate={handleDetailViewUpdate}
         />
       )}
     </div>

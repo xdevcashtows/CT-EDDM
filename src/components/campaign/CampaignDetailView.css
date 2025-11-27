@@ -1,0 +1,141 @@
+/* Backdrop */
+.campaign-detail-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  pointer-events: none;
+}
+
+.campaign-detail-backdrop.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Slide-in Panel */
+.campaign-detail-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  background: white;
+  z-index: 1001;
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.campaign-detail-panel.open {
+  transform: translateX(0);
+}
+
+/* Header */
+.campaign-detail-header {
+  border-bottom: 1px solid #e5e7eb;
+  background: white;
+  flex-shrink: 0;
+}
+
+.campaign-detail-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+}
+
+.campaign-detail-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 0.25rem 0;
+}
+
+.campaign-detail-subtitle {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.campaign-detail-close-btn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.campaign-detail-close-btn:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+/* Tabs */
+.campaign-detail-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 2rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.campaign-detail-tab {
+  background: none;
+  border: none;
+  padding: 1rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  position: relative;
+  top: 1px;
+}
+
+.campaign-detail-tab:hover {
+  color: #111827;
+}
+
+.campaign-detail-tab.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+/* Content */
+.campaign-detail-content {
+  flex: 1;
+  overflow-y: auto;
+  background: #f9fafb;
+}
+
+/* Responsive */
+@media (min-width: 768px) {
+  .campaign-detail-panel {
+    width: 95vw;
+  }
+}
+
+@media (min-width: 1024px) {
+  .campaign-detail-panel {
+    width: 90vw;
+  }
+}
+
+@media (min-width: 1280px) {
+  .campaign-detail-panel {
+    width: 85vw;
+  }
+}
+
