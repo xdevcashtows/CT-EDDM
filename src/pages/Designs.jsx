@@ -1,591 +1,525 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Copy, Lock } from 'lucide-react';
-import './Designs.css';
-import { designs as designsAPI } from '../lib/api';
-import { storage } from '../lib/supabase';
-import { useAuth } from '../hooks/useAuth';
-import ImageUploader from '../components/ImageUploader';
+import React, { useMemo, useState } from 'react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
+import './Designs.css';
 
-const CARD_SIZES = [
-  { value: '9x12', label: '9" × 12"', width: 900, height: 1200 },
-  { value: '6x12', label: '6" × 12"', width: 600, height: 1200 }
+const GRID_COLUMNS = 4;
+const GRID_ROWS_PER_SECTION = 4;
+const GRID_SECTION_COUNT = 2;
+const CELLS_PER_SECTION = GRID_COLUMNS * GRID_ROWS_PER_SECTION;
+const GRID_CELL_COUNT = CELLS_PER_SECTION * GRID_SECTION_COUNT;
+
+const DEFAULT_AD_SLOTS = [
+  { id: 'slots-1', label: '1', price: 300, color: '#dbeafe', variant: 'slots-1', widthCells: 1, heightCells: 1 },
+  { id: 'slots-2', label: '2', price: 500, color: '#dcfce7', variant: 'slots-2', widthCells: 1, heightCells: 2 },
+  { id: 'slots-4', label: '4', price: 1000, color: '#fef9c3', variant: 'slots-4', widthCells: 2, heightCells: 2 },
+  { id: 'slots-8', label: '8', price: 2000, color: '#fee2e2', variant: 'slots-8', widthCells: 4, heightCells: 2 },
+  { id: 'slots-12', label: '12', price: 3000, color: '#e0f2fe', variant: 'slots-12', widthCells: 4, heightCells: 3 },
+  { id: 'slots-16', label: '16', price: 4000, color: '#ede9fe', variant: 'slots-16', widthCells: 4, heightCells: 4 }
 ];
 
-const SLOT_SIZES = ['small', 'medium', 'large'];
+const createInitialGridCells = () =>
+  Array.from({ length: GRID_CELL_COUNT }, (_, index) => ({
+    id: `canvas-cell-${index + 1}`,
+    placementId: null
+  }));
 
 function Designs() {
-  const { user } = useAuth();
-  const [designs, setDesigns] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedDesign, setSelectedDesign] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+  const [gridCells, setGridCells] = useState(() => createInitialGridCells());
+  const [adSlots, setAdSlots] = useState(DEFAULT_AD_SLOTS);
+  const [placements, setPlacements] = useState([]);
+  const [templateName, setTemplateName] = useState('Favorite');
+  const [savedTemplates, setSavedTemplates] = useState([]);
+  const [editingSlotId, setEditingSlotId] = useState(null);
+  const [priceInputs, setPriceInputs] = useState({});
+  const [draggedSlotId, setDraggedSlotId] = useState(null);
+  const [highlightedCellId, setHighlightedCellId] = useState(null);
+  const [templateTab, setTemplateTab] = useState('canvas');
+  const [activePlacementId, setActivePlacementId] = useState(null);
 
-  useEffect(() => {
-    if (user) {
-      loadDesigns();
-    }
-  }, [user]);
+  const slotMap = useMemo(() => {
+    return adSlots.reduce((acc, slot) => {
+      acc[slot.id] = slot;
+      return acc;
+    }, {});
+  }, [adSlots]);
 
-  const loadDesigns = async () => {
-    setLoading(true);
-    const { data, error } = await designsAPI.getAll(user.id);
-    if (!error && data) {
-      setDesigns(data);
-    }
-    setLoading(false);
-  };
+  const placementMap = useMemo(() => {
+    return placements.reduce((acc, placement) => {
+      acc[placement.id] = placement;
+      return acc;
+    }, {});
+  }, [placements]);
 
-  const handleCreateDesign = () => {
-    setSelectedDesign({
-      name: '',
-      card_size: '9x12',
-      background_type: 'color',
-      background_color: '#ffffff',
-      background_gradient: null,
-      background_image_url: null,
-      num_slots: 17,
-      slot_config: generateDefaultSlots(17)
-    });
-    setShowModal(true);
-  };
+  const activePlacement = placements.find(p => p.id === activePlacementId);
+  const remainingCells = activePlacement
+    ? activePlacement.totalCells - activePlacement.cellIds.length
+    : 0;
 
-  const handleEditDesign = (design) => {
-    setSelectedDesign(design);
-    setShowModal(true);
-  };
-
-  const handleDuplicateDesign = async (design) => {
-    const duplicate = {
-      ...design,
-      name: `${design.name} (Copy)`,
-      id: undefined,
-      is_locked: false
-    };
-    
-    const { data, error } = await designsAPI.create({ ...duplicate, user_id: user.id });
-    if (!error) {
-      setDesigns([data, ...designs]);
-    } else {
-      alert('Failed to duplicate design');
-    }
-  };
-
-  const handleDeleteDesign = async (designId) => {
-    if (confirm('Are you sure you want to delete this design?')) {
-      const { error } = await designsAPI.delete(designId);
-      if (!error) {
-        setDesigns(designs.filter(d => d.id !== designId));
-      } else {
-        alert('Failed to delete design');
-      }
-    }
-  };
-
-  const handleSaveDesign = async (designData) => {
-    if (selectedDesign.id) {
-      // Update
-      const { data, error } = await designsAPI.update(selectedDesign.id, designData);
-      if (!error) {
-        setDesigns(designs.map(d => d.id === selectedDesign.id ? data : d));
-        setShowModal(false);
-      } else {
-        alert('Failed to update design');
-      }
-    } else {
-      // Create
-      const { data, error } = await designsAPI.create({ ...designData, user_id: user.id });
-      if (!error) {
-        setDesigns([data, ...designs]);
-        setShowModal(false);
-      } else {
-        alert('Failed to create design');
-      }
-    }
-  };
-
-  const layoutProps = {
-    title: 'Design Studio',
-    subtitle: 'Create and manage your postcard templates.',
-    tip: 'Lock designs when you want to reuse them without accidental edits.'
-  };
-
-  if (loading) {
-    return (
-      <PageLayout {...layoutProps} className="page-shell--fullwidth">
-        <div className="designs-page">
-          <div className="loading-state">
-            <div className="spinner-large"></div>
-            <p>Loading designs...</p>
-          </div>
-        </div>
-      </PageLayout>
-    );
+const assignCellsToSlot = (slotId, targetIndex = null) => {
+  const slot = slotMap[slotId];
+  if (!slot) {
+    return false;
   }
+  const totalCells = (slot.widthCells || 1) * (slot.heightCells || 1);
+
+  const findEmptyIndex = () => {
+    if (targetIndex !== null && targetIndex !== undefined) {
+      if (targetIndex < 0 || targetIndex >= gridCells.length) {
+        return -1;
+      }
+      return gridCells[targetIndex].placementId ? -1 : targetIndex;
+    }
+    return gridCells.findIndex(cell => !cell.placementId);
+  };
+
+  const index = findEmptyIndex();
+  if (index === -1) {
+    return false;
+  }
+
+  const placementId = `placement-${Date.now()}-${slotId}`;
+  const baseCellId = gridCells[index].id;
+  const placement = { id: placementId, slotId, cellIds: [baseCellId], totalCells };
+
+  setPlacements(prev => [...prev, placement]);
+  setGridCells(prev =>
+    prev.map(cell =>
+      cell.id === baseCellId ? { ...cell, placementId } : cell
+    )
+  );
+  setHighlightedCellId(null);
+  setDraggedSlotId(null);
+  if (totalCells > 1) {
+    setActivePlacementId(placementId);
+  } else {
+    setActivePlacementId(null);
+  }
+  return true;
+  };
+
+const addCellToPlacement = (placementId, cellId) => {
+  const placement = placements.find(p => p.id === placementId);
+  if (!placement || placement.cellIds.includes(cellId)) {
+    return false;
+  }
+  if (placement.cellIds.length >= placement.totalCells) {
+    return false;
+  }
+  setPlacements(prev =>
+    prev.map(p =>
+      p.id === placementId ? { ...p, cellIds: [...p.cellIds, cellId] } : p
+    )
+  );
+  setGridCells(prev =>
+    prev.map(cell =>
+      cell.id === cellId ? { ...cell, placementId } : cell
+    )
+  );
+  if (placement.cellIds.length + 1 >= placement.totalCells) {
+    setActivePlacementId(null);
+    }
+  return true;
+  };
+
+  const assignedCount = gridCells.filter(cell => cell.placementId).length;
+  const canSaveTemplate = assignedCount > 0 && templateName.trim().length > 0;
+
+  const handleDragStart = (event, slotId) => {
+    event.dataTransfer.setData('text/plain', slotId);
+    event.dataTransfer.effectAllowed = 'copy';
+    setDraggedSlotId(slotId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedSlotId(null);
+    setHighlightedCellId(null);
+  };
+
+  const handleDropOnCell = (event, cellId) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const slotId = event.dataTransfer.getData('text/plain');
+    if (!slotId) {
+      return;
+    }
+    const targetIndex = gridCells.findIndex(cell => cell.id === cellId);
+    if (targetIndex === -1) {
+      return;
+    }
+    const didPlace = assignCellsToSlot(slotId, targetIndex);
+    if (!didPlace) {
+      setDraggedSlotId(null);
+      setHighlightedCellId(null);
+    }
+  };
+
+  const handleDragOverCell = (event) => {
+    event.preventDefault();
+  };
+
+  const handleCanvasCellClick = (cell) => {
+    if (cell.placementId) {
+      const placement = placements.find(p => p.id === cell.placementId);
+      if (placement && placement.totalCells > placement.cellIds.length) {
+        setActivePlacementId(placement.id);
+      }
+      return;
+    }
+    if (activePlacementId && remainingCells > 0) {
+      const added = addCellToPlacement(activePlacementId, cell.id);
+      if (!added) {
+        setHighlightedCellId(cell.id);
+      }
+    }
+  };
+
+  const handleCellRemoveAssignment = (cellId) => {
+    const cell = gridCells.find(c => c.id === cellId);
+    if (!cell?.placementId) {
+      return;
+    }
+    const placementId = cell.placementId;
+    setPlacements(prev => prev.filter(p => p.id !== placementId));
+    setGridCells(prev =>
+      prev.map(gridCell =>
+        gridCell.placementId === placementId ? { ...gridCell, placementId: null } : gridCell
+      )
+        );
+    if (activePlacementId === placementId) {
+      setActivePlacementId(null);
+      }
+  };
+
+  const handleClearCanvas = () => {
+    setGridCells(createInitialGridCells());
+    setPlacements([]);
+    setHighlightedCellId(null);
+    setDraggedSlotId(null);
+    setTemplateName('Favorite');
+    setTemplateTab('canvas');
+  };
+
+  const handleSaveTemplate = () => {
+    if (!canSaveTemplate) {
+      return;
+    }
+    const nextTemplate = {
+      id: `template-${Date.now()}`,
+      name: templateName.trim(),
+      slotCount: assignedCount,
+      savedAt: new Date().toISOString(),
+      layout: {
+        gridCells: gridCells.map(cell => ({ ...cell })),
+        placements: placements.map(placement => ({ ...placement }))
+      }
+    };
+    setSavedTemplates(prev => [nextTemplate, ...prev]);
+    setTemplateName('Favorite');
+    setActivePlacementId(null);
+    setTemplateTab('canvas');
+  };
+
+  const handleDeleteTemplate = (templateId) => {
+    setSavedTemplates(prev => prev.filter(template => template.id !== templateId));
+  };
+
+  const startEditingPrice = (slotId) => {
+    setEditingSlotId(slotId);
+    setPriceInputs(prev => ({
+      ...prev,
+      [slotId]: slotMap[slotId]?.price?.toString() ?? ''
+    }));
+  };
+
+  const handlePriceInputChange = (slotId, value) => {
+    setPriceInputs(prev => ({ ...prev, [slotId]: value }));
+  };
+
+  const handlePriceInputKeyDown = (event, slotId) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handlePriceSave(slotId);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      handlePriceCancel();
+    }
+  };
+
+  const handlePriceSave = (slotId) => {
+    const rawValue = priceInputs[slotId];
+    const parsed = Number.parseInt(rawValue, 10);
+    if (Number.isNaN(parsed) || parsed < 0) {
+      return;
+    }
+    setAdSlots(prev =>
+      prev.map(slot =>
+        slot.id === slotId ? { ...slot, price: parsed } : slot
+      )
+    );
+    setEditingSlotId(null);
+  };
+
+  const handlePriceCancel = () => {
+    setEditingSlotId(null);
+  };
+
+  const formatDateLabel = (value) => {
+    try {
+      return new Date(value).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    } catch {
+      return '';
+  }
+  };
 
   return (
     <PageLayout
-      {...layoutProps}
-      actions={
-        <button className="btn-primary" onClick={handleCreateDesign}>
-          <Plus size={20} />
-          New Design
-        </button>
-      }
+      title="Build Custom Template"
+      subtitle="Create a 9x12 postcard template with ad slots."
+      tip="Drag from the slot list, tweak the price, name it, and save for future campaigns."
       className="page-shell--fullwidth"
     >
-      <div className="designs-page">
-        <div className="designs-grid">
-        {designs.length === 0 ? (
-          <div className="empty-state">
-            <p>No designs yet. Create your first template!</p>
+      <div className="design-builder">
+        <section className="ad-slot-panel">
+          <header>
+            <h2>Ad Slot Options</h2>
+            <p>Drag a slot into the canvas or tap the tile to place it in the next open frame.</p>
+          </header>
+          <div className="slot-options-list">
+            {adSlots.map(slot => (
+              <div
+                key={slot.id}
+                className={`slot-option slot-option--${slot.variant} ${
+                  draggedSlotId === slot.id ? 'slot-option--dragging' : ''
+                }`}
+                draggable
+                role="button"
+                tabIndex={0}
+                onDragStart={(event) => handleDragStart(event, slot.id)}
+                onDragEnd={handleDragEnd}
+              >
+                <div className="slot-option-main">
+                  <div className="slot-option-left">
+                    <div className="slot-plus">+</div>
+                    <p className="slot-option-label">{slot.label}</p>
+                  </div>
+                  <div className="slot-option-price-group">
+                    {editingSlotId === slot.id ? (
+                      <input
+                        type="number"
+                        min="0"
+                        className="slot-option-price-input"
+                        autoFocus
+                        value={priceInputs[slot.id] ?? slot.price}
+                        onChange={(event) => handlePriceInputChange(slot.id, event.target.value)}
+                        onKeyDown={(event) => handlePriceInputKeyDown(event, slot.id)}
+                        onBlur={() => handlePriceSave(slot.id)}
+                      />
+                    ) : (
+                      <span className="slot-option-price">
+                        ${slot.price.toLocaleString()}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      className="slot-option-price-edit-btn"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        startEditingPrice(slot.id);
+                      }}
+                      aria-label={`Edit price for ${slot.label}`}
+                    >
+                      <Edit size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        ) : (
-          designs.map(design => (
-            <div key={design.id} className="design-card">
-              <div className="design-preview">
-                {design.background_type === 'image' && design.background_image_url ? (
-                  <img src={design.background_image_url} alt={design.name} />
-                ) : design.background_type === 'gradient' ? (
-                  <div
-                    className="gradient-preview"
-                    style={{
-                      background: `linear-gradient(${design.background_gradient?.direction || 'to right'}, ${design.background_gradient?.from || '#fff'}, ${design.background_gradient?.to || '#fff'})`
-                    }}
-                  />
-                ) : (
-                  <div
-                    className="color-preview"
-                    style={{ background: design.background_color || '#fff' }}
-                  />
-                )}
-                <div className="design-overlay">
-                  <div className="design-slots-indicator">
-                    {design.num_slots} slots
-                  </div>
-                </div>
-              </div>
+        </section>
 
-              <div className="design-info">
-                <div className="design-header">
-                  <div className="design-name">{design.name}</div>
-                  {design.is_locked && (
-                    <div className="locked-badge">
-                      <Lock size={12} />
+        <section className="template-panel">
+          <div className="template-header">
+            <div className="template-header-title">
+              <h2>Template Canvas (9x12)</h2>
+              <p>Drop ad slots to capture how the postcard will look when it goes live.</p>
                     </div>
-                  )}
-                </div>
-                <div className="design-meta">
-                  {CARD_SIZES.find(s => s.value === design.card_size)?.label}
-                </div>
-              </div>
-
-              <div className="design-actions">
-                <button
-                  className="action-btn"
-                  onClick={() => handleEditDesign(design)}
-                  disabled={design.is_locked}
-                  title="Edit design"
-                >
-                  <Edit size={16} />
-                </button>
-                <button
-                  className="action-btn"
-                  onClick={() => handleDuplicateDesign(design)}
-                  title="Duplicate design"
-                >
-                  <Copy size={16} />
-                </button>
-                <button
-                  className="action-btn danger"
-                  onClick={() => handleDeleteDesign(design.id)}
-                  disabled={design.is_locked}
-                  title="Delete design"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
+            <label className="template-name-field template-name-field--center">
+              <input
+                type="text"
+                placeholder="Favorite"
+                aria-label="Template name"
+                value={templateName}
+                onChange={(event) => setTemplateName(event.target.value)}
+              />
+            </label>
+            <div className="template-header-actions">
+              <button type="button" className="btn-outline" onClick={handleClearCanvas}>
+                Clear
+                            </button>
+                            <button
+                              type="button"
+                className="btn-primary"
+                onClick={handleSaveTemplate}
+                disabled={!canSaveTemplate}
+                            >
+                Save Template
+                            </button>
             </div>
-          ))
-        )}
-        </div>
+          </div>
 
-        {showModal && selectedDesign && (
-        <DesignModal
-          design={selectedDesign}
-          onSave={handleSaveDesign}
-          onClose={() => setShowModal(false)}
-          userId={user.id}
-        />
-      )}
-      </div>
-    </PageLayout>
-  );
-}
-
-// Design Modal Component
-function DesignModal({ design, onSave, onClose, userId }) {
-  const [formData, setFormData] = useState(design);
-  const [activeTab, setActiveTab] = useState('basic');
-
-  const cardSize = CARD_SIZES.find(s => s.value === formData.card_size);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave(formData);
-  };
-
-  const handleBackgroundUpload = async (file) => {
-    const { data, error } = await storage.uploadBackground(userId, file, formData.id || 'new');
-    if (error) {
-      throw new Error('Failed to upload background');
-    }
-    setFormData({
-      ...formData,
-      background_type: 'image',
-      background_image_url: data.url
-    });
-  };
-
-  const handleAddSlot = () => {
-    const newSlot = {
-      id: `slot-${Date.now()}`,
-      size: 'medium',
-      position: `${formData.num_slots + 1}`,
-      width: 200,
-      height: 150,
-      x: 50,
-      y: 50
-    };
-    setFormData({
-      ...formData,
-      num_slots: formData.num_slots + 1,
-      slot_config: [...formData.slot_config, newSlot]
-    });
-  };
-
-  const handleRemoveSlot = (slotId) => {
-    setFormData({
-      ...formData,
-      num_slots: formData.num_slots - 1,
-      slot_config: formData.slot_config.filter(s => s.id !== slotId)
-    });
-  };
-
-  const handleUpdateSlot = (slotId, updates) => {
-    setFormData({
-      ...formData,
-      slot_config: formData.slot_config.map(s =>
-        s.id === slotId ? { ...s, ...updates } : s
-      )
-    });
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content design-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{design.id ? 'Edit Design' : 'New Design'}</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
-        </div>
-
-        <div className="modal-tabs">
+          <div className="template-tabs">
           <button
-            className={`tab ${activeTab === 'basic' ? 'active' : ''}`}
-            onClick={() => setActiveTab('basic')}
+              type="button"
+              className={`template-tab-button ${templateTab === 'canvas' ? 'active' : ''}`}
+              onClick={() => setTemplateTab('canvas')}
           >
-            Basic Info
+              Canvas
           </button>
           <button
-            className={`tab ${activeTab === 'background' ? 'active' : ''}`}
-            onClick={() => setActiveTab('background')}
+              type="button"
+              className={`template-tab-button ${templateTab === 'saved' ? 'active' : ''}`}
+              onClick={() => setTemplateTab('saved')}
           >
-            Background
-          </button>
-          <button
-            className={`tab ${activeTab === 'slots' ? 'active' : ''}`}
-            onClick={() => setActiveTab('slots')}
-          >
-            Ad Slots ({formData.num_slots})
+              Saved Templates
           </button>
         </div>
 
-        <div className="modal-body">
-          <form onSubmit={handleSubmit}>
-            {activeTab === 'basic' && (
-              <div className="form-section">
-                <div className="form-group">
-                  <label>Design Name *</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Card Size *</label>
-                  <div className="card-size-options">
-                    {CARD_SIZES.map(size => (
-                      <button
-                        key={size.value}
-                        type="button"
-                        className={`size-option ${formData.card_size === size.value ? 'active' : ''}`}
-                        onClick={() => setFormData({ ...formData, card_size: size.value })}
-                      >
-                        <div className="size-label">{size.label}</div>
-                        <div className="size-dimensions">{size.width} × {size.height}px</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+          {templateTab === 'canvas' && (
+            <>
+              <div className="canvas-container">
+                {assignedCount === 0 && (
+                  <div className="canvas-empty-state">
+                    <Plus size={32} />
+                    <p>Drag and drop ad slots here</p>
               </div>
             )}
-
-            {activeTab === 'background' && (
-              <div className="form-section">
-                <div className="form-group">
-                  <label>Background Type</label>
-                  <div className="background-type-options">
-                    <button
-                      type="button"
-                      className={`type-option ${formData.background_type === 'color' ? 'active' : ''}`}
-                      onClick={() => setFormData({ ...formData, background_type: 'color' })}
-                    >
-                      Solid Color
-                    </button>
-                    <button
-                      type="button"
-                      className={`type-option ${formData.background_type === 'gradient' ? 'active' : ''}`}
-                      onClick={() => setFormData({ ...formData, background_type: 'gradient' })}
-                    >
-                      Gradient
-                    </button>
-                    <button
-                      type="button"
-                      className={`type-option ${formData.background_type === 'image' ? 'active' : ''}`}
-                      onClick={() => setFormData({ ...formData, background_type: 'image' })}
-                    >
-                      Image
-                    </button>
-                  </div>
-                </div>
-
-                {formData.background_type === 'color' && (
-                  <div className="form-group">
-                    <label>Background Color</label>
-                    <div className="color-picker-group">
-                      <input
-                        type="color"
-                        value={formData.background_color || '#ffffff'}
-                        onChange={(e) => setFormData({ ...formData, background_color: e.target.value })}
-                      />
-                      <input
-                        type="text"
-                        value={formData.background_color || '#ffffff'}
-                        onChange={(e) => setFormData({ ...formData, background_color: e.target.value })}
-                        placeholder="#ffffff"
-                      />
-                    </div>
-                  </div>
+                <div className="canvas-sections">
+                  {Array.from({ length: GRID_SECTION_COUNT }).map((_, sectionIndex) => {
+                    const sectionStart = sectionIndex * CELLS_PER_SECTION;
+                    const sectionCells = gridCells.slice(
+                      sectionStart,
+                      sectionStart + CELLS_PER_SECTION
+                    );
+                    return (
+                      <div key={`section-${sectionIndex}`} className="canvas-section">
+                        <div className="canvas-grid">
+                          {sectionCells.map(cell => {
+                            const placement = placementMap[cell.placementId];
+                            const slot = placement ? slotMap[placement.slotId] : null;
+                            const isPrimary = placement?.cellIds?.[0] === cell.id;
+                            return (
+                              <div
+                                key={cell.id}
+                                className={`canvas-cell ${slot ? 'canvas-cell--filled' : ''} ${
+                                  highlightedCellId === cell.id ? 'canvas-cell--highlighted' : ''
+                                } ${
+                                  !slot && activePlacement && remainingCells > 0 ? 'canvas-cell--targetable' : ''
+                                }`}
+                                onClick={() => handleCanvasCellClick(cell)}
+                                onDragOver={handleDragOverCell}
+                                onDragEnter={() => setHighlightedCellId(cell.id)}
+                                onDragLeave={() => setHighlightedCellId(null)}
+                                onDrop={(event) => handleDropOnCell(event, cell.id)}
+                              >
+                                {!slot && <span className="canvas-cell-hint">Drop here</span>}
+                                {slot && (
+                        <div className={`canvas-slot ${isPrimary ? 'canvas-slot--primary' : 'canvas-slot--secondary'}`}>
+                          {isPrimary ? (
+                            <div
+                              className="canvas-slot-inner"
+                              style={{ background: slot.color ?? '#f8fafc' }}
+                            >
+                              <div className="slot-option-left">
+                                <div className="slot-plus">+</div>
+                                <div className="slot-option-title">
+                                  <p className="slot-option-label">{slot.label}</p>
+                                  <span className="slot-option-price">
+                                    ${slot.price.toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                className="slot-option-price-edit-btn canvas-slot-delete"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleCellRemoveAssignment(cell.id);
+                                }}
+                                aria-label={`Remove ${slot.label}`}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="canvas-slot-secondary-label">
+                              Continues
+                            </span>
+                          )}
+                        </div>
                 )}
-
-                {formData.background_type === 'gradient' && (
-                  <>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>From Color</label>
-                        <input
-                          type="color"
-                          value={formData.background_gradient?.from || '#ffffff'}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            background_gradient: {
-                              ...formData.background_gradient,
-                              from: e.target.value
-                            }
+                              </div>
+                            );
                           })}
-                        />
+                        </div>
                       </div>
-                      <div className="form-group">
-                        <label>To Color</label>
-                        <input
-                          type="color"
-                          value={formData.background_gradient?.to || '#ffffff'}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            background_gradient: {
-                              ...formData.background_gradient,
-                              to: e.target.value
-                            }
+                    );
                           })}
-                        />
                       </div>
                     </div>
-                    <div className="form-group">
-                      <label>Direction</label>
-                      <select
-                        value={formData.background_gradient?.direction || 'to right'}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          background_gradient: {
-                            ...formData.background_gradient,
-                            direction: e.target.value
-                          }
-                        })}
-                      >
-                        <option value="to right">Left to Right</option>
-                        <option value="to left">Right to Left</option>
-                        <option value="to bottom">Top to Bottom</option>
-                        <option value="to top">Bottom to Top</option>
-                        <option value="to bottom right">Diagonal ↘</option>
-                        <option value="to bottom left">Diagonal ↙</option>
-                      </select>
+
+              <div className="template-stats">
+                <p>{assignedCount}/{gridCells.length} slots placed</p>
+                <p>Use the canvas to model what the finished card will look like.</p>
+                {activePlacement && remainingCells > 0 && (
+                  <p className="canvas-helper-text">
+                    Select {remainingCells} more cell{remainingCells === 1 ? '' : 's'} for slot {slotMap[activePlacement.slotId]?.label}.
+                  </p>
+                )}
                     </div>
                   </>
                 )}
 
-                {formData.background_type === 'image' && (
-                  <div className="form-group">
-                    <label>Background Image</label>
-                    <p className="form-hint">
-                      Upload a {cardSize?.label} image ({cardSize?.width} × {cardSize?.height}px recommended)
-                    </p>
-                    <ImageUploader
-                      onUpload={handleBackgroundUpload}
-                      currentImage={formData.background_image_url}
-                      width={cardSize?.width / 2}
-                      height={cardSize?.height / 2}
-                      label="Upload Background"
-                    />
-                  </div>
-                )}
+          {templateTab === 'saved' && (
+            <div className="saved-templates">
+              <div className="saved-templates-header">
+                <h3>Saved Templates</h3>
+                <p>The templates you save will appear here for future campaigns.</p>
               </div>
-            )}
-
-            {activeTab === 'slots' && (
-              <div className="form-section">
-                <div className="slots-header">
-                  <p className="form-hint">
-                    Configure ad slot positions and sizes. Each slot can be assigned to a client in your campaigns.
-                  </p>
-                  <button
-                    type="button"
-                    className="btn-secondary btn-sm"
-                    onClick={handleAddSlot}
-                  >
-                    <Plus size={16} />
-                    Add Slot
-                  </button>
+              {savedTemplates.length === 0 ? (
+                <div className="saved-empty">
+                  <p>No templates saved yet.</p>
                 </div>
-
-                <div className="slots-list">
-                  {formData.slot_config.map((slot, index) => (
-                    <div key={slot.id} className="slot-config-item">
-                      <div className="slot-number">#{index + 1}</div>
-                      
-                      <div className="slot-fields">
-                        <div className="form-group">
-                          <label>Size</label>
-                          <select
-                            value={slot.size}
-                            onChange={(e) => handleUpdateSlot(slot.id, { size: e.target.value })}
-                          >
-                            {SLOT_SIZES.map(size => (
-                              <option key={size} value={size}>{size}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="form-group">
-                          <label>Width (px)</label>
-                          <input
-                            type="number"
-                            value={slot.width}
-                            onChange={(e) => handleUpdateSlot(slot.id, { width: parseInt(e.target.value) })}
-                            min="50"
-                            max={cardSize?.width}
-                          />
-                        </div>
-
-                        <div className="form-group">
-                          <label>Height (px)</label>
-                          <input
-                            type="number"
-                            value={slot.height}
-                            onChange={(e) => handleUpdateSlot(slot.id, { height: parseInt(e.target.value) })}
-                            min="50"
-                            max={cardSize?.height}
-                          />
-                        </div>
-
-                        <div className="form-group">
-                          <label>X Position</label>
-                          <input
-                            type="number"
-                            value={slot.x}
-                            onChange={(e) => handleUpdateSlot(slot.id, { x: parseInt(e.target.value) })}
-                            min="0"
-                            max={cardSize?.width}
-                          />
-                        </div>
-
-                        <div className="form-group">
-                          <label>Y Position</label>
-                          <input
-                            type="number"
-                            value={slot.y}
-                            onChange={(e) => handleUpdateSlot(slot.id, { y: parseInt(e.target.value) })}
-                            min="0"
-                            max={cardSize?.height}
-                          />
-                        </div>
+              ) : (
+                <div className="saved-list">
+                  {savedTemplates.map(template => (
+                    <div key={template.id} className="saved-template-card">
+                      <div>
+                        <strong>{template.name}</strong>
+                        <p>{template.slotCount} slots · {formatDateLabel(template.savedAt)}</p>
                       </div>
-
                       <button
                         type="button"
-                        className="remove-slot-btn"
-                        onClick={() => handleRemoveSlot(slot.id)}
+                        onClick={() => handleDeleteTemplate(template.id)}
+                        aria-label={`Delete ${template.name}`}
                       >
                         <Trash2 size={16} />
                       </button>
                     </div>
                   ))}
-                </div>
               </div>
             )}
-
-            <div className="form-actions">
-              <button type="submit" className="btn-primary">
-                {design.id ? 'Save Changes' : 'Create Design'}
-              </button>
-              <button type="button" className="btn-secondary" onClick={onClose}>
-                Cancel
-              </button>
             </div>
-          </form>
-        </div>
+          )}
+        </section>
       </div>
-    </div>
+    </PageLayout>
   );
-}
-
-// Helper function to generate default slot configuration
-function generateDefaultSlots(count) {
-  const slots = [];
-  for (let i = 0; i < count; i++) {
-    slots.push({
-      id: `slot-${i + 1}`,
-      size: i < 5 ? 'large' : i < 12 ? 'medium' : 'small',
-      position: `${i + 1}`,
-      width: i < 5 ? 300 : i < 12 ? 200 : 150,
-      height: i < 5 ? 250 : i < 12 ? 150 : 100,
-      x: 50 + (i % 3) * 250,
-      y: 50 + Math.floor(i / 3) * 200
-    });
-  }
-  return slots;
 }
 
 export default Designs;

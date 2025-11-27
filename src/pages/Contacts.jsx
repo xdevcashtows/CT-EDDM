@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
   Search, 
-  Filter,
   Edit,
   Trash2,
   Upload,
@@ -15,7 +14,8 @@ import {
   XCircle,
   Clock,
   LayoutGrid,
-  List
+  List,
+  Columns
 } from 'lucide-react';
 import './Contacts.css';
 import { contacts as contactsAPI, niches as nichesAPI, clientAds, activities } from '../lib/api';
@@ -30,8 +30,16 @@ const PIPELINE_STAGES = [
   { value: 'qualified', label: 'Qualified', color: '#f59e0b' },
   { value: 'proposal_sent', label: 'Proposal Sent', color: '#ec4899' },
   { value: 'negotiating', label: 'Negotiating', color: '#8b5cf6' },
+  { value: 'won', label: 'Won', color: '#0ea5e9' },
   { value: 'active', label: 'Active', color: '#22c55e' },
-  { value: 'past', label: 'Past Client', color: '#64748b' }
+  { value: 'past', label: 'Past Client', color: '#64748b' },
+  { value: 'lost', label: 'Lost', color: '#dc2626' }
+];
+
+const TEMPERATURE_OPTIONS = [
+  { value: 'hot', label: 'Hot' },
+  { value: 'warm', label: 'Warm' },
+  { value: 'cold', label: 'Cold' }
 ];
 
 const ALLOWED_CONTACT_FIELDS = [
@@ -46,6 +54,7 @@ const ALLOWED_CONTACT_FIELDS = [
   'zip',
   'niche_id',
   'stage',
+  'temperature',
   'notes',
   'tags',
   'first_contact_date',
@@ -61,6 +70,11 @@ const sanitizeContactPayload = (contact = {}) => {
     }
   });
   return payload;
+};
+
+const formatTemperatureLabel = (value) => {
+  if (!value) return 'Warm';
+  return value.charAt(0).toUpperCase() + value.slice(1);
 };
 
 function Contacts() {
@@ -135,6 +149,7 @@ function Contacts() {
       zip: '',
       niche_id: null,
       stage: 'lead',
+      temperature: 'warm',
       notes: ''
     });
     setContactAds([]);
@@ -326,49 +341,122 @@ function Contacts() {
             <List size={16} />
             <span>List</span>
           </button>
+          <button
+            type="button"
+            className={`view-toggle-button ${viewMode === 'pipeline' ? 'active' : ''}`}
+            onClick={() => setViewMode('pipeline')}
+            title="Pipeline view"
+          >
+            <Columns size={16} />
+            <span>Pipeline</span>
+          </button>
         </div>
       </div>
 
-      {/* Contacts Grid */}
-      <div className={`contacts-grid ${viewMode === 'list' ? 'list-view' : ''}`}>
-        {filteredContacts.length === 0 ? (
+      {/* Contacts Content */}
+      {viewMode === 'pipeline' ? (
+        filteredContacts.length === 0 ? (
           <div className="empty-state">
             <p>No contacts found</p>
           </div>
-        ) : viewMode === 'grid' ? (
-          filteredContacts.map(contact => (
-            <div
-              key={contact.id}
-              className="contact-card"
-              onClick={() => handleContactClick(contact)}
-            >
-              <div className="contact-header">
-                <div className="contact-avatar">
-                  {contact.business_name?.charAt(0) || '?'}
-                </div>
-                <div className="contact-info">
-                  <div className="contact-name">{contact.business_name}</div>
-                  <div className="contact-owner">{contact.owner_name}</div>
-                </div>
-              </div>
-              
-              <div className="contact-details">
-                {contact.email && (
-                  <div className="contact-detail">
-                    <Mail size={14} />
-                    <span>{contact.email}</span>
+        ) : (
+          <div className="contacts-kanban">
+            <div className="contacts-kanban-board">
+              {PIPELINE_STAGES.map(stage => {
+                const stageContacts = filteredContacts.filter(c => c.stage === stage.value);
+                return (
+                  <div key={stage.value} className="contacts-kanban-column">
+                  <div className="contacts-kanban-column-header">
+                      <div>
+                        <h3>{stage.label}</h3>
+                        <p>{stageContacts.length} contact{stageContacts.length === 1 ? '' : 's'}</p>
+                      </div>
+                      <span
+                        className="contacts-kanban-column-count"
+                        style={{ background: stage.color + '20', color: stage.color }}
+                      >
+                        {stageContacts.length}
+                      </span>
+                    </div>
+                    <div className="contacts-kanban-column-body">
+                      {stageContacts.length === 0 ? (
+                        <div className="contacts-kanban-column-empty">
+                          <p>No contacts in this stage.</p>
+                        </div>
+                      ) : (
+                        stageContacts.map(contact => {
+                          const locationParts = [];
+                          if (contact.city) locationParts.push(contact.city);
+                          if (contact.state) locationParts.push(contact.state);
+                          const locationLabel = locationParts.length ? locationParts.join(', ') : '—';
+                          return (
+                            <div
+                              key={contact.id}
+                              className="contact-kanban-card"
+                              onClick={() => handleContactClick(contact)}
+                            >
+                              <div className="contact-kanban-card__top">
+                                <div>
+                                  <div className="contact-kanban-business">{contact.business_name}</div>
+                                  <div className="contact-kanban-location">{locationLabel}</div>
+                                </div>
+                                <div
+                                  className={`contact-temperature contact-temperature--${contact.temperature || 'warm'}`}
+                                >
+                                  {formatTemperatureLabel(contact.temperature)}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
-                )}
-                {contact.phone && (
-                  <div className="contact-detail">
-                    <Phone size={14} />
-                    <span>{contact.phone}</span>
+                );
+              })}
+            </div>
+          </div>
+        )
+      ) : (
+        <div className={`contacts-grid ${viewMode === 'list' ? 'list-view' : ''}`}>
+          {filteredContacts.length === 0 ? (
+            <div className="empty-state">
+              <p>No contacts found</p>
+            </div>
+          ) : viewMode === 'grid' ? (
+            filteredContacts.map(contact => (
+              <div
+                key={contact.id}
+                className="contact-card"
+                onClick={() => handleContactClick(contact)}
+              >
+                <div className="contact-header">
+                  <div className="contact-avatar">
+                    {contact.business_name?.charAt(0) || '?'}
                   </div>
-                )}
-                {contact.niche?.name && (
-                  <div className="contact-niche">{contact.niche.name}</div>
-                )}
-              </div>
+                  <div className="contact-info">
+                    <div className="contact-name">{contact.business_name}</div>
+                    <div className="contact-owner">{contact.owner_name}</div>
+                  </div>
+                </div>
+                
+                <div className="contact-details">
+                  {contact.email && (
+                    <div className="contact-detail">
+                      <Mail size={14} />
+                      <span>{contact.email}</span>
+                    </div>
+                  )}
+                  {contact.phone && (
+                    <div className="contact-detail">
+                      <Phone size={14} />
+                      <span>{contact.phone}</span>
+                    </div>
+                  )}
+                  {contact.niche?.name && (
+                    <div className="contact-niche">{contact.niche.name}</div>
+                  )}
+                </div>
 
               <div className="contact-footer">
                 <div
@@ -380,53 +468,58 @@ function Contacts() {
                 >
                   {PIPELINE_STAGES.find(s => s.value === contact.stage)?.label}
                 </div>
+                <div
+                  className={`contact-temperature contact-temperature--${contact.temperature || 'warm'}`}
+                >
+                  {formatTemperatureLabel(contact.temperature)}
+                </div>
               </div>
-            </div>
-          ))
-        ) : (
-          <div className="contact-list">
-            <div className="contact-list-header">
-              <span>Business</span>
-              <span>Contact</span>
-              <span>Location</span>
-              <span>Stage</span>
-            </div>
-            {filteredContacts.map(contact => (
-              <div
-                key={contact.id}
-                className="contact-list-row"
-                onClick={() => handleContactClick(contact)}
-              >
-                <div className="contact-list-cell">
-                  <div className="contact-name">{contact.business_name}</div>
-                  <div className="contact-owner">{contact.owner_name}</div>
-                </div>
-                <div className="contact-list-cell">
-                  {contact.email && (
-                    <div className="contact-detail list-detail">
-                      <Mail size={14} />
-                      <span>{contact.email}</span>
-                    </div>
-                  )}
-                  {contact.phone && (
-                    <div className="contact-detail list-detail">
-                      <Phone size={14} />
-                      <span>{contact.phone}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="contact-list-cell">
-                  <div className="contact-detail list-detail">
-                    <MapPin size={14} />
-                    <span>{contact.city || '—'}, {contact.state || '—'}</span>
+              </div>
+            ))
+          ) : (
+            <div className="contact-list">
+              <div className="contact-list-header">
+                <span>Business</span>
+                <span>Contact</span>
+                <span>Location</span>
+                <span>Stage</span>
+              </div>
+              {filteredContacts.map(contact => (
+                <div
+                  key={contact.id}
+                  className="contact-list-row"
+                  onClick={() => handleContactClick(contact)}
+                >
+                  <div className="contact-list-cell">
+                    <div className="contact-name">{contact.business_name}</div>
+                    <div className="contact-owner">{contact.owner_name}</div>
                   </div>
-                  {contact.address && (
-                    <div className="contact-detail list-detail secondary">
-                      <span>{contact.address}</span>
+                  <div className="contact-list-cell">
+                    {contact.email && (
+                      <div className="contact-detail list-detail">
+                        <Mail size={14} />
+                        <span>{contact.email}</span>
+                      </div>
+                    )}
+                    {contact.phone && (
+                      <div className="contact-detail list-detail">
+                        <Phone size={14} />
+                        <span>{contact.phone}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="contact-list-cell">
+                    <div className="contact-detail list-detail">
+                      <MapPin size={14} />
+                      <span>{contact.city || '—'}, {contact.state || '—'}</span>
                     </div>
-                  )}
-                </div>
-                <div className="contact-list-cell contact-list-stage">
+                    {contact.address && (
+                      <div className="contact-detail list-detail secondary">
+                        <span>{contact.address}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="contact-list-cell contact-list-stage">
                   <div
                     className="contact-stage contact-stage--list"
                     style={{
@@ -436,12 +529,18 @@ function Contacts() {
                   >
                     {PIPELINE_STAGES.find(s => s.value === contact.stage)?.label}
                   </div>
+                  <div
+                    className={`contact-temperature contact-temperature--${contact.temperature || 'warm'} contact-temperature--list`}
+                  >
+                    {formatTemperatureLabel(contact.temperature)}
+                  </div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Contact Detail Modal */}
       {showModal && selectedContact && (
@@ -629,6 +728,17 @@ function ContactModal({
                   >
                     {PIPELINE_STAGES.map(stage => (
                       <option key={stage.value} value={stage.value}>{stage.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Lead Temperature</label>
+                  <select
+                    value={formData.temperature || 'warm'}
+                    onChange={(e) => setFormData({ ...formData, temperature: e.target.value })}
+                  >
+                    {TEMPERATURE_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
                   </select>
                 </div>

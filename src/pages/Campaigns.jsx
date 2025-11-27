@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, CheckCircle, Play, Pause } from 'lucide-react';
+import { Plus, Trash2, CheckCircle } from 'lucide-react';
 import './Campaigns.css';
 import { 
   campaigns as campaignsAPI, 
@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import PageLayout from '../components/PageLayout';
 import { enrichSavedRoutesWithLock } from '../utils/routeLocking';
+import { getMockLayoutForDesign, getDefaultMockLayout } from '../utils/mockLayouts';
 
 const CAMPAIGN_STATUSES = [
   { value: 'draft', label: 'Draft', color: '#64748b' },
@@ -25,6 +26,11 @@ const CAMPAIGN_STATUSES = [
   { value: 'completed', label: 'Completed', color: '#22c55e' },
   { value: 'cancelled', label: 'Cancelled', color: '#ef4444' }
 ];
+
+const cloneLayout = (layout = getDefaultMockLayout('9x12')) => ({
+  front: { ...layout.front },
+  back: { ...layout.back }
+});
 
 function Campaigns() {
   const { user } = useAuth();
@@ -82,6 +88,15 @@ function Campaigns() {
       } else {
         alert('Failed to complete campaign');
       }
+    }
+  };
+
+  const handleStatusChange = async (campaignId, statusValue) => {
+    const { error } = await campaignsAPI.update(campaignId, { status: statusValue });
+    if (!error) {
+      await loadCampaigns();
+    } else {
+      alert('Failed to update campaign status');
     }
   };
 
@@ -153,6 +168,7 @@ function Campaigns() {
               onEdit={handleEditCampaign}
               onDelete={handleDeleteCampaign}
               onComplete={handleCompleteCampaign}
+              onStatusChange={handleStatusChange}
             />
           ))
         )}
@@ -171,40 +187,201 @@ function Campaigns() {
   );
 }
 
-// Campaign Card Component
-function CampaignCard({ campaign, onEdit, onDelete, onComplete }) {
-  const status = CAMPAIGN_STATUSES.find(s => s.value === campaign.status);
+function AdvertiserRoster({ slots, campaign, slotDiscounts, onDiscountChange }) {
+  const committedSlots = slots.filter(slot => slot.contact);
+  const priceLookup = {
+    small: Number(campaign?.price_small) || 0,
+    medium: Number(campaign?.price_medium) || 0,
+    large: Number(campaign?.price_large) || 0
+  };
+
+  if (!committedSlots.length) {
+    return <p className="form-hint">No advertisers signed up yet.</p>;
+  }
 
   return (
-    <div className="campaign-card">
-      <div className="campaign-header">
+    <div className="advertiser-roster">
+      {committedSlots.map(slot => {
+        const discount = slotDiscounts[slot.id] ?? 0;
+        const basePrice = priceLookup[slot.slot_size] || 0;
+        const finalRate = Math.max(basePrice - (basePrice * (discount / 100)), 0);
+        return (
+          <div key={slot.id} className="advertiser-row">
+            <div className="advertiser-row__meta">
+              <div>
+                <strong>{slot.slot_position}</strong>
+                <span className="slot-size-label">{slot.slot_size}</span>
+              </div>
+              <div>
+                <strong>{slot.contact?.business_name || 'Advertiser'}</strong>
+                <span>{slot.contact?.email || 'Email unknown'}</span>
+              </div>
+            </div>
+            <div className="advertiser-row__pricing">
+              <div className="price-cell">
+                <span className="price-label">Base</span>
+                <strong>${basePrice.toFixed(2)}</strong>
+              </div>
+              <div className="price-cell">
+                <span className="price-label">Discount (%)</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={discount}
+                  onChange={(e) => onDiscountChange(slot.id, e.target.value)}
+                />
+              </div>
+              <div className="price-cell">
+                <span className="price-label">Final rate</span>
+                <strong>${finalRate.toFixed(2)}</strong>
+              </div>
+            </div>
+            <div className="advertiser-row__ad">
+              {slot.client_ad?.image_url ? (
+                <img src={slot.client_ad.image_url} alt={slot.client_ad.name || 'Client ad'} />
+              ) : (
+                <div className="advertiser-row__ad-placeholder">
+                  <span>No ad assigned</span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MockDisplay({ counts, caps, onAdjust }) {
+  const sizeLabels = { small: 'Small', medium: 'Medium', large: 'Large' };
+  return (
+    <div className="mock-display">
+      <div className="mock-display__grid">
+        {['front', 'back'].map(side => (
+          <div key={side} className="mock-display__side">
+            <div className="mock-display__side-header">
+              <strong>{side === 'front' ? 'Front Side' : 'Back Side'}</strong>
+              <span>
+                Max spots:{' '}
+                {caps?.[side]
+                  ? Object.values(caps[side]).reduce((total, value) => total + (value || 0), 0)
+                  : 0}
+              </span>
+            </div>
+            <div className="mock-display__body">
+              {['small', 'medium', 'large'].map(size => {
+                const count = counts?.[side]?.[size] ?? 0;
+                const cap = caps?.[side]?.[size] ?? 0;
+                return (
+                  <div key={`${side}-${size}`} className="mock-display__row">
+                    <div>
+                      <strong>{sizeLabels[size]} spot</strong>
+                      <p className="mock-display__hint">{cap} max</p>
+                    </div>
+                    <div className="mock-display__controls">
+                      <button
+                        type="button"
+                        onClick={() => onAdjust(side, size, -1)}
+                        disabled={count <= 0}
+                      >
+                        −
+                      </button>
+                      <span>{count}</span>
+                      <button
+                        type="button"
+                        onClick={() => onAdjust(side, size, 1)}
+                        disabled={count >= cap}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Campaign Card Component
+function CampaignCard({ campaign, onEdit, onDelete, onComplete, onStatusChange }) {
+  const status = CAMPAIGN_STATUSES.find(s => s.value === campaign.status);
+  const routeCount = campaign.route_snapshot?.length || 0;
+  const routeHouseholds = campaign.total_households || 0;
+  const designName = campaign.design_snapshot?.name || 'Design pending';
+  const designSize = campaign.design_snapshot?.card_size;
+  const mailDateLabel = campaign.mail_date
+    ? new Date(campaign.mail_date).toLocaleDateString()
+    : 'TBD';
+  const pieces = campaign.total_pieces || 0;
+
+  const handleStatusSelect = (event) => {
+    const nextStatus = event.target.value;
+    if (onStatusChange && nextStatus !== campaign.status) {
+      onStatusChange(campaign.id, nextStatus);
+    }
+  };
+
+  const handleCardClick = () => {
+    if (onEdit) onEdit(campaign);
+  };
+
+  const handleCardKeyDown = (event) => {
+    if ((event.key === 'Enter' || event.key === ' ') && onEdit) {
+      event.preventDefault();
+      onEdit(campaign);
+    }
+  };
+
+  return (
+    <div
+      className="campaign-card"
+      onClick={handleCardClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={handleCardKeyDown}
+    >
+      <div className="campaign-card__header">
         <div>
           <h3 className="campaign-name">{campaign.name}</h3>
           <div className="campaign-meta">
-            {campaign.city?.name || 'No city'} • {campaign.total_pieces || 0} pieces
-            {campaign.mail_date && ` • Mail: ${new Date(campaign.mail_date).toLocaleDateString()}`}
+            {campaign.city?.name || 'No city'} • {pieces} pieces
           </div>
         </div>
-        <div className="campaign-header-actions">
-        <div
-          className="campaign-status"
-          style={{ background: status?.color + '20', color: status?.color }}
-        >
-          {status?.label}
+
+        <div className="campaign-card__status-actions">
+          <div
+            className="campaign-status"
+            style={{ background: status?.color + '20', color: status?.color }}
+          >
+            {status?.label}
           </div>
+          <select
+            className="campaign-card__status-select"
+            value={campaign.status}
+            onChange={handleStatusSelect}
+            onClick={(e) => e.stopPropagation()}
+            aria-label="Update campaign status"
+          >
+            {CAMPAIGN_STATUSES.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
           <div className="header-action-buttons">
-            <button
-              className="header-action-btn"
-              onClick={() => onEdit(campaign)}
-              disabled={campaign.status === 'completed'}
-              aria-label="Edit campaign"
-            >
-              <Edit size={16} />
-            </button>
             {campaign.status !== 'completed' && (
               <button
                 className="header-action-btn header-action-btn--success"
-                onClick={() => onComplete(campaign.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onComplete(campaign.id);
+                }}
                 aria-label="Mark campaign complete"
               >
                 <CheckCircle size={16} />
@@ -212,7 +389,10 @@ function CampaignCard({ campaign, onEdit, onDelete, onComplete }) {
             )}
             <button
               className="header-action-btn header-action-btn--danger"
-              onClick={() => onDelete(campaign.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(campaign.id);
+              }}
               disabled={campaign.status === 'completed'}
               aria-label="Delete campaign"
             >
@@ -222,17 +402,37 @@ function CampaignCard({ campaign, onEdit, onDelete, onComplete }) {
         </div>
       </div>
 
-      <div className="campaign-pricing">
+      <div className="campaign-card__grid">
+        <div className="campaign-card__stat">
+          <span>Route summary</span>
+          <strong>{routeCount} route{routeCount === 1 ? '' : 's'}</strong>
+          <small>
+            {routeHouseholds ? `${routeHouseholds} households` : 'Route data missing'}
+          </small>
+        </div>
+        <div className="campaign-card__stat">
+          <span>Design</span>
+          <strong>{designName}</strong>
+          {designSize && <small>{designSize}</small>}
+        </div>
+        <div className="campaign-card__stat">
+          <span>Mail date</span>
+          <strong>{mailDateLabel}</strong>
+          <small>{pieces ? `${pieces} pieces scheduled` : 'Pricing pending'}</small>
+        </div>
+      </div>
+
+      <div className="campaign-card__pricing-grid">
         <div className="price-item">
-          <span className="price-label">Small:</span>
+          <span className="price-label">Small</span>
           <span className="price-value">${campaign.price_small || 0}</span>
         </div>
         <div className="price-item">
-          <span className="price-label">Medium:</span>
+          <span className="price-label">Medium</span>
           <span className="price-value">${campaign.price_medium || 0}</span>
         </div>
         <div className="price-item">
-          <span className="price-label">Large:</span>
+          <span className="price-label">Large</span>
           <span className="price-value">${campaign.price_large || 0}</span>
         </div>
       </div>
@@ -242,7 +442,6 @@ function CampaignCard({ campaign, onEdit, onDelete, onComplete }) {
 
 // Campaign Modal Component
 function CampaignModal({ campaign, userId, onClose, onSave }) {
-  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState(campaign || {
     name: '',
     saved_route_id: null,
@@ -254,6 +453,9 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     mail_date: '',
     notes: ''
   });
+  const defaultMockLayout = getDefaultMockLayout('9x12');
+  const [mockDisplayCounts, setMockDisplayCounts] = useState(cloneLayout(defaultMockLayout));
+  const [slotDiscounts, setSlotDiscounts] = useState({});
 
   const [savedRoutes, setSavedRoutes] = useState([]);
   const [designs, setDesigns] = useState([]);
@@ -267,7 +469,10 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     selectedTag: '',
     selectedContacts: [],
     sendNow: true,
-    scheduledAt: ''
+    scheduledAt: '',
+    subject: '',
+    body_html: '',
+    body_text: ''
   });
   const [loading, setLoading] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
@@ -300,7 +505,14 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         )
       );
     }
-    if (!designsRes.error) setDesigns(designsRes.data || []);
+    if (!designsRes.error) {
+      setDesigns(
+        (designsRes.data || []).map(design => ({
+          ...design,
+          mock_layout: getMockLayoutForDesign(design.id, design.card_size)
+        }))
+      );
+    }
     if (!contactsRes.error) setContacts(contactsRes.data || []);
     if (!nichesRes.error) setNiches(nichesRes.data || []);
     if (!templatesRes.error) setEmailTemplates(templatesRes.data || []);
@@ -313,6 +525,13 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
 
   const selectedRoute = savedRoutes.find(r => r.id === formData.saved_route_id);
   const selectedDesign = designs.find(d => d.id === formData.design_id);
+  const designLayout = selectedDesign
+    ? (selectedDesign.mock_layout || getMockLayoutForDesign(selectedDesign.id, selectedDesign.card_size))
+    : defaultMockLayout;
+
+  useEffect(() => {
+    setMockDisplayCounts(cloneLayout(designLayout));
+  }, [designLayout]);
   
   const selectableContacts = contacts
     .filter(contact => contact.email)
@@ -347,18 +566,62 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
 
   const scheduleMinValue = getLocalDateTimeValue();
 
+  const slotRateFields = [
+    { key: 'price_small', title: 'Small Slot', subtitle: '1-slot placement' },
+    { key: 'price_medium', title: 'Medium Slot', subtitle: '2-slot cluster' },
+    { key: 'price_large', title: 'Large Slot', subtitle: 'Premium spread' }
+  ];
+
+  const updatePrice = (field, rawValue) => {
+    const parsed = rawValue === '' ? 0 : parseFloat(rawValue);
+    setFormData(prev => ({
+      ...prev,
+      [field]: Number.isNaN(parsed) ? 0 : parsed
+    }));
+  };
+
+  const handleDiscountChange = (slotId, rawValue) => {
+    const parsed = parseFloat(rawValue);
+    const nextValue = Number.isNaN(parsed) ? 0 : Math.min(Math.max(parsed, 0), 100);
+    setSlotDiscounts(prev => ({ ...prev, [slotId]: nextValue }));
+  };
+
+  const handleAdjustMockSpot = (side, size, delta) => {
+    setMockDisplayCounts(prev => {
+      const currentValue = prev?.[side]?.[size] ?? 0;
+      const maxValue = designLayout?.[side]?.[size] ?? 0;
+      const nextValue = Math.min(Math.max(currentValue + delta, 0), maxValue);
+      return {
+        ...prev,
+        [side]: {
+          ...prev[side],
+          [size]: nextValue
+        }
+      };
+    });
+  };
+
   const handleSubmit = async () => {
+    const trimmedName = formData.name?.trim();
+    if (!trimmedName) {
+      alert('Please name your campaign before saving.');
+      return;
+    }
+    if (!formData.saved_route_id || !formData.design_id) {
+      alert('Please select a route and a design for the campaign.');
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (campaign?.id) {
-        // Update existing
-        const { error } = await campaignsAPI.update(campaign.id, formData);
+        const { error } = await campaignsAPI.update(campaign.id, { ...formData, name: trimmedName });
         if (error) throw error;
       } else {
-        // Create new with snapshots
         const campaignData = {
           ...formData,
+          name: trimmedName,
           user_id: userId,
           route_snapshot: selectedRoute?.routes || [],
           design_snapshot: selectedDesign || {},
@@ -369,7 +632,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         const { data: newCampaign, error } = await campaignsAPI.create(campaignData);
         if (error) throw error;
 
-        // Create ad slots based on design
         if (newCampaign && selectedDesign?.slot_config) {
           for (const slotConfig of selectedDesign.slot_config) {
             await adSlotsAPI.create({
@@ -385,12 +647,10 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           }
         }
 
-        // Lock the saved route
         if (formData.saved_route_id) {
           await savedRoutesAPI.lock(formData.saved_route_id);
         }
 
-        // Create linked email campaign when configured
         await createEmailCampaignIfConfigured(newCampaign.id);
       }
 
@@ -457,6 +717,17 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     }));
   };
 
+  const handleTemplateChange = (templateId) => {
+    const template = emailTemplates.find(t => t.id === templateId);
+    setEmailForm(prev => ({
+      ...prev,
+      templateId,
+      subject: template?.subject || '',
+      body_html: template?.body_html || '',
+      body_text: template?.body_text || template?.body_html || ''
+    }));
+  };
+
   const toggleEmailContact = (contactId) => {
     setEmailForm(prev => {
       const alreadySelected = prev.selectedContacts.includes(contactId);
@@ -519,14 +790,18 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
 
     if (!scheduledDate || Number.isNaN(scheduledDate.getTime())) return;
 
+    const emailSubject = emailForm.subject || template.subject;
+    const emailBodyHtml = emailForm.body_html || template.body_html;
+    const emailBodyText = emailForm.body_text || template.body_text || emailBodyHtml;
+
     const payload = {
       user_id: userId,
       campaign_id: campaignId,
       template_id: template.id,
       name: `${formData.name || 'Campaign'} - ${template.name}`,
-      subject: template.subject,
-      body_html: template.body_html,
-      body_text: template.body_text || template.body_html,
+      subject: emailSubject,
+      body_html: emailBodyHtml,
+      body_text: emailBodyText,
       target_contacts: recipients,
       target_stage: targetStage,
       send_type: emailForm.sendNow ? 'immediate' : 'scheduled',
@@ -541,6 +816,284 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     }
   };
 
+  const routeStepContent = (
+    <div className="form-section">
+      <div className="route-grid">
+        <div className="form-group">
+          <label>Select Route *</label>
+          <select
+            value={formData.saved_route_id || ''}
+            onChange={(e) => setFormData({ ...formData, saved_route_id: e.target.value })}
+            required
+          >
+            <option value="">Choose a saved route...</option>
+            {savedRoutes.filter(r => !r.is_locked).map(route => (
+              <option key={route.id} value={route.id}>
+                {route.name} ({route.total_households || 0} households)
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>Design Template *</label>
+          <select
+            value={formData.design_id || ''}
+            onChange={(e) => setFormData({ ...formData, design_id: e.target.value })}
+            required
+          >
+            <option value="">Choose a design...</option>
+            {designs.filter(d => !d.is_locked).map(design => (
+              <option key={design.id} value={design.id}>
+                {design.name} ({design.card_size}, {design.num_slots} slots)
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {(selectedRoute || selectedDesign) && (
+        <div className="route-preview-grid">
+          {selectedRoute && (
+            <div className="route-preview">
+              <strong>{selectedRoute.routes?.length || 0} routes</strong> •
+              <strong> {selectedRoute.total_households || 0} households</strong> •
+              <strong> ${selectedRoute.total_cost || 0}</strong>
+            </div>
+          )}
+          {selectedDesign && (
+            <div className="design-preview">
+              <strong>{selectedDesign.name}</strong> • 
+              <strong>{selectedDesign.card_size}</strong> • 
+              <strong>{selectedDesign.num_slots} slots</strong>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const pricingStepContent = (
+    <div className="form-section pricing-panel">
+      <div className="pricing-panel__header">
+        <div>
+          <h3>Slot Pricing</h3>
+          <p className="form-hint">Set the price for each slot size so clients know what to expect.</p>
+        </div>
+        <p className="pricing-panel__tip">Adjusting these values updates campaign totals immediately.</p>
+      </div>
+
+      <div className="pricing-grid pricing-grid--auto">
+        {slotRateFields.map(field => (
+          <div key={field.key} className="pricing-card">
+            <div>
+              <span className="pricing-card__title">{field.title}</span>
+              <p className="pricing-card__subtitle">{field.subtitle}</p>
+            </div>
+            <div className="price-input">
+              <span>$</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData[field.key] || 0}
+                onChange={(e) => updatePrice(field.key, e.target.value)}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const contactsStepContent = (
+    <div className="form-section">
+      <div className="email-outreach">
+        <div className="email-outreach__header">
+          <h4>Contacts</h4>
+          <p>Pick the people you want to loop into the campaign and control whether the message goes to tags or individuals.</p>
+        </div>
+
+        <div className="form-group">
+          <label>Send To</label>
+          <div className="email-radio-group">
+            <label>
+              <input
+                type="radio"
+                name="emailSendTo"
+                value="tag"
+                checked={emailForm.sendTo === 'tag'}
+                onChange={(e) => handleEmailSendToChange(e.target.value)}
+              />
+              <span>All contacts with tag</span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="emailSendTo"
+                value="individual"
+                checked={emailForm.sendTo === 'individual'}
+                onChange={(e) => handleEmailSendToChange(e.target.value)}
+              />
+              <span>Select individual contacts</span>
+            </label>
+          </div>
+        </div>
+
+        {emailForm.sendTo === 'tag' && (
+          <div className="form-group">
+            <label>Select Tag</label>
+            {availableTags.length ? (
+              <select
+                value={emailForm.selectedTag}
+                onChange={(e) => setEmailForm(prev => ({ ...prev, selectedTag: e.target.value }))}
+              >
+                <option value="">Choose a tag...</option>
+                {availableTags.map(tag => (
+                  <option key={tag} value={tag}>
+                    {formatTagLabel(tag)}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="form-hint">Add tags or pipeline stages to contacts to unlock this filter.</p>
+            )}
+          </div>
+        )}
+
+        {emailForm.sendTo === 'individual' && (
+          <div className="form-group">
+            <label>Select Contacts</label>
+            <div className="email-contact-list">
+              {selectableContacts.length ? (
+                selectableContacts.map(contact => (
+                  <label key={contact.id} className="email-contact-item">
+                    <input
+                      type="checkbox"
+                      value={contact.id}
+                      checked={emailForm.selectedContacts.includes(contact.id)}
+                      onChange={() => toggleEmailContact(contact.id)}
+                    />
+                    <div>
+                      <strong>{contact.business_name}</strong>
+                      <span>{contact.email}</span>
+                    </div>
+                  </label>
+                ))
+              ) : (
+                <p className="form-hint">Add contacts with valid email addresses to invite them.</p>
+              )}
+            </div>
+            {emailForm.selectedContacts.length > 0 && (
+              <p className="form-hint">
+                {emailForm.selectedContacts.length} contact{emailForm.selectedContacts.length === 1 ? '' : 's'} selected
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const emailStepContent = (
+    <div className="form-section">
+      <div className="email-outreach">
+        <div className="email-outreach__header">
+          <h4>Email Outreach</h4>
+          <p>Pick a template and tweak the copy for this campaign—template updates only happen on the Email Marketing page.</p>
+        </div>
+
+        <div className="form-group">
+          <label>Select Template</label>
+          <select
+            value={emailForm.templateId}
+            onChange={(e) => handleTemplateChange(e.target.value)}
+          >
+            <option value="">Choose a template...</option>
+            {emailTemplates.map(template => (
+              <option key={template.id} value={template.id}>
+                {template.name}
+              </option>
+            ))}
+          </select>
+          {!emailTemplates.length && (
+            <p className="form-hint">Create email templates on the Email Marketing page to get started.</p>
+          )}
+        </div>
+
+        {emailForm.templateId && (
+          <>
+            <div className="form-group">
+              <label>Email Subject</label>
+              <input
+                type="text"
+                value={emailForm.subject}
+                onChange={(e) => setEmailForm(prev => ({ ...prev, subject: e.target.value }))}
+                placeholder="Email subject..."
+              />
+            </div>
+            <div className="form-group">
+              <label>Email Body</label>
+              <textarea
+                rows={6}
+                value={emailForm.body_html}
+                onChange={(e) => setEmailForm(prev => ({ ...prev, body_html: e.target.value }))}
+                placeholder="Customize the email copy for this campaign."
+              />
+              <p className="form-hint">
+                Changes here only apply to this campaign; edit the template itself via Email Marketing.
+              </p>
+            </div>
+          </>
+        )}
+
+        <div className="form-group">
+          <label>When to Send</label>
+          <div className="email-radio-group">
+            <label>
+              <input
+                type="radio"
+                name="emailWhen"
+                value="send_now"
+                checked={emailForm.sendNow}
+                onChange={(e) => handleWhenToSendChange(e.target.value)}
+              />
+              <span>Send now</span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="emailWhen"
+                value="schedule"
+                checked={!emailForm.sendNow}
+                onChange={(e) => handleWhenToSendChange(e.target.value)}
+              />
+              <span>Schedule for later</span>
+            </label>
+          </div>
+        </div>
+
+        {!emailForm.sendNow && (
+          <div className="form-group">
+            <label>Schedule date and time</label>
+            <input
+              type="datetime-local"
+              min={scheduleMinValue}
+              value={emailForm.scheduledAt}
+              onChange={(e) => handleScheduleChange(e.target.value)}
+            />
+            {!emailForm.scheduledAt && (
+              <p className="form-hint">Select when you want the email to go out.</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+
+  const previewLayout = mockDisplayCounts || cloneLayout(designLayout);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content campaign-modal" onClick={(e) => e.stopPropagation()}>
@@ -549,327 +1102,132 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
 
-        {!campaign && (
-          <div className="modal-steps">
-            <div className={`step ${step >= 1 ? 'active' : ''}`}>1. Basic Info</div>
-            <div className={`step ${step >= 2 ? 'active' : ''}`}>2. Route & Design</div>
-            <div className={`step ${step >= 3 ? 'active' : ''}`}>3. Pricing</div>
-            {campaign?.id && <div className={`step ${step >= 4 ? 'active' : ''}`}>4. Assign Slots</div>}
-          </div>
-        )}
-
-        <div className="modal-body">
-          {step === 1 && (
-            <div className="form-section">
-              <div className="form-group">
-                <label>Campaign Name *</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Minneapolis Q1 2024"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Mail Date</label>
-                <input
-                  type="date"
-                  value={formData.mail_date || ''}
-                  onChange={(e) => setFormData({ ...formData, mail_date: e.target.value })}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={formData.unique_niche_per_slot}
-                    onChange={(e) => setFormData({ ...formData, unique_niche_per_slot: e.target.checked })}
-                  />
-                  <span style={{ marginLeft: '8px' }}>Enforce unique niche per slot</span>
-                </label>
-                <p className="form-hint">
-                  When enabled, only one business per category can appear on this card
-                </p>
-              </div>
-
-              <div className="form-group">
-                <label>Notes</label>
-                <textarea
-                  value={formData.notes || ''}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows={3}
-                  placeholder="Campaign notes..."
-                />
-              </div>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="form-section">
-              <div className="form-group">
-                <label>Select Route *</label>
-                <select
-                  value={formData.saved_route_id || ''}
-                  onChange={(e) => setFormData({ ...formData, saved_route_id: e.target.value })}
-                  required
-                >
-                  <option value="">Choose a saved route...</option>
-                  {savedRoutes.filter(r => !r.is_locked).map(route => (
-                    <option key={route.id} value={route.id}>
-                      {route.name} ({route.total_households || 0} households)
-                    </option>
-                  ))}
-                </select>
-                {selectedRoute && (
-                  <div className="route-preview">
-                    <strong>{selectedRoute.routes?.length || 0} routes</strong> • 
-                    <strong> {selectedRoute.total_households || 0} households</strong> • 
-                    <strong> ${selectedRoute.total_cost || 0}</strong>
-                  </div>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label>Select Design *</label>
-                <select
-                  value={formData.design_id || ''}
-                  onChange={(e) => setFormData({ ...formData, design_id: e.target.value })}
-                  required
-                >
-                  <option value="">Choose a design template...</option>
-                  {designs.filter(d => !d.is_locked).map(design => (
-                    <option key={design.id} value={design.id}>
-                      {design.name} ({design.card_size}, {design.num_slots} slots)
-                    </option>
-                  ))}
-                </select>
-                {selectedDesign && (
-                  <div className="design-preview">
-                    <strong>{selectedDesign.num_slots} ad slots</strong> • 
-                    <strong> {selectedDesign.card_size}</strong>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="form-section">
-              <h3>Slot Pricing</h3>
-              <p className="form-hint">Set the price for each ad slot size</p>
-
-              <div className="pricing-grid">
-                <div className="form-group">
-                  <label>Small Slot Price</label>
-                  <div className="price-input">
-                    <span>$</span>
-                    <input
-                      type="number"
-                      value={formData.price_small || 0}
-                      onChange={(e) => setFormData({ ...formData, price_small: parseFloat(e.target.value) })}
-                      min="0"
-                      step="0.01"
-                    />
+        <div className="campaign-modal__body">
+          <div className="campaign-modal__grid">
+            <div className="campaign-modal__column">
+              <section className="campaign-modal__section">
+                <div className="section-heading">
+                  <div>
+                    <h3>Campaign Details</h3>
+                    <p>Update the basics, pricing, and mail timing.</p>
                   </div>
                 </div>
-
-                <div className="form-group">
-                  <label>Medium Slot Price</label>
-                  <div className="price-input">
-                    <span>$</span>
+                <div className="campaign-modal__form-grid">
+                  <div className="form-group">
+                    <label>Campaign Name *</label>
                     <input
-                      type="number"
-                      value={formData.price_medium || 0}
-                      onChange={(e) => setFormData({ ...formData, price_medium: parseFloat(e.target.value) })}
-                      min="0"
-                      step="0.01"
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="e.g., Minneapolis Q1 2024"
                     />
                   </div>
-                </div>
-
-                <div className="form-group">
-                  <label>Large Slot Price</label>
-                  <div className="price-input">
-                    <span>$</span>
+                  <div className="form-group">
+                    <label>Mail Date</label>
                     <input
-                      type="number"
-                      value={formData.price_large || 0}
-                      onChange={(e) => setFormData({ ...formData, price_large: parseFloat(e.target.value) })}
-                      min="0"
-                      step="0.01"
+                      type="date"
+                      value={formData.mail_date || ''}
+                      onChange={(e) => setFormData({ ...formData, mail_date: e.target.value })}
                     />
                   </div>
-                </div>
-              </div>
-
-              {!campaign && (
-                <div className="email-outreach">
-                  <div className="email-outreach__header">
-                    <h4>Email Outreach</h4>
-                    <p>Choose a saved template and the people you want to notify about this campaign.</p>
-                  </div>
-
                   <div className="form-group">
-                    <label>Select Template</label>
-                    <select
-                      value={emailForm.templateId}
-                      onChange={(e) => setEmailForm(prev => ({ ...prev, templateId: e.target.value }))}
-                    >
-                      <option value="">Choose a template...</option>
-                      {emailTemplates.map(template => (
-                        <option key={template.id} value={template.id}>
-                          {template.name}
-                        </option>
-                      ))}
-                    </select>
-                    {!emailTemplates.length && (
-                      <p className="form-hint">Create email templates on the Email Marketing page to get started.</p>
-                    )}
-                  </div>
-
-                  <div className="form-group">
-                    <label>Send To</label>
-                    <div className="email-radio-group">
-                      <label>
-                        <input
-                          type="radio"
-                          name="emailSendTo"
-                          value="tag"
-                          checked={emailForm.sendTo === 'tag'}
-                          onChange={(e) => handleEmailSendToChange(e.target.value)}
-                        />
-                        <span>All contacts with tag</span>
-                      </label>
-                      <label>
-                        <input
-                          type="radio"
-                          name="emailSendTo"
-                          value="individual"
-                          checked={emailForm.sendTo === 'individual'}
-                          onChange={(e) => handleEmailSendToChange(e.target.value)}
-                        />
-                        <span>Select individual contacts</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {emailForm.sendTo === 'tag' && (
-                    <div className="form-group">
-                      <label>Select Tag</label>
-                      {availableTags.length ? (
-                        <select
-                          value={emailForm.selectedTag}
-                          onChange={(e) => setEmailForm(prev => ({ ...prev, selectedTag: e.target.value }))}
-                        >
-                          <option value="">Choose a tag...</option>
-                          {availableTags.map(tag => (
-                            <option key={tag} value={tag}>
-                              {formatTagLabel(tag)}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <p className="form-hint">Add tags or pipeline stages to contacts to unlock this filter.</p>
-                      )}
-                    </div>
-                  )}
-
-                  {emailForm.sendTo === 'individual' && (
-                    <div className="form-group">
-                      <label>Select Contacts</label>
-                      <div className="email-contact-list">
-                        {selectableContacts.length ? (
-                          selectableContacts.map(contact => (
-                            <label key={contact.id} className="email-contact-item">
-                              <input
-                                type="checkbox"
-                                value={contact.id}
-                                checked={emailForm.selectedContacts.includes(contact.id)}
-                                onChange={() => toggleEmailContact(contact.id)}
-                              />
-                              <div>
-                                <strong>{contact.business_name}</strong>
-                                <span>{contact.email}</span>
-                              </div>
-                            </label>
-                          ))
-                        ) : (
-                          <p className="form-hint">Add contacts with valid email addresses to invite them.</p>
-                        )}
-                      </div>
-                      {emailForm.selectedContacts.length > 0 && (
-                        <p className="form-hint">
-                          {emailForm.selectedContacts.length} contact{emailForm.selectedContacts.length === 1 ? '' : 's'} selected
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="form-group">
-                    <label>When to Send</label>
-                    <div className="email-radio-group">
-                      <label>
-                        <input
-                          type="radio"
-                          name="emailWhen"
-                          value="send_now"
-                          checked={emailForm.sendNow}
-                          onChange={(e) => handleWhenToSendChange(e.target.value)}
-                        />
-                        <span>Send now</span>
-                      </label>
-                      <label>
-                        <input
-                          type="radio"
-                          name="emailWhen"
-                          value="schedule"
-                          checked={!emailForm.sendNow}
-                          onChange={(e) => handleWhenToSendChange(e.target.value)}
-                        />
-                        <span>Schedule for later</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {!emailForm.sendNow && (
-                    <div className="form-group">
-                      <label>Schedule date and time</label>
+                    <label>
                       <input
-                        type="datetime-local"
-                        min={scheduleMinValue}
-                        value={emailForm.scheduledAt}
-                        onChange={(e) => handleScheduleChange(e.target.value)}
+                        type="checkbox"
+                        checked={formData.unique_niche_per_slot}
+                        onChange={(e) => setFormData({ ...formData, unique_niche_per_slot: e.target.checked })}
                       />
-                      {!emailForm.scheduledAt && (
-                        <p className="form-hint">Select when you want the email to go out.</p>
-                      )}
-                    </div>
-                  )}
+                      <span className="checkbox-label">Enforce unique niche per slot</span>
+                    </label>
+                    <p className="form-hint">
+                      When enabled, only one business per category appears on this card.
+                    </p>
+                  </div>
+                  <div className="form-group">
+                    <label>Notes</label>
+                    <textarea
+                      value={formData.notes || ''}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      rows={3}
+                      placeholder="Campaign notes..."
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
-          )}
+              </section>
 
-          {step === 4 && campaign?.id && (
-            <SlotAssignment
-              slots={slots}
-              contacts={contacts}
-              niches={niches}
-              uniqueNichePerSlot={formData.unique_niche_per_slot}
-              onUpdate={loadSlots}
-            />
+              <section className="campaign-modal__section">
+                <div className="section-heading">
+                  <div>
+                    <h3>Route & Design</h3>
+                    <p>Select the saved route and design template for this postcard.</p>
+                  </div>
+                </div>
+                {routeStepContent}
+              </section>
+
+              <section className="campaign-modal__section">
+                {pricingStepContent}
+              </section>
+
+              <section className="campaign-modal__section">
+                <div className="section-heading">
+                  <div>
+                    <h3>Email Outreach</h3>
+                    <p>Choose audiences, templates, and send timing.</p>
+                  </div>
+                </div>
+                {contactsStepContent}
+                {emailStepContent}
+              </section>
+            </div>
+
+            <div className="campaign-modal__column">
+              <section className="campaign-modal__section">
+                <div className="section-heading">
+                  <div>
+                    <h3>Advertiser Roster</h3>
+                    <p>Only the number of advertisers that match your slots.</p>
+                  </div>
+                </div>
+                <AdvertiserRoster
+                  slots={slots}
+                  campaign={campaign || formData}
+                  slotDiscounts={slotDiscounts}
+                  onDiscountChange={handleDiscountChange}
+                />
+              </section>
+
+              <section className="campaign-modal__section">
+                <div className="section-heading">
+                  <div>
+                    <h3>Mock Display</h3>
+                    <p>Preview the front and back mock spots that were configured in Design Studio.</p>
+                  </div>
+                </div>
+                <MockDisplay
+                  counts={previewLayout}
+                  caps={designLayout}
+                  onAdjust={handleAdjustMockSpot}
+                />
+              </section>
+            </div>
+          </div>
+
+          {campaign?.id && (
+            <div className="campaign-modal__section slot-assignment-block">
+              <h4>Slot Assignment</h4>
+              <SlotAssignment
+                slots={slots}
+                contacts={contacts}
+                niches={niches}
+                uniqueNichePerSlot={formData.unique_niche_per_slot}
+                onUpdate={loadSlots}
+              />
+            </div>
           )}
         </div>
 
         <div className="modal-footer">
-          {step > 1 && (
-            <button className="btn-secondary" onClick={() => setStep(step - 1)}>
-              Back
-            </button>
-          )}
           <button
             className="btn-secondary"
             onClick={handleSaveDraft}
@@ -877,26 +1235,9 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           >
             {savingDraft ? 'Saving draft...' : 'Save draft'}
           </button>
-          {step < 3 ? (
-            <button
-              className="btn-primary"
-              onClick={() => setStep(step + 1)}
-              disabled={
-                (step === 1 && !formData.name) ||
-                (step === 2 && (!formData.saved_route_id || !formData.design_id))
-              }
-            >
-              Next
-            </button>
-          ) : (
-            <button
-              className="btn-primary"
-              onClick={handleSubmit}
-              disabled={loading}
-            >
-              {loading ? 'Saving...' : campaign ? 'Save Changes' : 'Create Campaign'}
-            </button>
-          )}
+          <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
+            {loading ? 'Saving...' : campaign ? 'Save Changes' : 'Create Campaign'}
+          </button>
         </div>
       </div>
     </div>

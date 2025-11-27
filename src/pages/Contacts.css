@@ -153,6 +153,113 @@
   gap: 20px;
 }
 
+.contacts-kanban {
+  width: 100%;
+}
+
+.contacts-kanban-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(280px, 1fr);
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 16px;
+}
+
+.contacts-kanban-column {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  max-height: 720px;
+}
+
+.contacts-kanban-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.contacts-kanban-column-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.contacts-kanban-column-header p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #475569;
+}
+
+.contacts-kanban-column-count {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+.contacts-kanban-column-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.contacts-kanban-column-empty {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.contact-kanban-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.contact-kanban-card:hover {
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.15);
+  transform: translateY(-2px);
+}
+
+.contact-kanban-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.contact-kanban-business {
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.contact-kanban-location {
+  font-size: 13px;
+  color: #475569;
+  margin-top: 4px;
+}
+
+@media (max-width: 768px) {
+  .contacts-kanban-board {
+    grid-auto-columns: minmax(220px, 1fr);
+  }
+}
+
 .contact-card {
   background: white;
   border-radius: 12px;
@@ -244,6 +351,35 @@
   font-weight: 500;
 }
 
+.contact-temperature {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.contact-temperature--hot {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.contact-temperature--warm {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.contact-temperature--cold {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
 .contact-list {
   display: flex;
   flex-direction: column;
@@ -306,6 +442,16 @@
   padding: 6px 14px;
   border-radius: 999px;
   font-size: 12px;
+}
+
+.contact-list-cell.contact-list-stage {
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.contact-temperature--list {
+  font-size: 11px;
+  padding: 2px 8px;
 }
 
 /* Modal Styles */
