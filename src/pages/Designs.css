@@ -426,20 +426,20 @@
 .saved-template-grid {
   width: 100%;
   height: 100%;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(8, 1fr);
-  gap: 2px;
-}
-
-.saved-template-cell {
+  position: relative;
   background: #ffffff;
-  border-radius: 2px;
-  border: 1px solid #e2e8f0;
+  border-radius: 4px;
 }
 
-.saved-template-cell--filled {
-  border: 1px solid rgba(0, 0, 0, 0.1);
+.saved-template-slot-block {
+  /* Positioned absolutely within .saved-template-grid */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.saved-template-slot-block:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .saved-template-info {

@@ -40,7 +40,6 @@ function Designs() {
   const [templateTab, setTemplateTab] = useState('canvas');
   const [activePlacementId, setActivePlacementId] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [templateSide, setTemplateSide] = useState('front');
   const [editingTemplateId, setEditingTemplateId] = useState(null);
 
   const slotMap = useMemo(() => {
@@ -280,7 +279,6 @@ const addCellToPlacement = (placementId, cellId) => {
     setDraggedSlotId(null);
     setEditingTemplateId(null);
     setActivePlacementId(null);
-    setTemplateSide('front');
     // Auto-increment template name
     const templateNumbers = savedTemplates
       .map(t => {
@@ -298,43 +296,69 @@ const addCellToPlacement = (placementId, cellId) => {
       return;
     }
 
+    // Filter out incomplete placements (where not all cells have been placed)
+    const completePlacements = placements.filter(placement => 
+      placement.cellIds.length === placement.totalCells
+    );
+
+    if (completePlacements.length === 0) {
+      alert('Please complete all slot placements before saving.');
+      return;
+    }
+
     // Convert placements to slot_config format for database
-    const slotConfig = placements.map((placement, index) => {
-      // Find the top-left cell of this placement to determine x, y position
-      const cellIndices = placement.cellIds.map(cellId => 
-        gridCells.findIndex(c => c.id === cellId)
-      ).sort((a, b) => a - b);
-      
-      const firstCellIndex = cellIndices[0];
-      const sectionIndex = Math.floor(firstCellIndex / CELLS_PER_SECTION);
-      const positionInSection = firstCellIndex % CELLS_PER_SECTION;
-      const rowInSection = Math.floor(positionInSection / GRID_COLUMNS);
-      const colInSection = positionInSection % GRID_COLUMNS;
-      
+    const slotConfig = completePlacements.map((placement, index) => {
       const slot = slotMap[placement.slotId];
+      
+      // Find all cell positions to determine the top-left corner
+      const cellPositions = placement.cellIds.map(cellId => {
+        const cellIndex = gridCells.findIndex(c => c.id === cellId);
+        const sectionIndex = Math.floor(cellIndex / CELLS_PER_SECTION);
+        const positionInSection = cellIndex % CELLS_PER_SECTION;
+        const rowInSection = Math.floor(positionInSection / GRID_COLUMNS);
+        const colInSection = positionInSection % GRID_COLUMNS;
+        
+        return {
+          cellIndex,
+          sectionIndex,
+          row: sectionIndex * GRID_ROWS_PER_SECTION + rowInSection,
+          col: colInSection
+        };
+      });
+      
+      // Find the minimum and maximum row and column to get the bounding box
+      const minRow = Math.min(...cellPositions.map(p => p.row));
+      const maxRow = Math.max(...cellPositions.map(p => p.row));
+      const minCol = Math.min(...cellPositions.map(p => p.col));
+      const maxCol = Math.max(...cellPositions.map(p => p.col));
+      
+      // Calculate actual width and height from the bounding box
+      const actualWidth = maxCol - minCol + 1;
+      const actualHeight = maxRow - minRow + 1;
       
       // Determine size category based on total cells
       let size = 'small';
       if (placement.totalCells >= 8) size = 'large';
       else if (placement.totalCells >= 4) size = 'medium';
 
-      return {
+      const config = {
         position: `${index + 1}`,
         size: size,
-        width: slot.widthCells,
-        height: slot.heightCells,
-        x: colInSection,
-        y: sectionIndex * GRID_ROWS_PER_SECTION + rowInSection
+        width: actualWidth,
+        height: actualHeight,
+        x: minCol,
+        y: minRow
       };
+      
+      return config;
     });
 
     const designData = {
       user_id: user.id,
       name: templateName.trim(),
       card_size: '9x12',
-      num_slots: assignedCount,
+      num_slots: completePlacements.reduce((sum, p) => sum + p.cellIds.length, 0),
       slot_config: slotConfig,
-      template_side: templateSide,
       is_locked: false
     };
 
@@ -365,7 +389,6 @@ const addCellToPlacement = (placementId, cellId) => {
     // Load template data into the canvas for editing
     setEditingTemplateId(template.id);
     setTemplateName(template.name);
-    setTemplateSide(template.template_side || 'front');
     
     // Convert slot_config back to placements and gridCells
     const slotConfig = template.slot_config || [];
@@ -374,24 +397,43 @@ const addCellToPlacement = (placementId, cellId) => {
     
     slotConfig.forEach((slotConfigItem, index) => {
       // Find matching slot from adSlots based on width/height
-      const matchingSlot = adSlots.find(s => 
+      // First try exact match, then try total cells match
+      let matchingSlot = adSlots.find(s => 
         s.widthCells === slotConfigItem.width && 
         s.heightCells === slotConfigItem.height
       );
       
-      if (!matchingSlot) return;
+      // If no exact match, find slot with matching total cells
+      if (!matchingSlot) {
+        const totalCells = slotConfigItem.width * slotConfigItem.height;
+        matchingSlot = adSlots.find(s => 
+          s.widthCells * s.heightCells === totalCells
+        );
+      }
       
-      const placementId = `placement-${Date.now()}-${index}`;
+      if (!matchingSlot) {
+        console.warn(`No matching slot found for width=${slotConfigItem.width}, height=${slotConfigItem.height}`);
+        return;
+      }
+      
+      const placementId = `placement-edit-${index}-${Date.now()}`;
       const cellIds = [];
       
       // Calculate which cells this slot occupies
+      // The canvas has 2 sections (4x4 each), total 8 rows x 4 columns
       for (let row = 0; row < slotConfigItem.height; row++) {
         for (let col = 0; col < slotConfigItem.width; col++) {
           const cellRow = slotConfigItem.y + row;
           const cellCol = slotConfigItem.x + col;
-          const cellIndex = cellRow * GRID_COLUMNS + cellCol;
           
-          if (cellIndex < newGridCells.length) {
+          // Determine which section this cell is in
+          const sectionIndex = Math.floor(cellRow / GRID_ROWS_PER_SECTION);
+          const rowInSection = cellRow % GRID_ROWS_PER_SECTION;
+          
+          // Calculate the actual cell index
+          const cellIndex = sectionIndex * CELLS_PER_SECTION + rowInSection * GRID_COLUMNS + cellCol;
+          
+          if (cellIndex < newGridCells.length && cellIndex >= 0) {
             const cellId = newGridCells[cellIndex].id;
             cellIds.push(cellId);
             newGridCells[cellIndex].placementId = placementId;
@@ -533,24 +575,6 @@ const addCellToPlacement = (placementId, cellId) => {
                   value={templateName}
                   onChange={(event) => setTemplateName(event.target.value)}
                 />
-              </label>
-              <label className="template-name-field">
-                <span style={{ fontSize: '13px', color: '#475569', marginBottom: '4px' }}>Template Side</span>
-                <select
-                  value={templateSide}
-                  onChange={(e) => setTemplateSide(e.target.value)}
-                  style={{ 
-                    width: '140px',
-                    padding: '8px 12px',
-                    borderRadius: '10px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '14px'
-                  }}
-                >
-                  <option value="front">Front</option>
-                  <option value="back">Back</option>
-                  <option value="both">Both</option>
-                </select>
               </label>
               <div className="template-tabs">
                 <button
@@ -716,37 +740,59 @@ const addCellToPlacement = (placementId, cellId) => {
                       <div key={template.id} className="saved-template-card">
                         <div className="saved-template-preview">
                           <div className="saved-template-grid">
-                            {Array.from({ length: 32 }).map((_, idx) => {
-                              const gridRow = Math.floor(idx / 4);
-                              const gridCol = idx % 4;
-                              const isFilled = slotConfig.some(slot => {
-                                return (
-                                  gridCol >= slot.x &&
-                                  gridCol < slot.x + slot.width &&
-                                  gridRow >= slot.y &&
-                                  gridRow < slot.y + slot.height
+                            {slotConfig.map((slot, idx) => {
+                              // Find matching slot from adSlots to get the color and label
+                              // First try exact match, then try total cells match
+                              let matchingSlot = adSlots.find(s => 
+                                s.widthCells === slot.width && 
+                                s.heightCells === slot.height
+                              );
+                              
+                              // If no exact match, find slot with matching total cells
+                              if (!matchingSlot) {
+                                const totalCells = slot.width * slot.height;
+                                matchingSlot = adSlots.find(s => 
+                                  s.widthCells * s.heightCells === totalCells
                                 );
-                              });
+                              }
+                              
+                              // Calculate position and size as percentages with small gaps
+                              const gapPercent = 0.5; // Small gap between blocks
+                              const leftPercent = (slot.x / 4) * 100 + gapPercent;
+                              const topPercent = (slot.y / 8) * 100 + gapPercent;
+                              const widthPercent = (slot.width / 4) * 100 - (gapPercent * 2);
+                              const heightPercent = (slot.height / 8) * 100 - (gapPercent * 2);
+                              
                               return (
                                 <div
                                   key={idx}
-                                  className={`saved-template-cell ${isFilled ? 'saved-template-cell--filled' : ''}`}
-                                  style={
-                                    isFilled
-                                      ? {
-                                          background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
-                                          borderColor: '#93c5fd'
-                                        }
-                                      : {}
-                                  }
-                                />
+                                  className="saved-template-slot-block"
+                                  style={{
+                                    position: 'absolute',
+                                    left: `${leftPercent}%`,
+                                    top: `${topPercent}%`,
+                                    width: `${widthPercent}%`,
+                                    height: `${heightPercent}%`,
+                                    background: matchingSlot?.color || '#ede9fe',
+                                    border: '1px solid rgba(0, 0, 0, 0.1)',
+                                    borderRadius: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '10px',
+                                    fontWeight: '700',
+                                    color: '#0f172a'
+                                  }}
+                                >
+                                  {matchingSlot?.label || ''}
+                                </div>
                               );
                             })}
                           </div>
                         </div>
                         <div className="saved-template-info">
                           <strong>{template.name}</strong>
-                          <p>{template.num_slots} slots · {template.template_side || 'both'} · {formatDateLabel(template.created_at)}</p>
+                          <p>{template.num_slots} slots · {formatDateLabel(template.created_at)}</p>
                         </div>
                         <div style={{ position: 'absolute', top: '8px', right: '8px', display: 'flex', gap: '8px' }}>
                           <button
