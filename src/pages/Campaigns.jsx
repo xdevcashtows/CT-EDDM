@@ -562,13 +562,13 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
 
   useEffect(() => {
     setFormData(mapCampaignToFormData(campaign));
-    setActiveStep(0);
-    // Reset template sub-step when modal opens
-    if (!campaign) {
-      setTemplateSubStep('front');
+    // If editing existing campaign, start at pricing step
+    if (campaign?.id) {
+      setActiveStep(1); // Start at pricing step
+      setTemplateSubStep('front'); // Reset substep anyway
     } else {
-      // If editing existing campaign, skip straight to complete
-      setTemplateSubStep('complete');
+      setActiveStep(0); // New campaign starts at templates
+      setTemplateSubStep('front');
     }
   }, [campaign]);
 
@@ -660,6 +660,39 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     return rest;
   };
 
+  const adSlotPricingOptions = [
+    { id: 'slot_1', label: '1 Slot', color: '#dbeafe', slots: 1 },
+    { id: 'slot_2', label: '2 Slots', color: '#dcfce7', slots: 2 },
+    { id: 'slot_4', label: '4 Slots', color: '#fef9c3', slots: 4 },
+    { id: 'slot_8', label: '8 Slots', color: '#fee2e2', slots: 8 },
+    { id: 'slot_12', label: '12 Slots', color: '#e0f2fe', slots: 12 },
+    { id: 'slot_16', label: '16 Slots', color: '#ede9fe', slots: 16 }
+  ];
+
+  const [slotPrices, setSlotPrices] = useState({
+    slot_1: '',
+    slot_2: '',
+    slot_4: '',
+    slot_8: '',
+    slot_12: '',
+    slot_16: ''
+  });
+
+  const updateSlotPrice = (slotId, rawValue) => {
+    if (rawValue === '') {
+      setSlotPrices(prev => ({
+        ...prev,
+        [slotId]: ''
+      }));
+      return;
+    }
+    const parsed = parseFloat(rawValue);
+    setSlotPrices(prev => ({
+      ...prev,
+      [slotId]: Number.isNaN(parsed) ? '' : Math.max(0, parsed)
+    }));
+  };
+
   const slotRateFields = [
     { key: 'price_small', title: 'Small Slot', subtitle: '1-slot placement' },
     { key: 'price_medium', title: 'Medium Slot', subtitle: '2-slot cluster' },
@@ -713,7 +746,12 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         ...prev,
         back_design_id: designId
       }));
-      setTemplateSubStep('complete');
+      // Auto-advance to pricing step after both templates selected
+      setTimeout(() => {
+        if (activeStep === 0 && canAdvanceFromStep(0)) {
+          setActiveStep(1); // Move to pricing step
+        }
+      }, 600);
     }
   };
 
@@ -959,19 +997,37 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     }
   };
 
+  const formatSlotCount = (design) => {
+    if (!design) return 'Slots TBD';
+    const count = design.num_slots ?? design.slot_config?.length;
+    return count ? `${count} slots` : 'Slots pending';
+  };
+
   const pricingStepContent = (
     <div className="form-section">
       <div className="pricing-panel__header">
-        <h3>Slot Pricing</h3>
-        <p>Set the price for each slot size so clients know what to expect.</p>
+        <h3>Set Ad Slot Prices</h3>
+        <p>Assign a price for each ad slot size. These rates will be offered to your clients.</p>
       </div>
 
-      <div className="pricing-grid--auto">
-        {slotRateFields.map(field => (
-          <div key={field.key} className="pricing-card">
-            <div>
-              <span className="pricing-card__title">{field.title}</span>
-              <p className="pricing-card__subtitle">{field.subtitle}</p>
+      <div className="ad-slot-pricing-grid">
+        {adSlotPricingOptions.map(slot => (
+          <div 
+            key={slot.id} 
+            className="ad-slot-pricing-card"
+            style={{ 
+              background: slot.color,
+              borderColor: slot.color 
+            }}
+          >
+            <div className="ad-slot-pricing-info">
+              <div 
+                className="ad-slot-pricing-badge"
+                style={{ background: slot.color }}
+              >
+                <span className="ad-slot-number">{slot.slots}</span>
+              </div>
+              <span className="ad-slot-pricing-label">{slot.label}</span>
             </div>
             <div className="price-input">
               <span>$</span>
@@ -979,8 +1035,9 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
                 type="number"
                 min="0"
                 step="0.01"
-                value={formData[field.key] || 0}
-                onChange={(e) => updatePrice(field.key, e.target.value)}
+                value={slotPrices[slot.id] || ''}
+                onChange={(e) => updateSlotPrice(slot.id, e.target.value)}
+                placeholder="0.00"
               />
             </div>
           </div>
@@ -990,48 +1047,59 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   );
 
   const contactsStepContent = (
-    <div className="form-section">
-      <div className="email-outreach">
-        <div className="email-outreach__header">
-          <h4>Contacts</h4>
-          <p>Pick the people you want to loop into the campaign and control whether the message goes to tags or individuals.</p>
-        </div>
-
-        <div className="form-group">
-          <label>Send To</label>
-          <div className="email-radio-group">
-            <label>
-              <input
-                type="radio"
-                name="emailSendTo"
-                value="tag"
-                checked={emailForm.sendTo === 'tag'}
-                onChange={(e) => handleEmailSendToChange(e.target.value)}
-              />
-              <span>All contacts with tag</span>
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="emailSendTo"
-                value="individual"
-                checked={emailForm.sendTo === 'individual'}
-                onChange={(e) => handleEmailSendToChange(e.target.value)}
-              />
-              <span>Select individual contacts</span>
-            </label>
+    <div className="contacts-redesign">
+      {/* Recipient Selection Card */}
+      <div className="contacts-card" style={{ borderLeft: '4px solid #3b82f6' }}>
+        <div className="contacts-card-header">
+          <div className="contacts-card-icon" style={{ background: '#dbeafe' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e40af" strokeWidth="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
           </div>
+          <div>
+            <h4>Select Recipients</h4>
+            <p>Choose who will receive campaign notifications</p>
+          </div>
+        </div>
+        
+        <div className="contacts-selection-method">
+          <button
+            type="button"
+            className={`selection-method-btn ${emailForm.sendTo === 'tag' ? 'active' : ''}`}
+            onClick={() => handleEmailSendToChange('tag')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+              <line x1="7" y1="7" x2="7.01" y2="7"/>
+            </svg>
+            <span>By Tag</span>
+          </button>
+          <button
+            type="button"
+            className={`selection-method-btn ${emailForm.sendTo === 'individual' ? 'active' : ''}`}
+            onClick={() => handleEmailSendToChange('individual')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="8.5" cy="7" r="4"/>
+              <line x1="23" y1="11" x2="17" y2="11"/>
+            </svg>
+            <span>Individual</span>
+          </button>
         </div>
 
         {emailForm.sendTo === 'tag' && (
-          <div className="form-group">
-            <label>Select Tag</label>
+          <div className="contacts-input-section">
             {availableTags.length ? (
               <select
                 value={emailForm.selectedTag}
                 onChange={(e) => setEmailForm(prev => ({ ...prev, selectedTag: e.target.value }))}
+                className="contacts-select"
               >
-                <option value="">Choose a tag...</option>
+                <option value="">Select a tag...</option>
                 {availableTags.map(tag => (
                   <option key={tag} value={tag}>
                     {formatTagLabel(tag)}
@@ -1039,38 +1107,60 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
                 ))}
               </select>
             ) : (
-              <p className="form-hint">Add tags or pipeline stages to contacts to unlock this filter.</p>
+              <div className="contacts-empty-state">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <p>No tags available. Add tags to contacts first.</p>
+              </div>
             )}
           </div>
         )}
 
         {emailForm.sendTo === 'individual' && (
-          <div className="form-group">
-            <label>Select Contacts</label>
-            <div className="email-contact-list">
-              {selectableContacts.length ? (
-                selectableContacts.map(contact => (
-                  <label key={contact.id} className="email-contact-item">
-                    <input
-                      type="checkbox"
-                      value={contact.id}
-                      checked={emailForm.selectedContacts.includes(contact.id)}
-                      onChange={() => toggleEmailContact(contact.id)}
-                    />
-                    <div>
-                      <strong>{contact.business_name}</strong>
-                      <span>{contact.email}</span>
-                    </div>
-                  </label>
-                ))
-              ) : (
-                <p className="form-hint">Add contacts with valid email addresses to invite them.</p>
-              )}
-            </div>
-            {emailForm.selectedContacts.length > 0 && (
-              <p className="form-hint">
-                {emailForm.selectedContacts.length} contact{emailForm.selectedContacts.length === 1 ? '' : 's'} selected
-              </p>
+          <div className="contacts-input-section">
+            {selectableContacts.length ? (
+              <>
+                <div className="contacts-list-redesign">
+                  {selectableContacts.map(contact => (
+                    <label key={contact.id} className="contact-card-item">
+                      <input
+                        type="checkbox"
+                        value={contact.id}
+                        checked={emailForm.selectedContacts.includes(contact.id)}
+                        onChange={() => toggleEmailContact(contact.id)}
+                      />
+                      <div className="contact-card-content">
+                        <div className="contact-avatar">
+                          {contact.business_name?.charAt(0) || 'C'}
+                        </div>
+                        <div className="contact-info">
+                          <strong>{contact.business_name}</strong>
+                          <span>{contact.email}</span>
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {emailForm.selectedContacts.length > 0 && (
+                  <div className="contacts-selected-count">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    <span>{emailForm.selectedContacts.length} contact{emailForm.selectedContacts.length === 1 ? '' : 's'} selected</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="contacts-empty-state">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                </svg>
+                <p>No contacts with email addresses available.</p>
+              </div>
             )}
           </div>
         )}
@@ -1079,94 +1169,143 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   );
 
   const emailStepContent = (
-    <div className="form-section">
-      <div className="email-outreach">
-        <div className="email-outreach__header">
-          <h4>Email Outreach</h4>
-          <p>Pick a template and tweak the copy for this campaign—template updates only happen on the Email Marketing page.</p>
+    <div className="contacts-redesign">
+      {/* Email Template Card */}
+      <div className="contacts-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+        <div className="contacts-card-header">
+          <div className="contacts-card-icon" style={{ background: '#ede9fe' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b21a8" strokeWidth="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+          </div>
+          <div>
+            <h4>Email Template</h4>
+            <p>Select and customize your email message</p>
+          </div>
         </div>
 
-        <div className="form-group">
-          <label>Select Template</label>
-          <select
-            value={emailForm.templateId}
-            onChange={(e) => handleTemplateChange(e.target.value)}
-          >
-            <option value="">Choose a template...</option>
-            {emailTemplates.map(template => (
-              <option key={template.id} value={template.id}>
-                {template.name}
-              </option>
-            ))}
-          </select>
-          {!emailTemplates.length && (
-            <p className="form-hint">Create email templates on the Email Marketing page to get started.</p>
+        <div className="contacts-input-section">
+          <label className="contacts-label">Choose Template</label>
+          {emailTemplates.length ? (
+            <select
+              value={emailForm.templateId}
+              onChange={(e) => handleTemplateChange(e.target.value)}
+              className="contacts-select"
+            >
+              <option value="">Select an email template...</option>
+              {emailTemplates.map(template => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="contacts-empty-state">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+              <p>No email templates available. Create one in Email Marketing.</p>
+            </div>
           )}
         </div>
 
         {emailForm.templateId && (
           <>
-            <div className="form-group">
-              <label>Email Subject</label>
+            <div className="contacts-input-section">
+              <label className="contacts-label">Subject Line</label>
               <input
                 type="text"
                 value={emailForm.subject}
                 onChange={(e) => setEmailForm(prev => ({ ...prev, subject: e.target.value }))}
-                placeholder="Email subject..."
+                placeholder="Enter email subject..."
+                className="contacts-input"
               />
             </div>
-            <div className="form-group">
-              <label>Email Body</label>
+            <div className="contacts-input-section">
+              <label className="contacts-label">Email Message</label>
               <textarea
-                rows={6}
+                rows={4}
                 value={emailForm.body_html}
                 onChange={(e) => setEmailForm(prev => ({ ...prev, body_html: e.target.value }))}
-                placeholder="Customize the email copy for this campaign."
+                placeholder="Customize your email message..."
+                className="contacts-textarea"
               />
-              <p className="form-hint">
-                Changes here only apply to this campaign; edit the template itself via Email Marketing.
+              <p className="contacts-hint">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                Changes only apply to this campaign
               </p>
             </div>
           </>
         )}
+      </div>
 
-        <div className="form-group">
-          <label>When to Send</label>
-          <div className="email-radio-group">
-            <label>
-              <input
-                type="radio"
-                name="emailWhen"
-                value="send_now"
-                checked={emailForm.sendNow}
-                onChange={(e) => handleWhenToSendChange(e.target.value)}
-              />
-              <span>Send now</span>
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="emailWhen"
-                value="schedule"
-                checked={!emailForm.sendNow}
-                onChange={(e) => handleWhenToSendChange(e.target.value)}
-              />
-              <span>Schedule for later</span>
-            </label>
+      {/* Scheduling Card */}
+      <div className="contacts-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+        <div className="contacts-card-header">
+          <div className="contacts-card-icon" style={{ background: '#fef3c7' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div>
+            <h4>Send Schedule</h4>
+            <p>Choose when to send the email</p>
           </div>
         </div>
 
+        <div className="contacts-selection-method">
+          <button
+            type="button"
+            className={`selection-method-btn ${emailForm.sendNow ? 'active' : ''}`}
+            onClick={() => handleWhenToSendChange('send_now')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <span>Send Now</span>
+          </button>
+          <button
+            type="button"
+            className={`selection-method-btn ${!emailForm.sendNow ? 'active' : ''}`}
+            onClick={() => handleWhenToSendChange('schedule')}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span>Schedule</span>
+          </button>
+        </div>
+
         {!emailForm.sendNow && (
-          <div className="form-group">
-            <label>Schedule date and time</label>
+          <div className="contacts-input-section">
+            <label className="contacts-label">Date & Time</label>
             <input
               type="datetime-local"
               min={scheduleMinValue}
               value={emailForm.scheduledAt}
               onChange={(e) => handleScheduleChange(e.target.value)}
+              className="contacts-input"
             />
             {!emailForm.scheduledAt && (
-              <p className="form-hint">Select when you want the email to go out.</p>
+              <p className="contacts-hint">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                Select when the email should be sent
+              </p>
             )}
           </div>
         )}
@@ -1182,11 +1321,14 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     design => !design.template_side || design.template_side === 'back'
   );
 
-  const formatSlotCount = (design) => {
-    if (!design) return 'Slots TBD';
-    const count = design.num_slots ?? design.slot_config?.length;
-    return count ? `${count} slots` : 'Slots pending';
-  };
+  const adSlots = [
+    { id: 'slots-1', label: '1', color: '#dbeafe', widthCells: 1, heightCells: 1 },
+    { id: 'slots-2', label: '2', color: '#dcfce7', widthCells: 1, heightCells: 2 },
+    { id: 'slots-4', label: '4', color: '#fef9c3', widthCells: 2, heightCells: 2 },
+    { id: 'slots-8', label: '8', color: '#fee2e2', widthCells: 4, heightCells: 2 },
+    { id: 'slots-12', label: '12', color: '#e0f2fe', widthCells: 4, heightCells: 3 },
+    { id: 'slots-16', label: '16', color: '#ede9fe', widthCells: 4, heightCells: 4 }
+  ];
 
   const renderTemplateGrid = (templates, side, selectedId) => {
     if (!templates.length) {
@@ -1199,58 +1341,107 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
 
     return (
       <div className={`template-selection-grid ${isTransitioning ? 'transitioning' : ''}`}>
-        {templates.map(design => (
-          <div
-            key={design.id}
-            className={`template-thumbnail-card ${selectedId === design.id ? 'selected' : ''}`}
-            onClick={() => handleTemplateSelect(design.id, side)}
-          >
-            <div className="template-thumbnail-preview">
-              <div className="saved-template-grid">
-                {Array.from({ length: 32 }).map((_, idx) => {
-                  const slotConfig = design.slot_config || [];
-                  const isFilled = slotConfig.some(slot => {
-                    const gridRow = Math.floor(idx / 4);
-                    const gridCol = idx % 4;
-                    return (
-                      gridCol >= slot.x &&
-                      gridCol < slot.x + slot.width &&
-                      gridRow >= slot.y &&
-                      gridRow < slot.y + slot.height
+        {templates.map(design => {
+          const slotConfig = design.slot_config || [];
+          
+          return (
+            <div
+              key={design.id}
+              className={`template-thumbnail-card ${selectedId === design.id ? 'selected' : ''}`}
+              onClick={() => handleTemplateSelect(design.id, side)}
+            >
+              <div className="template-thumbnail-preview">
+                <div className="saved-template-grid">
+                  {slotConfig.map((slot, idx) => {
+                    // Find matching slot from adSlots to get the color and label
+                    let matchingSlot = adSlots.find(s => 
+                      s.widthCells === slot.width && 
+                      s.heightCells === slot.height
                     );
-                  });
-                  return (
-                    <div
-                      key={idx}
-                      className={`saved-template-cell ${isFilled ? 'saved-template-cell--filled' : ''}`}
-                      style={
-                        isFilled
-                          ? {
-                              background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
-                              borderColor: '#93c5fd'
-                            }
-                          : {}
-                      }
-                    />
-                  );
-                })}
+                    
+                    // If no exact match, find slot with matching total cells
+                    if (!matchingSlot) {
+                      const totalCells = slot.width * slot.height;
+                      matchingSlot = adSlots.find(s => 
+                        s.widthCells * s.heightCells === totalCells
+                      );
+                    }
+                    
+                    // Calculate position and size as percentages with small gaps
+                    const gapPercent = 0.5;
+                    const leftPercent = (slot.x / 4) * 100 + gapPercent;
+                    const topPercent = (slot.y / 8) * 100 + gapPercent;
+                    const widthPercent = (slot.width / 4) * 100 - (gapPercent * 2);
+                    const heightPercent = (slot.height / 8) * 100 - (gapPercent * 2);
+                    
+                    return (
+                      <div
+                        key={idx}
+                        className="saved-template-slot-block"
+                        style={{
+                          position: 'absolute',
+                          left: `${leftPercent}%`,
+                          top: `${topPercent}%`,
+                          width: `${widthPercent}%`,
+                          height: `${heightPercent}%`,
+                          background: matchingSlot?.color || '#ede9fe',
+                          border: '1px solid rgba(0, 0, 0, 0.1)',
+                          borderRadius: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '10px',
+                          fontWeight: '700',
+                          color: '#0f172a'
+                        }}
+                      >
+                        {matchingSlot?.label || ''}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="template-thumbnail-info">
+                <strong>{design.name}</strong>
+                <p>{design.card_size} • {formatSlotCount(design)}</p>
               </div>
             </div>
-            <div className="template-thumbnail-info">
-              <strong>{design.name}</strong>
-              <p>{design.card_size} • {formatSlotCount(design)}</p>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
 
   const templateStepContent = (
     <div className="form-section">
+      {/* Campaign Name Input - Always visible at top */}
+      {templateSubStep === 'back' && (
+        <div className="section-heading">
+          <div>
+            <h3>Select Back Template</h3>
+            <p>Choose a template for the back of your campaign mailer.</p>
+          </div>
+        </div>
+      )}
+      
+      {templateSubStep === 'front' && (
+        <div className="campaign-modal__form-grid" style={{ marginBottom: '32px' }}>
+          <div className="form-group">
+            <label>Campaign Name *</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g., Minneapolis Fall 2025"
+              required
+            />
+          </div>
+        </div>
+      )}
+
       {templateSubStep === 'front' && (
         <>
-          <div className="section-heading template-selection-heading">
+          <div className="section-heading" style={{ marginBottom: '1px' }}>
             <div>
               <h3>Select Front Template</h3>
               <p>Choose a template for the front of your campaign mailer.</p>
@@ -1262,64 +1453,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
       
       {templateSubStep === 'back' && (
         <>
-          <div className="section-heading template-selection-heading">
-            <div>
-              <h3>Select Back Template</h3>
-              <p>Choose a template for the back of your campaign mailer.</p>
-            </div>
-          </div>
           {renderTemplateGrid(backTemplates, 'back', formData.back_design_id)}
-        </>
-      )}
-
-      {templateSubStep === 'complete' && (
-        <>
-          <div className="section-heading">
-            <div>
-              <h3>Campaign Details</h3>
-              <p>Give your campaign a name and review your template selections.</p>
-            </div>
-          </div>
-          <div className="campaign-modal__form-grid">
-            <div className="form-group">
-              <label>Campaign Name *</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., Minneapolis Fall 2025"
-                required
-              />
-            </div>
-          </div>
-          <div className="template-preview-grid">
-            <div className="template-preview-card template-preview-card--selected">
-              <strong>Front</strong>
-              <span>{selectedFrontDesign?.name || 'Template pending'}</span>
-              <small>{selectedFrontDesign?.card_size || 'Size TBD'}</small>
-              <small>{formatSlotCount(selectedFrontDesign)}</small>
-              <button
-                type="button"
-                className="template-change-btn"
-                onClick={() => setTemplateSubStep('front')}
-              >
-                Change
-              </button>
-            </div>
-            <div className="template-preview-card template-preview-card--selected">
-              <strong>Back</strong>
-              <span>{selectedBackDesign?.name || 'Template pending'}</span>
-              <small>{selectedBackDesign?.card_size || 'Size TBD'}</small>
-              <small>{formatSlotCount(selectedBackDesign)}</small>
-              <button
-                type="button"
-                className="template-change-btn"
-                onClick={() => setTemplateSubStep('back')}
-              >
-                Change
-              </button>
-            </div>
-          </div>
         </>
       )}
     </div>
@@ -1349,17 +1483,94 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         </select>
       </div>
       {selectedRoute ? (
-        <div className="route-preview-grid">
-          <div className="route-preview">
-            <strong>{selectedRoute.routes?.length || 0} routes</strong> •
-            <strong> {selectedRoute.total_households || 0} households</strong> •
-            <strong> ${selectedRoute.total_cost || 0}</strong>
+        <div className="route-stats-container">
+          <div className="route-stats-header">
+            <h4>{selectedRoute.name}</h4>
+            <p>Complete route details for your campaign</p>
           </div>
-          <div className="design-preview">
-            <strong>Front</strong>
-            <span>{selectedFrontDesign?.name || 'Pending template'}</span>
-            <strong>Back</strong>
-            <span>{selectedBackDesign?.name || 'Pending template'}</span>
+          <div className="route-stats-grid">
+            <div className="route-stat-card">
+              <div className="route-stat-icon" style={{ background: '#dbeafe' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1e40af" strokeWidth="2">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                  <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+              </div>
+              <div className="route-stat-content">
+                <span className="route-stat-label">Total Households</span>
+                <strong className="route-stat-value">{(selectedRoute.total_households || 0).toLocaleString()}</strong>
+              </div>
+            </div>
+            
+            <div className="route-stat-card">
+              <div className="route-stat-icon" style={{ background: '#dcfce7' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+              </div>
+              <div className="route-stat-content">
+                <span className="route-stat-label">Number of Routes</span>
+                <strong className="route-stat-value">{(selectedRoute.routes?.length || 0).toLocaleString()}</strong>
+              </div>
+            </div>
+            
+            <div className="route-stat-card">
+              <div className="route-stat-icon" style={{ background: '#fef9c3' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a16207" strokeWidth="2">
+                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                  <line x1="1" y1="10" x2="23" y2="10"/>
+                </svg>
+              </div>
+              <div className="route-stat-content">
+                <span className="route-stat-label">Total Cost</span>
+                <strong className="route-stat-value">${(selectedRoute.total_cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+              </div>
+            </div>
+            
+            <div className="route-stat-card">
+              <div className="route-stat-icon" style={{ background: '#fee2e2' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="9" y1="9" x2="15" y2="15"/>
+                  <line x1="15" y1="9" x2="9" y2="15"/>
+                </svg>
+              </div>
+              <div className="route-stat-content">
+                <span className="route-stat-label">Cost per Piece</span>
+                <strong className="route-stat-value">
+                  ${selectedRoute.total_households > 0 
+                    ? (selectedRoute.total_cost / selectedRoute.total_households).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : '0.00'}
+                </strong>
+              </div>
+            </div>
+
+            <div className="route-stat-card">
+              <div className="route-stat-icon" style={{ background: '#e0f2fe' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0369a1" strokeWidth="2">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                  <line x1="12" y1="22.08" x2="12" y2="12"/>
+                </svg>
+              </div>
+              <div className="route-stat-content">
+                <span className="route-stat-label">Total Pieces</span>
+                <strong className="route-stat-value">{(selectedRoute.total_households || 0).toLocaleString()}</strong>
+              </div>
+            </div>
+
+            <div className="route-stat-card">
+              <div className="route-stat-icon" style={{ background: '#ede9fe' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6b21a8" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <div className="route-stat-content">
+                <span className="route-stat-label">Est. Delivery Time</span>
+                <strong className="route-stat-value">{selectedRoute.routes?.length ? Math.ceil(selectedRoute.routes.length / 5) : 0} days</strong>
+              </div>
+            </div>
           </div>
         </div>
       ) : (
@@ -1383,7 +1594,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     communicationsStepContent
   ];
   const isTemplateStepComplete = Boolean(
-    formData.name?.trim() && formData.front_design_id && formData.back_design_id && templateSubStep === 'complete'
+    formData.name?.trim() && formData.front_design_id && formData.back_design_id
   );
   const isRouteStepComplete = Boolean(formData.saved_route_id);
 
@@ -1400,6 +1611,15 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   };
 
   const handlePrevStep = () => {
+    // If on templates step and viewing back templates, go back to front templates
+    if (activeStep === 0 && templateSubStep === 'back') {
+      setTemplateSubStep('front');
+      return;
+    }
+    // If going back to templates step from another step, reset to front selection
+    if (activeStep === 1) {
+      setTemplateSubStep('front');
+    }
     setActiveStep((prev) => Math.max(prev - 1, 0));
   };
 
@@ -1445,36 +1665,34 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           <div className="modal-footer__navigation">
             <button
               type="button"
-              className="btn-secondary"
+              className="btn-back"
               onClick={handlePrevStep}
               disabled={activeStep === 0}
             >
               Back
             </button>
-            {activeStep < steps.length - 1 ? (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={handleNextStep}
-                disabled={!canAdvanceFromStep(activeStep)}
-              >
-                Next step
-              </button>
-            ) : (
-              <span className="modal-footer__step-hint">Review your selections before saving.</span>
-            )}
-          </div>
-          <div className="modal-footer__actions">
             <button
-              className="btn-secondary"
+              className="btn-draft"
               onClick={handleSaveDraft}
               disabled={savingDraft || !formData.name?.trim()}
             >
               {savingDraft ? 'Saving draft...' : 'Save draft'}
             </button>
-            <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
-              {loading ? 'Saving...' : campaign ? 'Save Changes' : 'Create Campaign'}
-            </button>
+            {activeStep < steps.length - 1 && (
+              <button
+                type="button"
+                className="btn-next"
+                onClick={handleNextStep}
+                disabled={!canAdvanceFromStep(activeStep)}
+              >
+                Next step
+              </button>
+            )}
+            {activeStep === steps.length - 1 && (
+              <button className="btn-create" onClick={handleSubmit} disabled={loading}>
+                {loading ? 'Saving...' : campaign ? 'Save Changes' : 'Create Campaign'}
+              </button>
+            )}
           </div>
         </div>
       </div>
