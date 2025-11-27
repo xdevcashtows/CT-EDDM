@@ -227,7 +227,7 @@ function Contacts() {
       image_url: uploadData.url,
       file_name: file.name,
       file_size: file.size,
-      approval_status: 'pending'
+      approval_status: 'approved'
     });
 
     if (!error) {

@@ -1668,7 +1668,7 @@ function SlotAssignment({ slots, contacts, niches, uniqueNichePerSlot, onUpdate 
   const handleContactSelect = async (contact) => {
     setSelectedContact(contact);
     const { data } = await clientAds.getByContact(contact.id);
-    setContactAds(data?.filter(ad => ad.approval_status === 'approved') || []);
+    setContactAds(data || []);
     setSelectedAd(null);
   };
 

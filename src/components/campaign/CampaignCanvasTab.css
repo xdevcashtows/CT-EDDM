@@ -80,6 +80,16 @@
   margin: 0 auto;
 }
 
+/* Canvas Controls Container */
+.canvas-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
 /* Side Toggle */
 .canvas-side-toggle {
   display: flex;
@@ -89,7 +99,6 @@
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   width: fit-content;
-  margin: 0 auto 2rem auto;
 }
 
 .side-toggle-btn {
@@ -122,6 +131,52 @@
   color: #94a3b8;
 }
 
+/* Orientation Toggle */
+.canvas-orientation-toggle {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  width: fit-content;
+}
+
+.orientation-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.orientation-toggle-btn:hover {
+  background: white;
+  color: #475569;
+}
+
+.orientation-toggle-btn.active {
+  background: white;
+  border-color: #8b5cf6;
+  color: #6b21a8;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.15);
+}
+
+.orientation-toggle-btn svg {
+  flex-shrink: 0;
+}
+
+.orientation-toggle-btn span {
+  font-size: 13px;
+}
+
 /* Canvas Layout */
 .canvas-layout-container {
   width: 100%;
@@ -149,15 +204,13 @@
   margin-top: 8px;
   border: 1px dashed #cbd5e1;
   border-radius: 16px;
-  padding: 16px;
+  padding: 24px;
   background: #f8fafc;
   position: relative;
-  min-height: 520px;
-  height: auto;
   display: flex;
   flex-direction: column;
-  width: 90%;
-  max-width: 100%;
+  width: 100%;
+  max-width: 900px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -166,48 +219,72 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 60px;
   position: relative;
   z-index: 1;
 }
 
 .canvas-section {
-  flex: 1;
+  width: 100%;
   display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .canvas-grid-positioned {
   width: 100%;
-  height: 100%;
-  min-height: 400px;
+  max-width: 100%;
   position: relative;
   background: #ffffff;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 2px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  /* Add subtle grid pattern */
+  background-image: 
+    linear-gradient(rgba(226, 232, 240, 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(226, 232, 240, 0.3) 1px, transparent 1px);
+  background-size: 25% 12.5%;
+  /* 4 columns = 100%/4 = 25%, 8 rows = 100%/8 = 12.5% */
+  transition: aspect-ratio 0.3s ease;
+}
+
+/* Portrait Orientation - 3:4 aspect ratio */
+.canvas-grid-positioned.canvas-grid-portrait {
+  aspect-ratio: 3 / 4;
+}
+
+/* Landscape Orientation - 4:3 aspect ratio */
+.canvas-grid-positioned.canvas-grid-landscape {
+  aspect-ratio: 4 / 3;
 }
 
 /* Positioned Canvas Slots */
 .canvas-slot-positioned {
-  border-radius: 12px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  border: 2px solid transparent;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   overflow: hidden;
   position: relative;
 }
 
 .canvas-slot-positioned:hover {
-  transform: scale(1.02);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: scale(1.03);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
   z-index: 10;
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.canvas-slot-positioned.available {
+  border-style: solid;
 }
 
 .canvas-slot-positioned.booked {
   border-color: #22c55e;
+  border-width: 3px;
 }
 
 /* Canvas Slot Image */
@@ -231,15 +308,21 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  color: #9ca3af;
-  padding: 8px;
+  gap: 6px;
+  color: rgba(0, 0, 0, 0.6);
+  padding: 12px;
   text-align: center;
+  width: 100%;
+  height: 100%;
 }
 
 .canvas-slot-label {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 2rem;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.7);
+  line-height: 1;
+  text-align: center;
+  user-select: none;
 }
 
 /* Canvas Slot Booked Badge */
@@ -265,14 +348,15 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
-  padding: 8px 12px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.6) 70%, transparent 100%);
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s ease;
   z-index: 1;
+  pointer-events: none;
 }
 
 .canvas-slot-positioned:hover .canvas-slot-info-overlay {
@@ -753,6 +837,11 @@
     padding: 1rem;
   }
 
+  .canvas-controls {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
   .canvas-side-toggle {
     width: 100%;
   }
@@ -762,26 +851,60 @@
     padding: 10px 16px;
   }
 
-  .canvas-container {
+  .canvas-orientation-toggle {
     width: 100%;
-    padding: 12px;
   }
 
-  .canvas-grid-positioned {
-    min-height: 300px;
+  .orientation-toggle-btn {
+    flex: 1;
+    padding: 10px 12px;
+    justify-content: center;
+  }
+
+  .orientation-toggle-btn span {
+    font-size: 12px;
+  }
+
+  .canvas-container {
+    width: 100%;
+    padding: 16px;
+    max-width: 100%;
+  }
+
+  .canvas-grid-positioned.canvas-grid-portrait {
+    aspect-ratio: 3 / 4;
+    min-height: unset;
+  }
+
+  .canvas-grid-positioned.canvas-grid-landscape {
+    aspect-ratio: 4 / 3;
+    min-height: unset;
   }
 
   .canvas-slot-positioned {
-    min-width: 50px;
-    min-height: 50px;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: 8px;
   }
 
   .canvas-slot-placeholder {
     gap: 4px;
+    padding: 8px;
   }
 
   .canvas-slot-label {
-    font-size: 0.625rem;
+    font-size: 1.25rem;
+  }
+  
+  .canvas-slot-booked-badge {
+    width: 24px;
+    height: 24px;
+    top: 6px;
+    right: 6px;
+  }
+  
+  .canvas-slot-placeholder {
+    padding: 6px;
   }
 
   .canvas-slot-info-overlay {

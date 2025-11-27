@@ -78,7 +78,7 @@ export const CampaignDetailView = ({ campaign, isOpen, onClose, onUpdate }) => {
         {/* Content */}
         <div className="campaign-detail-content">
           {activeTab === 'config' && (
-            <CampaignConfigTab campaign={campaign} onUpdate={onUpdate} />
+            <CampaignConfigTab campaign={campaign} onUpdate={onUpdate} onClose={onClose} />
           )}
           {activeTab === 'canvas' && (
             <CampaignCanvasTab campaign={campaign} onUpdate={onUpdate} />

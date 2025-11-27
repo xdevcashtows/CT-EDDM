@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, DollarSign, Users, MapPin, Mail, TrendingUp, Package, Edit3, Check, X } from 'lucide-react';
+import { Calendar, DollarSign, Users, MapPin, Mail, TrendingUp, Package, Edit3, Check, X, Trash2, AlertTriangle, Navigation, Home, Truck } from 'lucide-react';
 import { campaigns as campaignsAPI } from '../../lib/api';
 import './CampaignConfigTab.css';
 
@@ -23,7 +23,7 @@ const adSlotOptions = [
   { id: 'slot_16', label: '16 Slots', color: '#ede9fe', slots: 16 }
 ];
 
-export const CampaignConfigTab = ({ campaign, onUpdate }) => {
+export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
   const [formData, setFormData] = useState({
     name: campaign.name || '',
     status: campaign.status || 'draft',
@@ -39,6 +39,8 @@ export const CampaignConfigTab = ({ campaign, onUpdate }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [editingRates, setEditingRates] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Calculate analytics
   const totalSlots = campaign.total_ad_slots || 0;
@@ -85,6 +87,26 @@ export const CampaignConfigTab = ({ campaign, onUpdate }) => {
     }));
     setEditingRates(false);
     setHasChanges(false);
+  };
+
+  const handleDeleteCampaign = async () => {
+    setIsDeleting(true);
+    try {
+      const { error } = await campaignsAPI.delete(campaign.id);
+      if (!error) {
+        // Close the modal and refresh the parent component
+        setShowDeleteConfirm(false);
+        if (onUpdate) onUpdate();
+        // Close the detail view after successful deletion
+        if (onClose) onClose();
+      } else {
+        alert('Failed to delete campaign. Please try again.');
+      }
+    } catch (err) {
+      alert('Error deleting campaign. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const formatDate = (date) => {
@@ -279,6 +301,84 @@ export const CampaignConfigTab = ({ campaign, onUpdate }) => {
         </div>
       </div>
 
+      {/* Route Information Section */}
+      <div className="config-section route-info-section">
+        <h3 className="config-section-title">
+          <Navigation size={18} style={{ marginRight: '0.5rem' }} />
+          Route Information
+        </h3>
+        
+        <div className="route-info-grid">
+          {/* Route Name & City */}
+          <div className="route-info-card" style={{ backgroundColor: '#f0f9ff' }}>
+            <div className="route-info-icon" style={{ backgroundColor: '#0ea5e9' }}>
+              <Navigation size={20} style={{ color: 'white' }} />
+            </div>
+            <div className="route-info-content">
+              <div className="route-info-label">Route Name</div>
+              <div className="route-info-value">
+                {campaign.route_snapshot?.length > 0 
+                  ? `${campaign.route_snapshot.length} routes selected`
+                  : 'No route data'}
+              </div>
+              {campaign.city && (
+                <div className="route-info-sublabel">
+                  {campaign.city?.name || campaign.city}
+                  {campaign.city?.state && `, ${campaign.city.state}`}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Total Households */}
+          <div className="route-info-card" style={{ backgroundColor: '#fef3c7' }}>
+            <div className="route-info-icon" style={{ backgroundColor: '#f59e0b' }}>
+              <Home size={20} style={{ color: 'white' }} />
+            </div>
+            <div className="route-info-content">
+              <div className="route-info-label">Total Households</div>
+              <div className="route-info-value">
+                {(campaign.total_pieces || 0).toLocaleString()}
+              </div>
+              <div className="route-info-sublabel">Delivery destinations</div>
+            </div>
+          </div>
+
+          {/* Routes Count */}
+          <div className="route-info-card" style={{ backgroundColor: '#f0fdf4' }}>
+            <div className="route-info-icon" style={{ backgroundColor: '#22c55e' }}>
+              <Truck size={20} style={{ color: 'white' }} />
+            </div>
+            <div className="route-info-content">
+              <div className="route-info-label">Routes</div>
+              <div className="route-info-value">
+                {campaign.route_snapshot?.length || 0}
+              </div>
+              <div className="route-info-sublabel">
+                {campaign.route_snapshot?.length === 1 ? 'delivery route' : 'delivery routes'}
+              </div>
+            </div>
+          </div>
+
+          {/* Estimated Cost */}
+          <div className="route-info-card" style={{ backgroundColor: '#fef2f2' }}>
+            <div className="route-info-icon" style={{ backgroundColor: '#ef4444' }}>
+              <DollarSign size={20} style={{ color: 'white' }} />
+            </div>
+            <div className="route-info-content">
+              <div className="route-info-label">Postage Cost</div>
+              <div className="route-info-value">
+                ${((campaign.total_pieces || 0) * 0.205).toLocaleString(undefined, { 
+                  minimumFractionDigits: 2, 
+                  maximumFractionDigits: 2 
+                })}
+              </div>
+              <div className="route-info-sublabel">Est. at $0.205/piece</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Ad Slot Options & Rates Section */}
       <div className="config-section slot-rates-section">
         <div className="section-header-with-action">
@@ -353,6 +453,74 @@ export const CampaignConfigTab = ({ campaign, onUpdate }) => {
           ))}
         </div>
       </div>
+
+      {/* Danger Zone Section */}
+      <div className="config-section danger-zone">
+        <h3 className="config-section-title danger-title">
+          <AlertTriangle size={18} />
+          Danger Zone
+        </h3>
+        <div className="danger-zone-content">
+          <div className="danger-zone-info">
+            <h4>Delete Campaign</h4>
+            <p>
+              Permanently delete this campaign and all associated data. This action cannot be undone.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="btn-delete-campaign"
+          >
+            <Trash2 size={16} />
+            Delete Campaign
+          </button>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <>
+          <div className="delete-modal-backdrop" onClick={() => !isDeleting && setShowDeleteConfirm(false)} />
+          <div className="delete-modal">
+            <div className="delete-modal-header">
+              <AlertTriangle size={24} className="delete-modal-icon" />
+              <h3>Delete Campaign?</h3>
+            </div>
+            <div className="delete-modal-content">
+              <p>
+                Are you sure you want to delete <strong>{campaign.name}</strong>?
+              </p>
+              <p>This will permanently delete:</p>
+              <ul>
+                <li>All campaign data and settings</li>
+                <li>Ad slots and bookings</li>
+                <li>Associated canvas designs</li>
+                <li>Analytics and revenue data</li>
+              </ul>
+              <p className="delete-warning">
+                <strong>This action cannot be undone.</strong>
+              </p>
+            </div>
+            <div className="delete-modal-actions">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="btn-cancel-delete"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteCampaign}
+                disabled={isDeleting}
+                className="btn-confirm-delete"
+              >
+                <Trash2 size={16} />
+                {isDeleting ? 'Deleting...' : 'Yes, Delete Campaign'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
