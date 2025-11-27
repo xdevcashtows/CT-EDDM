@@ -19,7 +19,7 @@ import { getMockLayoutForDesign, getDefaultMockLayout } from '../utils/mockLayou
 
 const CAMPAIGN_STATUSES = [
   { value: 'draft', label: 'Draft', color: '#64748b' },
-  { value: 'active', label: 'Active', color: '#3b82f6' },
+  { value: 'working', label: 'Working', color: '#3b82f6' },
   { value: 'in_production', label: 'In Production', color: '#f59e0b' },
   { value: 'printed', label: 'Printed', color: '#8b5cf6' },
   { value: 'mailed', label: 'Mailed', color: '#10b981' },
