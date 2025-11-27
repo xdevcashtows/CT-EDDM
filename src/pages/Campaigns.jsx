@@ -42,7 +42,7 @@ const getEmptyCampaignFormData = () => ({
   price_medium: 0,
   price_large: 0,
   unique_niche_per_slot: true,
-  mail_date: '',
+  mail_date: null,
   notes: ''
 });
 
@@ -529,6 +529,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   const defaultMockLayout = getDefaultMockLayout('9x12');
   const [mockDisplayCounts, setMockDisplayCounts] = useState(cloneLayout(defaultMockLayout));
   const [slotDiscounts, setSlotDiscounts] = useState({});
+  const [contactsTabIndex, setContactsTabIndex] = useState(0); // 0: recipients, 1: template, 2: schedule
 
   const [savedRoutes, setSavedRoutes] = useState([]);
   const [designs, setDesigns] = useState([]);
@@ -561,15 +562,12 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   }, [campaign]);
 
   useEffect(() => {
-    setFormData(mapCampaignToFormData(campaign));
-    // If editing existing campaign, start at pricing step
-    if (campaign?.id) {
-      setActiveStep(1); // Start at pricing step
-      setTemplateSubStep('front'); // Reset substep anyway
-    } else {
-      setActiveStep(0); // New campaign starts at templates
-      setTemplateSubStep('front');
-    }
+    const mappedData = mapCampaignToFormData(campaign);
+    setFormData(mappedData);
+    setContactsTabIndex(0); // Reset to first tab when modal opens
+    // Both new and editing campaigns start at templates step
+    setActiveStep(0);
+    setTemplateSubStep('front');
   }, [campaign]);
 
   const loadData = async () => {
@@ -657,6 +655,10 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
 
   const getSanitizedFormData = () => {
     const { front_design_id, back_design_id, ...rest } = formData;
+    // Ensure date fields are null if empty string
+    if (rest.mail_date === '') {
+      rest.mail_date = null;
+    }
     return rest;
   };
 
@@ -729,6 +731,12 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   };
 
   const handleTemplateSelect = (designId, side) => {
+    // Require campaign name before selecting templates
+    if (!formData.name?.trim()) {
+      alert('Please enter a campaign name before selecting templates.');
+      return;
+    }
+
     if (side === 'front') {
       setFormData(prev => ({
         ...prev,
@@ -978,7 +986,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     const payload = {
       user_id: userId,
       campaign_id: campaignId,
-      template_id: template.id,
       name: `${formData.name || 'Campaign'} - ${template.name}`,
       subject: emailSubject,
       body_html: emailBodyHtml,
@@ -1168,152 +1175,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     </div>
   );
 
-  const emailStepContent = (
-    <div className="contacts-redesign">
-      {/* Email Template Card */}
-      <div className="contacts-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
-        <div className="contacts-card-header">
-          <div className="contacts-card-icon" style={{ background: '#ede9fe' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b21a8" strokeWidth="2">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-              <polyline points="22,6 12,13 2,6"/>
-            </svg>
-          </div>
-          <div>
-            <h4>Email Template</h4>
-            <p>Select and customize your email message</p>
-          </div>
-        </div>
-
-        <div className="contacts-input-section">
-          <label className="contacts-label">Choose Template</label>
-          {emailTemplates.length ? (
-            <select
-              value={emailForm.templateId}
-              onChange={(e) => handleTemplateChange(e.target.value)}
-              className="contacts-select"
-            >
-              <option value="">Select an email template...</option>
-              {emailTemplates.map(template => (
-                <option key={template.id} value={template.id}>
-                  {template.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="contacts-empty-state">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                <polyline points="22,6 12,13 2,6"/>
-              </svg>
-              <p>No email templates available. Create one in Email Marketing.</p>
-            </div>
-          )}
-        </div>
-
-        {emailForm.templateId && (
-          <>
-            <div className="contacts-input-section">
-              <label className="contacts-label">Subject Line</label>
-              <input
-                type="text"
-                value={emailForm.subject}
-                onChange={(e) => setEmailForm(prev => ({ ...prev, subject: e.target.value }))}
-                placeholder="Enter email subject..."
-                className="contacts-input"
-              />
-            </div>
-            <div className="contacts-input-section">
-              <label className="contacts-label">Email Message</label>
-              <textarea
-                rows={4}
-                value={emailForm.body_html}
-                onChange={(e) => setEmailForm(prev => ({ ...prev, body_html: e.target.value }))}
-                placeholder="Customize your email message..."
-                className="contacts-textarea"
-              />
-              <p className="contacts-hint">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="12" y1="16" x2="12" y2="12"/>
-                  <line x1="12" y1="8" x2="12.01" y2="8"/>
-                </svg>
-                Changes only apply to this campaign
-              </p>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Scheduling Card */}
-      <div className="contacts-card" style={{ borderLeft: '4px solid #f59e0b' }}>
-        <div className="contacts-card-header">
-          <div className="contacts-card-icon" style={{ background: '#fef3c7' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-          </div>
-          <div>
-            <h4>Send Schedule</h4>
-            <p>Choose when to send the email</p>
-          </div>
-        </div>
-
-        <div className="contacts-selection-method">
-          <button
-            type="button"
-            className={`selection-method-btn ${emailForm.sendNow ? 'active' : ''}`}
-            onClick={() => handleWhenToSendChange('send_now')}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-            <span>Send Now</span>
-          </button>
-          <button
-            type="button"
-            className={`selection-method-btn ${!emailForm.sendNow ? 'active' : ''}`}
-            onClick={() => handleWhenToSendChange('schedule')}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-            <span>Schedule</span>
-          </button>
-        </div>
-
-        {!emailForm.sendNow && (
-          <div className="contacts-input-section">
-            <label className="contacts-label">Date & Time</label>
-            <input
-              type="datetime-local"
-              min={scheduleMinValue}
-              value={emailForm.scheduledAt}
-              onChange={(e) => handleScheduleChange(e.target.value)}
-              className="contacts-input"
-            />
-            {!emailForm.scheduledAt && (
-              <p className="contacts-hint">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="12" y1="16" x2="12" y2="12"/>
-                  <line x1="12" y1="8" x2="12.01" y2="8"/>
-                </svg>
-                Select when the email should be sent
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-
   const frontTemplates = designs.filter(
     design => !design.template_side || design.template_side === 'front'
   );
@@ -1331,6 +1192,8 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   ];
 
   const renderTemplateGrid = (templates, side, selectedId) => {
+    const campaignNameEntered = Boolean(formData.name?.trim());
+    
     if (!templates.length) {
       return (
         <div className="empty-state">
@@ -1347,8 +1210,12 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           return (
             <div
               key={design.id}
-              className={`template-thumbnail-card ${selectedId === design.id ? 'selected' : ''}`}
+              className={`template-thumbnail-card ${selectedId === design.id ? 'selected' : ''} ${!campaignNameEntered ? 'disabled' : ''}`}
               onClick={() => handleTemplateSelect(design.id, side)}
+              style={{ 
+                opacity: !campaignNameEntered ? 0.5 : 1,
+                cursor: !campaignNameEntered ? 'not-allowed' : 'pointer'
+              }}
             >
               <div className="template-thumbnail-preview">
                 <div className="saved-template-grid">
@@ -1415,29 +1282,24 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   const templateStepContent = (
     <div className="form-section">
       {/* Campaign Name Input - Always visible at top */}
-      {templateSubStep === 'back' && (
-        <div className="section-heading">
-          <div>
-            <h3>Select Back Template</h3>
-            <p>Choose a template for the back of your campaign mailer.</p>
-          </div>
+      <div className="campaign-modal__form-grid" style={{ marginBottom: '32px' }}>
+        <div className="form-group">
+          <label>Campaign Name *</label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            placeholder="e.g., Minneapolis Fall 2025"
+            required
+            autoFocus={!campaign?.id}
+          />
+          {!formData.name?.trim() && (
+            <p className="form-hint" style={{ color: '#f59e0b', marginTop: '8px' }}>
+              Please enter a campaign name to select templates
+            </p>
+          )}
         </div>
-      )}
-      
-      {templateSubStep === 'front' && (
-        <div className="campaign-modal__form-grid" style={{ marginBottom: '32px' }}>
-          <div className="form-group">
-            <label>Campaign Name *</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., Minneapolis Fall 2025"
-              required
-            />
-          </div>
-        </div>
-      )}
+      </div>
 
       {templateSubStep === 'front' && (
         <>
@@ -1453,6 +1315,12 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
       
       {templateSubStep === 'back' && (
         <>
+          <div className="section-heading">
+            <div>
+              <h3>Select Back Template</h3>
+              <p>Choose a template for the back of your campaign mailer.</p>
+            </div>
+          </div>
           {renderTemplateGrid(backTemplates, 'back', formData.back_design_id)}
         </>
       )}
@@ -1580,10 +1448,196 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   );
 
   const communicationsStepContent = (
-    <>
-      {contactsStepContent}
-      {emailStepContent}
-    </>
+    <div className="contacts-step-with-tabs">
+      {/* Tab Navigation */}
+      <div className="contacts-tabs">
+        <button
+          type="button"
+          className={`contacts-tab ${contactsTabIndex === 0 ? 'active' : ''}`}
+          onClick={() => setContactsTabIndex(0)}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <span>Select Recipients</span>
+        </button>
+        <button
+          type="button"
+          className={`contacts-tab ${contactsTabIndex === 1 ? 'active' : ''}`}
+          onClick={() => setContactsTabIndex(1)}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+          <span>Email Template</span>
+        </button>
+        <button
+          type="button"
+          className={`contacts-tab ${contactsTabIndex === 2 ? 'active' : ''}`}
+          onClick={() => setContactsTabIndex(2)}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span>Send Schedule</span>
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      <div className="contacts-tab-content">
+        {contactsTabIndex === 0 && contactsStepContent}
+        {contactsTabIndex === 1 && (
+          <div className="contacts-redesign">
+            <div className="contacts-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+              <div className="contacts-card-header">
+                <div className="contacts-card-icon" style={{ background: '#ede9fe' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b21a8" strokeWidth="2">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                    <polyline points="22,6 12,13 2,6"/>
+                  </svg>
+                </div>
+                <div>
+                  <h4>Email Template</h4>
+                  <p>Select and customize your email message</p>
+                </div>
+              </div>
+
+              <div className="contacts-input-section">
+                <label className="contacts-label">Choose Template</label>
+                {emailTemplates.length ? (
+                  <select
+                    value={emailForm.templateId}
+                    onChange={(e) => handleTemplateChange(e.target.value)}
+                    className="contacts-select"
+                  >
+                    <option value="">Select an email template...</option>
+                    {emailTemplates.map(template => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="contacts-empty-state">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                      <polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                    <p>No email templates available. Create one in Email Marketing.</p>
+                  </div>
+                )}
+              </div>
+
+              {emailForm.templateId && (
+                <>
+                  <div className="contacts-input-section">
+                    <label className="contacts-label">Subject Line</label>
+                    <input
+                      type="text"
+                      value={emailForm.subject}
+                      onChange={(e) => setEmailForm(prev => ({ ...prev, subject: e.target.value }))}
+                      placeholder="Enter email subject..."
+                      className="contacts-input"
+                    />
+                  </div>
+                  <div className="contacts-input-section">
+                    <label className="contacts-label">Email Message</label>
+                    <textarea
+                      rows={4}
+                      value={emailForm.body_html}
+                      onChange={(e) => setEmailForm(prev => ({ ...prev, body_html: e.target.value }))}
+                      placeholder="Customize your email message..."
+                      className="contacts-textarea"
+                    />
+                    <p className="contacts-hint">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                      </svg>
+                      Changes only apply to this campaign
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+        {contactsTabIndex === 2 && (
+          <div className="contacts-redesign">
+            <div className="contacts-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+              <div className="contacts-card-header">
+                <div className="contacts-card-icon" style={{ background: '#fef3c7' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                <div>
+                  <h4>Send Schedule</h4>
+                  <p>Choose when to send the email</p>
+                </div>
+              </div>
+
+              <div className="contacts-selection-method">
+                <button
+                  type="button"
+                  className={`selection-method-btn ${emailForm.sendNow ? 'active' : ''}`}
+                  onClick={() => handleWhenToSendChange('send_now')}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  <span>Send Now</span>
+                </button>
+                <button
+                  type="button"
+                  className={`selection-method-btn ${!emailForm.sendNow ? 'active' : ''}`}
+                  onClick={() => handleWhenToSendChange('schedule')}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                  <span>Schedule</span>
+                </button>
+              </div>
+
+              {!emailForm.sendNow && (
+                <div className="contacts-input-section">
+                  <label className="contacts-label">Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    min={scheduleMinValue}
+                    value={emailForm.scheduledAt}
+                    onChange={(e) => handleScheduleChange(e.target.value)}
+                    className="contacts-input"
+                  />
+                  {!emailForm.scheduledAt && (
+                    <p className="contacts-hint">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                      </svg>
+                      Select when the email should be sent
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 
   const steps = ['Templates', 'Pricing', 'Route', 'Contacts'];
@@ -1617,7 +1671,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
       return;
     }
     // If going back to templates step from another step, reset to front selection
-    if (activeStep === 1) {
+    if (activeStep > 0) {
       setTemplateSubStep('front');
     }
     setActiveStep((prev) => Math.max(prev - 1, 0));
@@ -1667,7 +1721,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
               type="button"
               className="btn-back"
               onClick={handlePrevStep}
-              disabled={activeStep === 0}
+              disabled={activeStep === 0 && templateSubStep === 'front'}
             >
               Back
             </button>
