@@ -9,8 +9,21 @@ const TEMPLATE_FORM_DEFAULT = {
   name: '',
   subject: '',
   body: '',
-  tag: ''
+  tag: '',
+  stage: ''
 };
+
+const PIPELINE_STAGES = [
+  { id: 'lead', label: 'Lead' },
+  { id: 'contacted', label: 'Contacted' },
+  { id: 'qualified', label: 'Qualified' },
+  { id: 'proposal_sent', label: 'Proposal Sent' },
+  { id: 'negotiating', label: 'Negotiating' },
+  { id: 'won', label: 'Won' },
+  { id: 'active', label: 'Active' },
+  { id: 'past', label: 'Past Client' },
+  { id: 'lost', label: 'Lost' }
+];
 
 const PLACEHOLDER_TOKENS = [
   {
@@ -110,7 +123,8 @@ function EmailMarketing() {
       subject: templateForm.subject.trim(),
       body_html: templateForm.body.trim(),
       body_text: templateForm.body.trim(),
-      template_tag: templateForm.tag.trim() || null
+      template_tag: templateForm.tag.trim() || null,
+      stage: templateForm.stage.trim() || null
     };
 
     const apiCall = editingTemplate
@@ -137,7 +151,8 @@ function EmailMarketing() {
       name: template.name || '',
       subject: template.subject || '',
       body: template.body_html || template.body_text || '',
-      tag: template.template_tag || ''
+      tag: template.template_tag || '',
+      stage: template.stage || ''
     });
     setEditingTemplate(template);
     setShowTemplateModal(true);
@@ -210,6 +225,20 @@ function EmailMarketing() {
               placeholder="e.g. New Lead Welcome"
               required
             />
+          </label>
+          <label>
+            Stage (Optional)
+            <select
+              value={templateForm.stage}
+              onChange={(e) => setTemplateForm(prev => ({ ...prev, stage: e.target.value }))}
+            >
+              <option value="">No stage assigned</option>
+              {PIPELINE_STAGES.map(stage => (
+                <option key={stage.id} value={stage.id}>
+                  {stage.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             Tag (Optional)
@@ -329,12 +358,19 @@ function EmailMarketing() {
                 <article key={template.id} className="template-card">
                   <div className="template-card__top">
                     <h3>{template.name}</h3>
-                    {template.template_tag && (
-                      <span className="template-tag">
-                        <Tag size={12} />
-                        {template.template_tag.toUpperCase()}
-                      </span>
-                    )}
+                    <div className="template-badges">
+                      {template.stage && (
+                        <span className="template-stage">
+                          {PIPELINE_STAGES.find(s => s.id === template.stage)?.label || template.stage}
+                        </span>
+                      )}
+                      {template.template_tag && (
+                        <span className="template-tag">
+                          <Tag size={12} />
+                          {template.template_tag.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="template-card__subject">{template.subject}</p>
                   <p className="template-card__snippet">

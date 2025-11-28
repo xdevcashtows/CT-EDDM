@@ -593,6 +593,16 @@ export const emailTemplates = {
     return { data, error };
   },
 
+  getByStage: async (userId, stage) => {
+    const { data, error } = await supabase
+      .from('email_templates')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('stage', stage)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  },
+
   create: async (templateData) => {
     const { data, error } = await supabase
       .from('email_templates')
@@ -618,6 +628,51 @@ export const emailTemplates = {
       .delete()
       .eq('id', id);
     return { error };
+  }
+};
+
+// ============================================
+// EMAIL LOGS
+// ============================================
+export const emailLogs = {
+  getByCampaign: async (campaignId) => {
+    // First get email campaigns for this campaign
+    const { data: emailCampaigns, error: ecError } = await supabase
+      .from('email_campaigns')
+      .select('id')
+      .eq('campaign_id', campaignId);
+    
+    if (ecError || !emailCampaigns || emailCampaigns.length === 0) {
+      return { data: [], error: ecError };
+    }
+    
+    const emailCampaignIds = emailCampaigns.map(ec => ec.id);
+    
+    // Then get email logs for those email campaigns
+    const { data, error } = await supabase
+      .from('email_logs')
+      .select('*, contact:contacts(id, business_name, email, niche_id)')
+      .in('email_campaign_id', emailCampaignIds)
+      .order('sent_at', { ascending: false });
+    return { data, error };
+  },
+
+  getByContact: async (contactId) => {
+    const { data, error } = await supabase
+      .from('email_logs')
+      .select('*, email_campaign:email_campaigns(id, subject, status)')
+      .eq('contact_id', contactId)
+      .order('sent_at', { ascending: false });
+    return { data, error };
+  },
+
+  getByEmailCampaign: async (emailCampaignId) => {
+    const { data, error } = await supabase
+      .from('email_logs')
+      .select('*, contact:contacts(id, business_name, email, niche_id)')
+      .eq('email_campaign_id', emailCampaignId)
+      .order('sent_at', { ascending: false });
+    return { data, error };
   }
 };
 
