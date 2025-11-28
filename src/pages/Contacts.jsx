@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import './Contacts.css';
-import { contacts as contactsAPI, niches as nichesAPI, clientAds, contactNotes as contactNotesAPI } from '../lib/api';
+import { contacts as contactsAPI, niches as nichesAPI, clientAds, contactNotes as contactNotesAPI, pipelineStages } from '../lib/api';
 import { storage } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import ImageUploader from '../components/ImageUploader';
@@ -132,22 +132,86 @@ function Contacts() {
     }
   }, [user]);
 
-  const loadPipelineStages = () => {
-    const savedStages = localStorage.getItem(`pipeline_stages_${user?.id}`);
-    if (savedStages) {
-      try {
-        setPipelineStages(JSON.parse(savedStages));
-      } catch (e) {
-        setPipelineStages(DEFAULT_PIPELINE_STAGES);
-      }
-    } else {
+  const loadPipelineStages = async () => {
+    const { data, error } = await pipelineStages.getAll(user.id);
+    
+    if (error) {
+      console.error('Failed to load pipeline stages:', error);
+      // Fallback to defaults
       setPipelineStages(DEFAULT_PIPELINE_STAGES);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      // No stages in database yet, use defaults and save them
+      setPipelineStages(DEFAULT_PIPELINE_STAGES);
+      await initializeDefaultStages();
+    } else {
+      // Map database stages to component format
+      const mappedStages = data.map(stage => ({
+        id: stage.stage_id,
+        label: stage.label,
+        color: stage.color
+      }));
+      setPipelineStages(mappedStages);
     }
   };
 
-  const savePipelineStages = (stages) => {
+  const initializeDefaultStages = async () => {
+    // Save default stages to database for this user
+    const stagePromises = DEFAULT_PIPELINE_STAGES.map((stage, index) => 
+      pipelineStages.create({
+        user_id: user.id,
+        stage_id: stage.id,
+        label: stage.label,
+        color: stage.color,
+        sort_order: index + 1
+      })
+    );
+
+    await Promise.all(stagePromises);
+  };
+
+  const savePipelineStages = async (stages) => {
+    // Update stages in database
+    const updatePromises = stages.map((stage, index) => {
+      // For existing stages (have an id), update them
+      // For new stages, create them
+      if (DEFAULT_PIPELINE_STAGES.find(ds => ds.id === stage.id)) {
+        // Existing stage - update
+        return pipelineStages.updateMany([{
+          user_id: user.id,
+          stage_id: stage.id,
+          label: stage.label,
+          color: stage.color,
+          sort_order: index + 1
+        }]);
+      } else {
+        // New custom stage - create
+        return pipelineStages.create({
+          user_id: user.id,
+          stage_id: stage.id,
+          label: stage.label,
+          color: stage.color,
+          sort_order: index + 1
+        });
+      }
+    });
+
+    const results = await Promise.all(updatePromises);
+    const hasErrors = results.some(r => r.error);
+    
+    if (hasErrors) {
+      console.error('Failed to save some stages:', results.filter(r => r.error));
+      alert('Failed to save some stages. Please try again.');
+      return;
+    }
+
+    // Update local state
     setPipelineStages(stages);
-    localStorage.setItem(`pipeline_stages_${user?.id}`, JSON.stringify(stages));
+    
+    // Reload stages from database to ensure sync
+    await loadPipelineStages();
   };
 
   const loadData = async () => {
@@ -1474,6 +1538,8 @@ function Contacts() {
           stages={pipelineStages}
           onSave={savePipelineStages}
           onClose={() => setShowStageEditor(false)}
+          user={user}
+          contacts={contacts}
         />
       )}
 
@@ -2182,7 +2248,7 @@ function UploadContactsModal({
 }
 
 // Stage Editor Modal Component
-function StageEditorModal({ stages, onSave, onClose }) {
+function StageEditorModal({ stages, onSave, onClose, user, contacts }) {
   const [editableStages, setEditableStages] = useState([...stages]);
   const [draggedIndex, setDraggedIndex] = useState(null);
 
@@ -2201,12 +2267,33 @@ function StageEditorModal({ stages, onSave, onClose }) {
     setEditableStages(updated);
   };
 
-  const handleDeleteStage = (index) => {
+  const handleDeleteStage = async (index) => {
     if (editableStages.length <= 1) {
       alert('You must have at least one stage');
       return;
     }
-    if (confirm('Are you sure you want to delete this stage? Contacts in this stage will need to be reassigned.')) {
+
+    const stageToDelete = editableStages[index];
+    
+    // Check if any contacts are assigned to this stage
+    const contactsInStage = contacts.filter(c => c.stage === stageToDelete.id);
+    
+    if (contactsInStage.length > 0) {
+      alert(`Cannot delete this stage!\n\n${contactsInStage.length} contact${contactsInStage.length > 1 ? 's are' : ' is'} assigned to "${stageToDelete.label}".\n\nPlease reassign ${contactsInStage.length > 1 ? 'these contacts' : 'this contact'} to another stage before deleting.`);
+      return;
+    }
+
+    if (confirm(`Are you sure you want to delete the "${stageToDelete.label}" stage?`)) {
+      // Delete from database
+      const { error } = await pipelineStages.delete(user.id, stageToDelete.id);
+      
+      if (error) {
+        console.error('Failed to delete stage:', error);
+        alert('Failed to delete stage. Please try again.');
+        return;
+      }
+
+      // Remove from local state
       setEditableStages(editableStages.filter((_, i) => i !== index));
     }
   };

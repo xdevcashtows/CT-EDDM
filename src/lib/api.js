@@ -950,6 +950,98 @@ export const accountMembers = {
 }
 
 // ============================================
+// PIPELINE STAGES
+// ============================================
+export const pipelineStages = {
+  getAll: async (userId) => {
+    const { data, error } = await supabase
+      .from('pipeline_stages')
+      .select('*')
+      .eq('user_id', userId)
+      .order('sort_order');
+    return { data, error };
+  },
+
+  create: async (stageData) => {
+    const { data, error } = await supabase
+      .from('pipeline_stages')
+      .insert(stageData)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  update: async (id, updates) => {
+    const { data, error } = await supabase
+      .from('pipeline_stages')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  updateMany: async (stages) => {
+    // Update multiple stages at once (for reordering)
+    const promises = stages.map(stage => 
+      supabase
+        .from('pipeline_stages')
+        .update({ 
+          label: stage.label,
+          color: stage.color,
+          sort_order: stage.sort_order
+        })
+        .eq('user_id', stage.user_id)
+        .eq('stage_id', stage.stage_id)
+    );
+    
+    const results = await Promise.all(promises);
+    const errors = results.filter(r => r.error).map(r => r.error);
+    return { data: results.map(r => r.data), error: errors.length > 0 ? errors : null };
+  },
+
+  delete: async (userId, stageId) => {
+    // First check if any contacts have this stage
+    const { data: contacts, error: checkError } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('stage', stageId)
+      .limit(1);
+
+    if (checkError) {
+      return { error: checkError };
+    }
+
+    if (contacts && contacts.length > 0) {
+      return { 
+        error: new Error('Cannot delete stage with assigned contacts. Please reassign contacts first.'),
+        code: 'STAGE_HAS_CONTACTS'
+      };
+    }
+
+    // If no contacts, proceed with deletion
+    const { error } = await supabase
+      .from('pipeline_stages')
+      .delete()
+      .eq('user_id', userId)
+      .eq('stage_id', stageId);
+    
+    return { error };
+  },
+
+  getContactCount: async (userId, stageId) => {
+    const { count, error } = await supabase
+      .from('contacts')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('stage', stageId);
+    
+    return { data: count, error };
+  }
+};
+
+// ============================================
 // EMAIL SENDING (via Netlify function)
 // ============================================
 export const sendEmail = async (emailData) => {
