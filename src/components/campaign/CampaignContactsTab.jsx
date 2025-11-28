@@ -581,6 +581,8 @@ const ContactDetailsModal = ({ contact, slots, campaign, onClose }) => {
 const AddContactModal = ({ campaign, allContacts, campaignContacts, niches, availableNiches, onAdd, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [nicheFilter, setNicheFilter] = useState('all');
+  const [selectedContactIds, setSelectedContactIds] = useState(new Set());
+  const bulkSelectCheckboxRef = useRef(null);
 
   // Filter out contacts already in the campaign
   const campaignContactIds = new Set(campaignContacts.map(c => c.id));
@@ -604,6 +606,49 @@ const AddContactModal = ({ campaign, allContacts, campaignContacts, niches, avai
     
     return matchesSearch && matchesNiche;
   });
+
+  // Handle individual contact selection
+  const handleToggleContact = (contactId) => {
+    const newSelected = new Set(selectedContactIds);
+    if (newSelected.has(contactId)) {
+      newSelected.delete(contactId);
+    } else {
+      newSelected.add(contactId);
+    }
+    setSelectedContactIds(newSelected);
+  };
+
+  // Handle select all / deselect all
+  const handleSelectAll = (checked) => {
+    if (checked) {
+      setSelectedContactIds(new Set(filteredContacts.map(c => c.id)));
+    } else {
+      setSelectedContactIds(new Set());
+    }
+  };
+
+  // Check if all filtered contacts are selected
+  const allSelected = filteredContacts.length > 0 && selectedContactIds.size === filteredContacts.length;
+  const someSelected = selectedContactIds.size > 0 && selectedContactIds.size < filteredContacts.length;
+
+  // Update indeterminate state of bulk select checkbox
+  useEffect(() => {
+    if (bulkSelectCheckboxRef.current) {
+      bulkSelectCheckboxRef.current.indeterminate = someSelected;
+    }
+  }, [someSelected]);
+
+  // Handle bulk add
+  const handleBulkAdd = () => {
+    if (selectedContactIds.size === 0) {
+      return;
+    }
+    // Add all selected contacts
+    selectedContactIds.forEach(contactId => {
+      onAdd(contactId);
+    });
+    setSelectedContactIds(new Set());
+  };
 
   return (
     <div className="contact-modal-backdrop" onClick={onClose}>
@@ -670,36 +715,89 @@ const AddContactModal = ({ campaign, allContacts, campaignContacts, niches, avai
               )}
             </div>
           ) : (
-            <div className="add-contact-list">
-              {filteredContacts.map(contact => (
-                <div 
-                  key={contact.id} 
-                  className="add-contact-item"
-                  onClick={() => onAdd(contact.id)}
-                >
-                  <div className="contact-avatar small">
-                    {contact.business_name?.charAt(0).toUpperCase() || 'A'}
-                  </div>
-                  <div className="add-contact-item-info">
-                    <div className="add-contact-item-name">{contact.business_name}</div>
-                    <div className="add-contact-item-details">
-                      {contact.niche?.name && (
-                        <span className="contact-niche">{contact.niche.name}</span>
-                      )}
-                      {contact.email && (
-                        <span className="contact-detail-text">
-                          <Mail size={12} />
-                          {contact.email}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <button className="add-contact-item-btn">
-                    <Plus size={18} />
-                  </button>
+            <>
+              {/* Bulk Select Header */}
+              <div className="add-contact-list-header">
+                <div className="bulk-select-control">
+                  <input
+                    type="checkbox"
+                    className="bulk-select-checkbox"
+                    checked={allSelected}
+                    ref={bulkSelectCheckboxRef}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                  />
+                  <span className="bulk-select-label">
+                    {selectedContactIds.size > 0 
+                      ? `${selectedContactIds.size} selected`
+                      : 'Select all'}
+                  </span>
                 </div>
-              ))}
-            </div>
+                {selectedContactIds.size > 0 && (
+                  <button 
+                    className="bulk-add-btn"
+                    onClick={handleBulkAdd}
+                  >
+                    <Plus size={16} />
+                    Add {selectedContactIds.size} Contact{selectedContactIds.size !== 1 ? 's' : ''}
+                  </button>
+                )}
+              </div>
+
+              <div className="add-contact-list">
+                {filteredContacts.map(contact => {
+                  const isSelected = selectedContactIds.has(contact.id);
+                  return (
+                    <div 
+                      key={contact.id} 
+                      className={`add-contact-item ${isSelected ? 'selected' : ''}`}
+                      onClick={(e) => {
+                        // Don't trigger if clicking the checkbox
+                        if (e.target.type !== 'checkbox') {
+                          handleToggleContact(contact.id);
+                        }
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        className="contact-select-checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleToggleContact(contact.id);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <div className="contact-avatar small">
+                        {contact.business_name?.charAt(0).toUpperCase() || 'A'}
+                      </div>
+                      <div className="add-contact-item-info">
+                        <div className="add-contact-item-name">{contact.business_name}</div>
+                        <div className="add-contact-item-details">
+                          {contact.niche?.name && (
+                            <span className="contact-niche">{contact.niche.name}</span>
+                          )}
+                          {contact.email && (
+                            <span className="contact-detail-text">
+                              <Mail size={12} />
+                              {contact.email}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button 
+                        className="add-contact-item-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAdd(contact.id);
+                        }}
+                      >
+                        <Plus size={18} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       </div>

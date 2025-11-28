@@ -548,17 +548,20 @@
 .contact-card {
   background: white;
   border-radius: 12px;
-  padding: 24px;
+  padding: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: all 0.2s;
   border: 1px solid #e5e7eb;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .contact-card-actions {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 16px;
+  right: 16px;
   display: flex;
   gap: 8px;
   align-items: center;
@@ -624,10 +627,49 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
+/* Contact Card Top Section */
+.contact-card-top {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.contact-niche-top {
+  padding: 6px 12px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #475569;
+  font-weight: 500;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.contact-top-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.contact-top-left {
+  flex-shrink: 0;
+}
+
+.contact-top-middle {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
 .contact-header {
   display: flex;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .contact-avatar {
@@ -667,7 +709,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .contact-detail {
@@ -688,11 +730,16 @@
   font-weight: 500;
 }
 
+/* Hide niche in details section for grid view since it's now in top */
+.contacts-grid .contact-details .contact-niche {
+  display: none;
+}
+
 .contact-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 .contact-tag {
@@ -706,10 +753,9 @@
   font-weight: 500;
 }
 
+/* Footer removed - elements moved to top section */
 .contact-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: none;
 }
 
 .contact-stage {
@@ -717,6 +763,7 @@
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .contact-temperature {
@@ -728,6 +775,7 @@
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   white-space: nowrap;
+  display: inline-block;
 }
 
 .contact-temperature--hot {

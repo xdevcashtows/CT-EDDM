@@ -1223,6 +1223,36 @@ function Contacts() {
                     <Star size={16} fill={contact.is_favorite ? 'currentColor' : 'none'} />
                   </button>
                 </div>
+                
+                {/* Top section: Niche (full width), then Temperature (left) and Stage (middle) */}
+                <div className="contact-card-top" onClick={() => handleContactClick(contact)}>
+                  {contact.niche?.name && (
+                    <div className="contact-niche-top">
+                      {contact.niche.name}
+                    </div>
+                  )}
+                  <div className="contact-top-row">
+                    <div className="contact-top-left">
+                      <div
+                        className={`contact-temperature contact-temperature--${contact.temperature || 'warm'}`}
+                      >
+                        {formatTemperatureLabel(contact.temperature)}
+                      </div>
+                    </div>
+                    <div className="contact-top-middle">
+                      <div
+                        className="contact-stage"
+                        style={{
+                          background: pipelineStages.find(s => s.id === contact.stage)?.color + '20',
+                          color: pipelineStages.find(s => s.id === contact.stage)?.color
+                        }}
+                      >
+                        {pipelineStages.find(s => s.id === contact.stage)?.label}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="contact-header" onClick={() => handleContactClick(contact)}>
                   <div className="contact-avatar">
                     {contact.business_name?.charAt(0) || '?'}
@@ -1246,9 +1276,6 @@ function Contacts() {
                       <span>{contact.phone}</span>
                     </div>
                   )}
-                  {contact.niche?.name && (
-                    <div className="contact-niche">{contact.niche.name}</div>
-                  )}
                 </div>
 
                 {contact.tags && (
@@ -1261,23 +1288,6 @@ function Contacts() {
                     ))}
                   </div>
                 )}
-
-              <div className="contact-footer" onClick={() => handleContactClick(contact)}>
-                <div
-                  className="contact-stage"
-                  style={{
-                    background: pipelineStages.find(s => s.id === contact.stage)?.color + '20',
-                    color: pipelineStages.find(s => s.id === contact.stage)?.color
-                  }}
-                >
-                  {pipelineStages.find(s => s.id === contact.stage)?.label}
-                </div>
-                <div
-                  className={`contact-temperature contact-temperature--${contact.temperature || 'warm'}`}
-                >
-                  {formatTemperatureLabel(contact.temperature)}
-                </div>
-              </div>
               </div>
             ))
           ) : (
