@@ -180,6 +180,11 @@ function Campaigns() {
       const { error } = await campaignsAPI.delete(campaignId);
       if (!error) {
         setCampaigns(campaigns.filter(c => c.id !== campaignId));
+        
+        // Close detail view if the deleted campaign is currently being viewed
+        if (detailViewCampaign?.id === campaignId) {
+          handleCloseDetailView();
+        }
       } else {
         alert('Failed to delete campaign');
       }
@@ -443,8 +448,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   const [emailTemplates, setEmailTemplates] = useState([]);
   const [emailForm, setEmailForm] = useState({
     templateId: '',
-    sendTo: 'tag',
-    selectedTag: '',
     selectedContacts: [],
     sendNow: true,
     scheduledAt: '',
@@ -452,6 +455,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     body_html: '',
     body_text: ''
   });
+  const [contactTagFilter, setContactTagFilter] = useState('');
   const [loading, setLoading] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
 
@@ -530,6 +534,50 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   const selectableContacts = contacts
     .filter(contact => contact.email)
     .sort((a, b) => (a.business_name || '').localeCompare(b.business_name || ''));
+
+  // Smart filtering for contacts: checked contacts always show, unchecked contacts filtered by multiple fields
+  const getFilteredContacts = () => {
+    if (!contactTagFilter.trim()) {
+      return selectableContacts;
+    }
+
+    // Parse comma-separated filter terms
+    const filterTerms = contactTagFilter.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+    if (filterTerms.length === 0) {
+      return selectableContacts;
+    }
+
+    return selectableContacts.filter(contact => {
+      // Always show checked contacts
+      if (emailForm.selectedContacts.includes(contact.id)) {
+        return true;
+      }
+
+      // Collect all searchable fields: tags, stage, niche, business name, temperature, city
+      const contactTags = [
+        contact.stage,
+        ...(Array.isArray(contact.tags) ? contact.tags : [])
+      ].filter(Boolean).map(t => t.toLowerCase());
+
+      const nicheName = contact.niche?.name?.toLowerCase() || '';
+      const businessName = contact.business_name?.toLowerCase() || '';
+      const temperature = contact.temperature?.toLowerCase() || '';
+      const city = contact.city?.toLowerCase() || '';
+
+      // Show contact if any filter term matches any searchable field
+      return filterTerms.some(filterTerm => {
+        const tagMatch = contactTags.some(contactTag => contactTag.includes(filterTerm));
+        const nicheMatch = nicheName && nicheName.includes(filterTerm);
+        const businessMatch = businessName && businessName.includes(filterTerm);
+        const temperatureMatch = temperature && temperature.includes(filterTerm);
+        const cityMatch = city && city.includes(filterTerm);
+        
+        return tagMatch || nicheMatch || businessMatch || temperatureMatch || cityMatch;
+      });
+    });
+  };
+
+  const filteredSelectableContacts = getFilteredContacts();
 
   const contactTagSet = new Set();
   contacts.forEach(contact => {
@@ -849,14 +897,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     }
   };
 
-  const handleEmailSendToChange = (value) => {
-    setEmailForm(prev => ({
-      ...prev,
-      sendTo: value,
-      selectedTag: value === 'tag' ? prev.selectedTag : '',
-      selectedContacts: value === 'tag' ? [] : prev.selectedContacts
-    }));
-  };
 
   const handleTemplateChange = (templateId) => {
     const template = emailTemplates.find(t => t.id === templateId);
@@ -891,36 +931,14 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     setEmailForm(prev => ({ ...prev, scheduledAt: value }));
   };
 
-  const getRecipientsForTag = (tag) => {
-    if (!tag) return [];
-    return contacts
-      .filter(contact => contact.email && (
-        contact.stage === tag ||
-        (Array.isArray(contact.tags) && contact.tags.includes(tag))
-      ))
-      .map(contact => contact.id);
-  };
-
   const createEmailCampaignIfConfigured = async (campaignId) => {
     if (!emailForm.templateId) return;
 
     const template = emailTemplates.find(t => t.id === emailForm.templateId);
     if (!template) return;
 
-    let recipients = [];
-    let targetStage = null;
-
-    if (emailForm.sendTo === 'tag') {
-      if (!emailForm.selectedTag) return;
-      recipients = getRecipientsForTag(emailForm.selectedTag);
-      const stageSet = new Set(contacts.map(contact => contact.stage).filter(Boolean));
-      if (stageSet.has(emailForm.selectedTag)) {
-        targetStage = emailForm.selectedTag;
-      }
-    } else if (emailForm.sendTo === 'individual') {
-      recipients = emailForm.selectedContacts.filter(Boolean);
-    }
-
+    // Get recipients from selected contacts
+    const recipients = emailForm.selectedContacts.filter(Boolean);
     if (!recipients.length) return;
 
     const scheduledDate = emailForm.sendNow
@@ -943,7 +961,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
       body_html: emailBodyHtml,
       body_text: emailBodyText,
       target_contacts: recipients,
-      target_stage: targetStage,
       send_type: emailForm.sendNow ? 'immediate' : 'scheduled',
       scheduled_at: scheduledDate.toISOString(),
       status: 'scheduled',
@@ -1036,34 +1053,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
       </div>
       
       {/* Display total slots from templates */}
-      {totalCampaignSlots > 0 && (
-        <div style={{
-          padding: '16px',
-          backgroundColor: '#f0f9ff',
-          border: '2px solid #3b82f6',
-          borderRadius: '8px',
-          marginBottom: '24px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2">
-            <rect x="3" y="3" width="7" height="7"/>
-            <rect x="14" y="3" width="7" height="7"/>
-            <rect x="3" y="14" width="7" height="7"/>
-            <rect x="14" y="14" width="7" height="7"/>
-          </svg>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e40af' }}>
-              Total Ad Slots: {totalCampaignSlots}
-            </div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>
-              Front: {selectedFrontDesign?.num_slots || 0} slots • Back: {selectedBackDesign?.num_slots || 0} slots
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="contacts-card" style={{ borderLeft: '4px solid #8b5cf6', marginBottom: '24px' }}>
         <div className="contacts-card-header">
           <div className="contacts-card-icon" style={{ background: '#ede9fe' }}>
@@ -1202,115 +1191,93 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e40af" strokeWidth="2">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
               <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              <polyline points="23 11 17 11"/>
             </svg>
           </div>
           <div>
-            <h4>Select Recipients</h4>
-            <p>Choose who will receive campaign notifications</p>
+            <h4>Select Contacts</h4>
+            <p>Choose contacts to include in this campaign</p>
           </div>
         </div>
         
-        <div className="contacts-selection-method">
-          <button
-            type="button"
-            className={`selection-method-btn ${emailForm.sendTo === 'tag' ? 'active' : ''}`}
-            onClick={() => handleEmailSendToChange('tag')}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-              <line x1="7" y1="7" x2="7.01" y2="7"/>
-            </svg>
-            <span>By Tag</span>
-          </button>
-          <button
-            type="button"
-            className={`selection-method-btn ${emailForm.sendTo === 'individual' ? 'active' : ''}`}
-            onClick={() => handleEmailSendToChange('individual')}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="8.5" cy="7" r="4"/>
-              <line x1="23" y1="11" x2="17" y2="11"/>
-            </svg>
-            <span>Individual</span>
-          </button>
+        {/* Tag Filter Input */}
+        <div className="contacts-input-section">
+          <label className="contacts-label">Filter Contacts (comma-separated)</label>
+          <input
+            type="text"
+            placeholder="e.g. plumber, warm, chicago, lead, window cleaning"
+            value={contactTagFilter}
+            onChange={(e) => setContactTagFilter(e.target.value)}
+            className="contacts-input"
+          />
+          <p className="form-hint" style={{ marginTop: '8px', fontSize: '12px' }}>
+            ℹ️ Search by business name, tags, niche, temperature, or city. Checked contacts always show.
+          </p>
         </div>
 
-        {emailForm.sendTo === 'tag' && (
-          <div className="contacts-input-section">
-            {availableTags.length ? (
-              <select
-                value={emailForm.selectedTag}
-                onChange={(e) => setEmailForm(prev => ({ ...prev, selectedTag: e.target.value }))}
-                className="contacts-select"
-              >
-                <option value="">Select a tag...</option>
-                {availableTags.map(tag => (
-                  <option key={tag} value={tag}>
-                    {formatTagLabel(tag)}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="contacts-empty-state">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="12" y1="8" x2="12" y2="12"/>
-                  <line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                <p>No tags available. Add tags to contacts first.</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {emailForm.sendTo === 'individual' && (
-          <div className="contacts-input-section">
-            {selectableContacts.length ? (
-              <>
-                <div className="contacts-list-redesign">
-                  {selectableContacts.map(contact => (
-                    <label key={contact.id} className="contact-card-item">
-                      <input
-                        type="checkbox"
-                        value={contact.id}
-                        checked={emailForm.selectedContacts.includes(contact.id)}
-                        onChange={() => toggleEmailContact(contact.id)}
-                      />
-                      <div className="contact-card-content">
-                        <div className="contact-avatar">
-                          {contact.business_name?.charAt(0) || 'C'}
-                        </div>
-                        <div className="contact-info">
-                          <strong>{contact.business_name}</strong>
-                          <span>{contact.email}</span>
-                        </div>
+        {/* Contacts List */}
+        <div className="contacts-input-section">
+          {filteredSelectableContacts.length > 0 ? (
+            <>
+              <div className="contacts-list-redesign" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {filteredSelectableContacts.map(contact => (
+                  <label key={contact.id} className="contact-card-item">
+                    <input
+                      type="checkbox"
+                      value={contact.id}
+                      checked={emailForm.selectedContacts.includes(contact.id)}
+                      onChange={() => toggleEmailContact(contact.id)}
+                    />
+                    <div className="contact-card-content">
+                      <div className="contact-avatar">
+                        {contact.business_name?.charAt(0) || 'C'}
                       </div>
-                    </label>
-                  ))}
-                </div>
-                {emailForm.selectedContacts.length > 0 && (
-                  <div className="contacts-selected-count">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                    <span>{emailForm.selectedContacts.length} contact{emailForm.selectedContacts.length === 1 ? '' : 's'} selected</span>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="contacts-empty-state">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                  <circle cx="9" cy="7" r="4"/>
-                </svg>
-                <p>No contacts with email addresses available.</p>
+                      <div className="contact-info">
+                        <strong>{contact.business_name}</strong>
+                        <span>
+                          {contact.email}
+                          {contact.tags && contact.tags.length > 0 && (
+                            <span style={{ color: '#94a3b8', fontSize: '11px', marginLeft: '8px' }}>
+                              {contact.tags.slice(0, 3).join(', ')}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </label>
+                ))}
               </div>
-            )}
-          </div>
-        )}
+              {emailForm.selectedContacts.length > 0 && (
+                <div className="contacts-selected-count" style={{ marginTop: '12px' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  <span>{emailForm.selectedContacts.length} contact{emailForm.selectedContacts.length === 1 ? '' : 's'} selected</span>
+                </div>
+              )}
+            </>
+          ) : selectableContacts.length === 0 ? (
+            <div className="contacts-empty-state">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+              </svg>
+              <p>No contacts with email addresses available.</p>
+            </div>
+          ) : (
+            <div className="contacts-empty-state">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="16" x2="12" y2="16"/>
+                <line x1="12" y1="12" x2="12" y2="8"/>
+              </svg>
+              <p>No contacts match the current tag filter.</p>
+              <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '8px' }}>
+                Try different tags or clear the filter.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1421,8 +1388,8 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
 
   const templateStepContent = (
     <div className="form-section">
-      {/* Campaign Name Input - Always visible at top */}
-      <div className="campaign-modal__form-grid" style={{ marginBottom: '32px' }}>
+      {/* Campaign Name and Mail Date Inputs - Always visible at top */}
+      <div className="campaign-modal__form-grid" style={{ marginBottom: '32px', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         <div className="form-group">
           <label>Campaign Name *</label>
           <input
@@ -1438,6 +1405,17 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
               Please enter a campaign name to select templates
             </p>
           )}
+        </div>
+        <div className="form-group">
+          <label>Mail Date</label>
+          <input
+            type="date"
+            value={formData.mail_date || ''}
+            onChange={(e) => setFormData({ ...formData, mail_date: e.target.value })}
+          />
+          <p className="form-hint" style={{ marginTop: '8px', fontSize: '12px' }}>
+            Optional: When do you plan to mail this campaign?
+          </p>
         </div>
       </div>
 

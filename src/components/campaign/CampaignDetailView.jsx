@@ -3,12 +3,14 @@ import { X } from 'lucide-react';
 import CampaignConfigTab from './CampaignConfigTab';
 import CampaignCanvasTab from './CampaignCanvasTab';
 import CampaignContactsTab from './CampaignContactsTab';
+import CampaignEmailsTab from './CampaignEmailsTab';
 import './CampaignDetailView.css';
 
 const tabs = [
   { id: 'config', label: 'Settings & Analytics' },
   { id: 'canvas', label: 'Canvas' },
   { id: 'contacts', label: 'Contacts' },
+  { id: 'emails', label: 'Emails' },
 ];
 
 export const CampaignDetailView = ({ campaign, isOpen, onClose, onUpdate }) => {
@@ -34,7 +36,7 @@ export const CampaignDetailView = ({ campaign, isOpen, onClose, onUpdate }) => {
     }, 300); // Match animation duration
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !campaign) return null;
 
   return (
     <>
@@ -50,9 +52,9 @@ export const CampaignDetailView = ({ campaign, isOpen, onClose, onUpdate }) => {
         <div className="campaign-detail-header">
           <div className="campaign-detail-header-content">
             <div>
-              <h2 className="campaign-detail-title">{campaign.name}</h2>
+              <h2 className="campaign-detail-title">{campaign?.name || 'Campaign'}</h2>
               <p className="campaign-detail-subtitle">
-                {campaign.city?.name || campaign.city} • {(campaign.total_pieces || 0).toLocaleString()} pieces
+                {campaign.city?.name || campaign.city || 'Unknown'} • {(campaign.total_pieces || 0).toLocaleString()} pieces
               </p>
             </div>
             <button
@@ -80,14 +82,17 @@ export const CampaignDetailView = ({ campaign, isOpen, onClose, onUpdate }) => {
 
         {/* Content */}
         <div className="campaign-detail-content">
-          {activeTab === 'config' && (
+          {activeTab === 'config' && campaign && (
             <CampaignConfigTab campaign={campaign} onUpdate={onUpdate} onClose={onClose} />
           )}
-          {activeTab === 'canvas' && (
+          {activeTab === 'canvas' && campaign && (
             <CampaignCanvasTab campaign={campaign} onUpdate={onUpdate} />
           )}
-          {activeTab === 'contacts' && (
+          {activeTab === 'contacts' && campaign && (
             <CampaignContactsTab campaign={campaign} onUpdate={onUpdate} />
+          )}
+          {activeTab === 'emails' && campaign && (
+            <CampaignEmailsTab campaign={campaign} onUpdate={onUpdate} />
           )}
         </div>
       </div>

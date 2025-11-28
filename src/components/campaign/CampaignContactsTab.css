@@ -13,6 +13,50 @@
   z-index: 10;
 }
 
+/* Action Bar */
+.contacts-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.add-contact-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.add-contact-btn:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
+}
+
+/* Campaign Mode Notice */
+.campaign-mode-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 2rem 0;
+  background: #eff6ff;
+  border: 1px solid #3b82f6;
+  border-radius: 0.5rem;
+  color: #1e40af;
+  font-size: 0.875rem;
+}
+
 .summary-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -109,19 +153,142 @@
   gap: 1.5rem;
 }
 
+/* Niches List */
+.niches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.niche-section {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.niche-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.niche-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.niche-header-left > svg {
+  color: #6b7280;
+}
+
+.niche-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.niche-stats {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.niche-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.niche-status-badge.filled {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.niche-status-badge.available {
+  background: #fef3c7;
+  color: #ca8a04;
+}
+
+.niche-status-badge.not_allowed {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
 /* Contact Card */
 .contact-card {
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 0.75rem;
-  padding: 1.5rem;
-  cursor: pointer;
+  padding: 0;
+  position: relative;
   transition: all 0.2s;
 }
 
 .contact-card:hover {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
+}
+
+.contact-card-actions {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 2;
+}
+
+.contact-card:hover .contact-card-actions {
+  opacity: 1;
+}
+
+.contact-card-action-btn {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.contact-card-action-btn.view {
+  color: #3b82f6;
+}
+
+.contact-card-action-btn.view:hover {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.contact-card-action-btn.remove {
+  color: #ef4444;
+}
+
+.contact-card-action-btn.remove:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.contact-card-content {
+  padding: 1.5rem;
+  cursor: pointer;
 }
 
 .contact-card-header {
@@ -475,6 +642,136 @@
   flex-shrink: 0;
 }
 
+/* Add Contact Modal */
+.add-contact-modal {
+  background: white;
+  border-radius: 0.75rem;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-subtitle {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0.25rem 0 0 0;
+}
+
+.add-contact-modal-filters {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.add-contact-modal-filters .contacts-search-bar {
+  flex: 1;
+  max-width: none;
+}
+
+.niche-filter-select {
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: #111827;
+  background: white;
+  cursor: pointer;
+  min-width: 150px;
+}
+
+.niche-filter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.add-contact-modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.add-contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.add-contact-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-contact-item:hover {
+  background: white;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+}
+
+.contact-avatar.small {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1rem;
+}
+
+.add-contact-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.add-contact-item-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 0.25rem;
+}
+
+.add-contact-item-details {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.contact-detail-text {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.add-contact-item-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.add-contact-item-btn:hover {
+  background: #2563eb;
+  transform: scale(1.05);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .contacts-summary-header {
@@ -485,12 +782,35 @@
     grid-template-columns: 1fr;
   }
 
+  .contacts-action-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .contacts-search-bar {
+    max-width: none;
+  }
+
+  .add-contact-btn {
+    justify-content: center;
+  }
+
   .contacts-list-container {
     padding: 1rem;
   }
 
   .contacts-grid {
     grid-template-columns: 1fr;
+  }
+
+  .niche-section {
+    padding: 1rem;
+  }
+
+  .niche-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
   }
 
   .contact-info-grid {
@@ -504,6 +824,18 @@
   .slot-item-ad {
     width: 100%;
     height: 100px;
+  }
+
+  .add-contact-modal-filters {
+    flex-direction: column;
+  }
+
+  .niche-filter-select {
+    width: 100%;
+  }
+
+  .add-contact-item {
+    padding: 0.75rem;
   }
 }
 

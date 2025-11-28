@@ -551,6 +551,15 @@ export const emailCampaigns = {
     return { data, error };
   },
 
+  getByCampaign: async (campaignId) => {
+    const { data, error } = await supabase
+      .from('email_campaigns')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  },
+
   create: async (campaignData) => {
     const { data, error } = await supabase
       .from('email_campaigns')

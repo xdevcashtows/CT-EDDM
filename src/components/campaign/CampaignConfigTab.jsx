@@ -28,6 +28,7 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
     name: campaign.name || '',
     status: campaign.status || 'draft',
     mail_date: campaign.mail_date || '',
+    city: campaign.city?.name || campaign.city || '',
     slot_1_price: campaign.slot_1_price || 0,
     slot_2_price: campaign.slot_2_price || 0,
     slot_4_price: campaign.slot_4_price || 0,
@@ -48,6 +49,7 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
       name: campaign.name || '',
       status: campaign.status || 'draft',
       mail_date: campaign.mail_date || '',
+      city: campaign.city?.name || campaign.city || '',
       slot_1_price: campaign.slot_1_price || 0,
       slot_2_price: campaign.slot_2_price || 0,
       slot_4_price: campaign.slot_4_price || 0,
@@ -81,6 +83,7 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
         name: formData.name || '',
         status: formData.status || 'draft',
         mail_date: formData.mail_date || null,
+        city: formData.city || null,
         slot_1_price: Number(formData.slot_1_price) || 0,
         slot_2_price: Number(formData.slot_2_price) || 0,
         slot_4_price: Number(formData.slot_4_price) || 0,
@@ -303,13 +306,18 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
             </div>
 
             <div className="form-group">
-              <label className="form-label-with-icon">
+              <label htmlFor="campaign-city" className="form-label-with-icon">
                 <MapPin size={14} style={{ color: '#f59e0b' }} />
-                Location
+                Location / City
               </label>
-              <div className="form-readonly">
-                {campaign.city?.name || campaign.city || 'Not set'}
-              </div>
+              <input
+                id="campaign-city"
+                type="text"
+                value={formData.city || ''}
+                onChange={(e) => handleChange('city', e.target.value)}
+                className="form-input"
+                placeholder="Enter city or location..."
+              />
             </div>
           </div>
 
