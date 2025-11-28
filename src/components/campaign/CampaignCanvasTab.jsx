@@ -16,6 +16,8 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
   const [frontDesign, setFrontDesign] = useState(null);
   const [backDesign, setBackDesign] = useState(null);
   const [activeSide, setActiveSide] = useState('front');
+  const [displaySide, setDisplaySide] = useState('front');
+  const [isFlipping, setIsFlipping] = useState(false);
   const [orientation, setOrientation] = useState(() => {
     // Load orientation from localStorage, default to 'portrait'
     return localStorage.getItem('canvasOrientation') || 'portrait';
@@ -302,9 +304,15 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
   // Yellow bar: Shows the "discount gap" - what we hoped for but didn't get due to negotiations
   const discountGapPercentage = totalPotentialValue > 0 ? ((bookedBasePriceValue - bookedActualValue) / totalPotentialValue * 100) : 0;
 
-  // Get current design and slots based on active side
-  const currentDesign = activeSide === 'front' ? frontDesign : backDesign;
-  const currentSlots = activeSide === 'front' ? frontSlots : backSlots;
+  // Get designs and slots for both sides
+  const frontDesignData = frontDesign;
+  const backDesignData = backDesign;
+  const frontSlotsData = frontSlots;
+  const backSlotsData = backSlots;
+  
+  // Get current design and slots based on display side (what's shown)
+  const currentDesign = displaySide === 'front' ? frontDesign : backDesign;
+  const currentSlots = displaySide === 'front' ? frontSlots : backSlots;
 
   return (
     <div className="campaign-canvas-tab">
@@ -340,8 +348,8 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
             <span className="progress-percentage">
               {actualPercentage.toFixed(1)}%
               {discountGapPercentage > 0 && (
-                <span style={{ color: '#f59e0b', marginLeft: '0.5rem', fontSize: '0.875rem' }}>
-                  (-{discountGapPercentage.toFixed(1)}% in discounts)
+                <span style={{ color: '#f59e0b', marginLeft: '0.5rem', fontSize: '0.625rem' }}>
+                  (-{discountGapPercentage.toFixed(1)}% discounts)
                 </span>
               )}
             </span>
@@ -371,15 +379,15 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
           {/* Legend */}
           <div style={{ 
             display: 'flex', 
-            gap: '1rem', 
-            marginTop: '0.5rem', 
-            fontSize: '0.75rem',
+            gap: '0.625rem', 
+            marginTop: '0.25rem', 
+            fontSize: '0.5625rem',
             color: '#6b7280'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
               <div style={{ 
-                width: '12px', 
-                height: '12px', 
+                width: '8px', 
+                height: '8px', 
                 backgroundColor: '#22c55e', 
                 borderRadius: '2px' 
               }} />
@@ -388,8 +396,8 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
             {discountGapPercentage > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                 <div style={{ 
-                  width: '12px', 
-                  height: '12px', 
+                  width: '8px', 
+                  height: '8px', 
                   backgroundColor: '#f59e0b', 
                   opacity: 0.6,
                   borderRadius: '2px' 
@@ -399,8 +407,8 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
               <div style={{ 
-                width: '12px', 
-                height: '12px', 
+                width: '8px', 
+                height: '8px', 
                 backgroundColor: '#e5e7eb', 
                 borderRadius: '2px' 
               }} />
@@ -445,15 +453,33 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
               <div className="canvas-side-toggle">
                 <button
                   className={`side-toggle-btn ${activeSide === 'front' ? 'active' : ''}`}
-                  onClick={() => setActiveSide('front')}
-                  disabled={!frontDesign}
+                  onClick={() => {
+                    if (activeSide !== 'front' && !isFlipping) {
+                      setIsFlipping(true);
+                      setActiveSide('front');
+                      setTimeout(() => {
+                        setDisplaySide('front');
+                        setIsFlipping(false);
+                      }, 600);
+                    }
+                  }}
+                  disabled={!frontDesign || isFlipping}
                 >
                   Front {!frontDesign && '(N/A)'}
                 </button>
                 <button
                   className={`side-toggle-btn ${activeSide === 'back' ? 'active' : ''}`}
-                  onClick={() => setActiveSide('back')}
-                  disabled={!backDesign}
+                  onClick={() => {
+                    if (activeSide !== 'back' && !isFlipping) {
+                      setIsFlipping(true);
+                      setActiveSide('back');
+                      setTimeout(() => {
+                        setDisplaySide('back');
+                        setIsFlipping(false);
+                      }, 600);
+                    }
+                  }}
+                  disabled={!backDesign || isFlipping}
                 >
                   Back {!backDesign && '(N/A)'}
                 </button>
@@ -474,19 +500,47 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
           )}
 
           {/* Canvas Container */}
-          {currentDesign ? (
+          {(frontDesign || backDesign) ? (
             <div className="canvas-layout-container">
-              <h3 className="canvas-layout-title">
-                {currentDesign.name} - {activeSide === 'front' ? 'Front' : 'Back'} Side
+              <h3 className={`canvas-layout-title ${isFlipping ? 'flipping' : ''}`}>
+                {displaySide === 'front' ? (frontDesign?.name || 'Front') : (backDesign?.name || 'Back')} - {displaySide === 'front' ? 'Front' : 'Back'} Side
               </h3>
-              <CanvasLayout
-                design={currentDesign}
-                slots={currentSlots}
-                onSlotClick={handleSlotClick}
-                getSlotColor={getSlotColor}
-                getSlotFinalPrice={getSlotFinalPrice}
-                orientation={orientation}
-              />
+              <div className={`canvas-flip-wrapper ${activeSide === 'back' ? 'flipped' : ''} ${isFlipping ? 'flipping' : ''}`}>
+                {/* Front Side */}
+                <div className="canvas-flip-side canvas-flip-front">
+                  {frontDesign ? (
+                    <CanvasLayout
+                      design={frontDesign}
+                      slots={frontSlotsData}
+                      onSlotClick={handleSlotClick}
+                      getSlotColor={getSlotColor}
+                      getSlotFinalPrice={getSlotFinalPrice}
+                      orientation={orientation}
+                    />
+                  ) : (
+                    <div className="canvas-no-design">
+                      <p>No front design available</p>
+                    </div>
+                  )}
+                </div>
+                {/* Back Side */}
+                <div className="canvas-flip-side canvas-flip-back">
+                  {backDesign ? (
+                    <CanvasLayout
+                      design={backDesign}
+                      slots={backSlotsData}
+                      onSlotClick={handleSlotClick}
+                      getSlotColor={getSlotColor}
+                      getSlotFinalPrice={getSlotFinalPrice}
+                      orientation={orientation}
+                    />
+                  ) : (
+                    <div className="canvas-no-design">
+                      <p>No back design available</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           ) : (
             <div className="canvas-no-design">

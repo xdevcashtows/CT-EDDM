@@ -108,7 +108,7 @@ function Campaigns() {
   const [viewMode, setViewMode] = useState('grid');
   const [showDetailView, setShowDetailView] = useState(false);
   const [detailViewCampaign, setDetailViewCampaign] = useState(null);
-  const [detailViewActiveTab, setDetailViewActiveTab] = useState('config');
+  const [detailViewActiveTab, setDetailViewActiveTab] = useState('settings');
   
   const renderCountRef = useRef(0);
   renderCountRef.current += 1;
@@ -170,19 +170,15 @@ function Campaigns() {
     });
     setDetailViewCampaign(campaign);
     setShowDetailView(true);
-    // Reset to config tab only when opening a different campaign
-    const currentCampaignId = detailViewCampaign?.id;
-    if (currentCampaignId && currentCampaignId !== campaign?.id) {
-      console.log('🔄 [Campaigns] Different campaign opened, resetting tab to config');
-      setDetailViewActiveTab('config');
-    }
+    // Always open to settings tab when clicking on a campaign
+    setDetailViewActiveTab('settings');
   };
 
   const handleCloseDetailView = async () => {
     console.log('🚪 [Campaigns] Closing detail view');
     setShowDetailView(false);
     setDetailViewCampaign(null);
-    setDetailViewActiveTab('config');
+    setDetailViewActiveTab('settings');
     
     // Refresh campaigns list when closing detail view to show any changes
     console.log('🔄 [Campaigns] Refreshing campaigns list after closing detail view');

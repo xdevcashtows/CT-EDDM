@@ -833,7 +833,15 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
           </div>
         ) : viewMode === 'list' ? (
           <div className="niches-list">
-            {Object.entries(contactsByNiche).map(([nicheId, nicheContacts]) => {
+            {Object.entries(contactsByNiche)
+              .sort(([nicheIdA], [nicheIdB]) => {
+                const nicheA = niches.find(n => n.id === nicheIdA);
+                const nicheB = niches.find(n => n.id === nicheIdB);
+                const nameA = nicheA?.name || 'Unassigned Niche';
+                const nameB = nicheB?.name || 'Unassigned Niche';
+                return nameA.localeCompare(nameB);
+              })
+              .map(([nicheId, nicheContacts]) => {
               const niche = niches.find(n => n.id === nicheId);
               const nicheName = niche?.name || 'Unassigned Niche';
               const nicheStatus = getNicheStatus(nicheId);
