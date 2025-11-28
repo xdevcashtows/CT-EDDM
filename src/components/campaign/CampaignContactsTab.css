@@ -229,8 +229,33 @@
 
 .contacts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1.25rem;
+  max-width: 100%;
+}
+
+@media (max-width: 1600px) {
+  .contacts-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 1200px) {
+  .contacts-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .contacts-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .contacts-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Niches List */
@@ -268,7 +293,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.5rem;
+  padding: 0.5rem 1.5rem;
   background: #f9fafb;
   border: none;
   border-bottom: 1px solid #e5e7eb;
@@ -293,8 +318,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 1.5rem;
+  height: 1.5rem;
   border: none;
   background: transparent;
   color: #6b7280;
@@ -317,9 +342,10 @@
 
 .niche-header h3 {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #111827;
+  line-height: 1.4;
 }
 
 .niche-stats {
@@ -366,7 +392,564 @@
   color: #dc2626;
 }
 
-/* Contact Card - New Redesigned */
+/* Contact Card - Sleek Redesigned */
+.contact-card-sleek {
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+  border: 1.5px solid #e5e7eb;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: relative;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.contact-card-sleek::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.contact-card-sleek:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+  transform: translateY(-4px);
+}
+
+.contact-card-sleek:hover::before {
+  opacity: 1;
+}
+
+.contact-card-sleek.selected {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+/* Top Right Actions */
+.contact-card-top-actions {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 10;
+}
+
+.contact-card-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+  border-radius: 0.25rem;
+}
+
+.contact-card-favorite-btn {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.contact-card-favorite-btn:hover {
+  background: #fff;
+  color: #fbbf24;
+  transform: scale(1.1);
+}
+
+.contact-card-favorite-btn.active {
+  color: #fbbf24;
+  background: #fef3c7;
+}
+
+/* Business Name */
+.contact-card-business-name {
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.contact-card-business-name h4 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* Info Grid */
+.contact-card-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.contact-card-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.contact-card-info-item .info-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #9ca3af;
+}
+
+.contact-card-info-item .info-value {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.stage-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  display: inline-block;
+  width: fit-content;
+}
+
+.temperature-display {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.temperature-icon {
+  flex-shrink: 0;
+}
+
+.temperature-icon.hot {
+  color: #ef4444;
+}
+
+.temperature-icon.warm {
+  color: #f59e0b;
+}
+
+.temperature-icon.cold {
+  color: #3b82f6;
+}
+
+.temperature-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.temperature-text.hot {
+  color: #dc2626;
+}
+
+.temperature-text.warm {
+  color: #d97706;
+}
+
+.temperature-text.cold {
+  color: #2563eb;
+}
+
+.niche-value {
+  font-size: 0.75rem;
+  color: #6366f1;
+}
+
+/* Status Row */
+.contact-card-status-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  flex: 1;
+  min-width: fit-content;
+}
+
+.status-indicator.assigned {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.status-indicator.unassigned {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.status-indicator.has-ad {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.status-indicator.no-ad {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Revenue Display */
+.contact-card-revenue {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-radius: 0.75rem;
+  margin-top: 0.5rem;
+  border: 1px solid #86efac;
+}
+
+.contact-card-revenue svg {
+  color: #16a34a;
+  flex-shrink: 0;
+}
+
+.revenue-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  flex: 1;
+}
+
+.revenue-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #15803d;
+}
+
+.revenue-value {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #16a34a;
+}
+
+/* Delete Button */
+.contact-card-delete-btn {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0;
+}
+
+.contact-card-sleek:hover .contact-card-delete-btn {
+  opacity: 1;
+}
+
+.contact-card-delete-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  transform: scale(1.1);
+}
+
+/* Contacts Limit Notice */
+.contacts-limit-notice {
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: #92400e;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Contacts Table Styles */
+.contacts-table-container {
+  padding: 1rem 1.5rem;
+  overflow-x: auto;
+}
+
+.contacts-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.contacts-table thead {
+  background: #f8fafc;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.contacts-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.contacts-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.2s;
+}
+
+.contacts-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.contacts-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.contacts-table td {
+  padding: 1rem;
+  font-size: 0.875rem;
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+.table-checkbox-col {
+  width: 40px;
+  text-align: center;
+}
+
+.table-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+  border-radius: 4px;
+}
+
+.table-business-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.table-favorite-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.table-favorite-btn:hover {
+  background: #fef3c7;
+  color: #f59e0b;
+}
+
+.table-favorite-btn.active {
+  color: #f59e0b;
+}
+
+.business-name-text {
+  font-weight: 600;
+  color: #1e293b;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.business-name-text:hover {
+  color: #3b82f6;
+}
+
+.table-contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.table-contact-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+
+.table-contact-item svg {
+  flex-shrink: 0;
+  color: #94a3b8;
+}
+
+.table-stage-badge {
+  display: inline-block;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1.5px solid;
+}
+
+.table-temperature-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1.5px solid;
+}
+
+.table-temperature-badge.temperature-hot {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+.table-temperature-badge.temperature-warm {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.table-temperature-badge.temperature-cold {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1d4ed8;
+  border-color: #93c5fd;
+}
+
+.table-slots-info,
+.table-revenue-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.table-slots-info svg {
+  color: #64748b;
+}
+
+.table-revenue-info {
+  color: #16a34a;
+}
+
+.table-revenue-info svg {
+  color: #16a34a;
+}
+
+.table-ad-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.table-ad-status.has-ad {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.table-ad-status.no-ad {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.table-actions-col {
+  width: 100px;
+  text-align: right;
+}
+
+.table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.table-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+}
+
+.table-action-btn.view-btn {
+  color: #3b82f6;
+}
+
+.table-action-btn.view-btn:hover {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.table-action-btn.delete-btn {
+  color: #ef4444;
+}
+
+.table-action-btn.delete-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* Legacy Contact Card Styles (for backwards compatibility) */
 .contact-card-new {
   background: white;
   border: 2px solid #e5e7eb;

@@ -22,7 +22,8 @@ import {
   Settings,
   GripVertical,
   Save,
-  XCircle
+  XCircle,
+  Tag
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import './Contacts.css';
@@ -1236,100 +1237,115 @@ function Contacts() {
               <p>No contacts found</p>
             </div>
           ) : viewMode === 'grid' ? (
-            filteredAndSortedContacts.map(contact => (
-              <div
-                key={contact.id}
-                className="contact-card"
-              >
-                <div className="contact-card-actions">
-                  <input
-                    type="checkbox"
-                    className="contact-checkbox"
-                    checked={selectedContactIds.has(contact.id)}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      handleSelectContact(contact.id);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <button
-                    className={`contact-favorite-btn ${contact.is_favorite ? 'active' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleFavorite(contact.id, contact.is_favorite);
-                    }}
-                    title={contact.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
-                  >
-                    <Star size={16} fill={contact.is_favorite ? 'currentColor' : 'none'} />
-                  </button>
-                </div>
-                
-                {/* Top section: Niche (full width), then Temperature (left) and Stage (middle) */}
-                <div className="contact-card-top" onClick={() => handleContactClick(contact)}>
-                  {contact.niche?.name && (
-                    <div className="contact-niche-top">
-                      {contact.niche.name}
-                    </div>
-                  )}
-                  <div className="contact-top-row">
-                    <div className="contact-top-left">
-                      <div
-                        className={`contact-temperature contact-temperature--${contact.temperature || 'warm'}`}
-                      >
-                        {formatTemperatureLabel(contact.temperature)}
-                      </div>
-                    </div>
-                    <div className="contact-top-middle">
-                      <div
-                        className="contact-stage"
-                        style={{
-                          background: pipelineStages.find(s => s.id === contact.stage)?.color + '20',
-                          color: pipelineStages.find(s => s.id === contact.stage)?.color
-                        }}
-                      >
-                        {pipelineStages.find(s => s.id === contact.stage)?.label}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            filteredAndSortedContacts.map(contact => {
+              const stage = pipelineStages.find(s => s.id === contact.stage);
+              const temperature = contact.temperature || 'warm';
+              const tagsArray = typeof contact.tags === 'string' 
+                ? contact.tags.split(',').map(t => t.trim()).filter(Boolean)
+                : (Array.isArray(contact.tags) ? contact.tags.filter(Boolean) : []);
 
-                <div className="contact-header" onClick={() => handleContactClick(contact)}>
-                  <div className="contact-avatar">
-                    {contact.business_name?.charAt(0) || '?'}
+              return (
+                <div
+                  key={contact.id}
+                  className="contact-card-sleek"
+                  onClick={() => handleContactClick(contact)}
+                >
+                  {/* Top Actions Bar */}
+                  <div className="contact-card-actions-bar" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="contact-checkbox-sleek"
+                      checked={selectedContactIds.has(contact.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleSelectContact(contact.id);
+                      }}
+                    />
+                    <button
+                      className={`contact-favorite-btn-sleek ${contact.is_favorite ? 'active' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleFavorite(contact.id, contact.is_favorite);
+                      }}
+                      title={contact.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                      <Star size={16} fill={contact.is_favorite ? 'currentColor' : 'none'} />
+                    </button>
                   </div>
-                  <div className="contact-info">
-                    <div className="contact-name">{contact.business_name}</div>
-                    <div className="contact-owner">{contact.owner_name}</div>
-                  </div>
-                </div>
-                
-                <div className="contact-details" onClick={() => handleContactClick(contact)}>
-                  {contact.email && (
-                    <div className="contact-detail">
-                      <Mail size={14} />
-                      <span>{contact.email}</span>
-                    </div>
-                  )}
-                  {contact.phone && (
-                    <div className="contact-detail">
-                      <Phone size={14} />
-                      <span>{contact.phone}</span>
-                    </div>
-                  )}
-                </div>
 
-                {contact.tags && (
-                  <div className="contact-tags" onClick={() => handleContactClick(contact)}>
-                    {(typeof contact.tags === 'string' 
-                      ? contact.tags.split(',').map(t => t.trim()) 
-                      : contact.tags
-                    ).filter(Boolean).map((tag, idx) => (
-                      <span key={idx} className="contact-tag">{tag}</span>
-                    ))}
+                  {/* Header Section with Avatar and Name */}
+                  <div className="contact-card-header-sleek">
+                    <div className="contact-avatar-sleek" style={{
+                      background: stage?.color 
+                        ? `linear-gradient(135deg, ${stage.color} 0%, ${stage.color}dd 100%)`
+                        : 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)'
+                    }}>
+                      {contact.business_name?.charAt(0).toUpperCase() || '?'}
+                    </div>
+                    <div className="contact-name-section">
+                      <h3 className="contact-business-name">{contact.business_name || 'Unnamed Business'}</h3>
+                      {contact.owner_name && (
+                        <p className="contact-owner-name">{contact.owner_name}</p>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            ))
+
+                  {/* Status Badges Row */}
+                  <div className="contact-status-badges">
+                    {contact.niche?.name && (
+                      <div className="status-badge niche-badge">
+                        <Tag size={12} />
+                        <span>{contact.niche.name}</span>
+                      </div>
+                    )}
+                    <div 
+                      className="status-badge stage-badge"
+                      style={{
+                        backgroundColor: stage?.color ? `${stage.color}15` : '#f3f4f6',
+                        color: stage?.color || '#6b7280',
+                        borderColor: stage?.color ? `${stage.color}40` : '#e5e7eb'
+                      }}
+                    >
+                      {stage?.label || contact.stage || 'N/A'}
+                    </div>
+                    <div className={`status-badge temperature-badge temperature-${temperature}`}>
+                      {temperature === 'hot' && '🔥'}
+                      {temperature === 'warm' && '☀️'}
+                      {temperature === 'cold' && '❄️'}
+                      <span>{formatTemperatureLabel(temperature)}</span>
+                    </div>
+                  </div>
+
+                  {/* Contact Information */}
+                  <div className="contact-info-section">
+                    {contact.email && (
+                      <div className="contact-info-item">
+                        <Mail size={14} className="info-icon" />
+                        <span className="info-text">{contact.email}</span>
+                      </div>
+                    )}
+                    {contact.phone && (
+                      <div className="contact-info-item">
+                        <Phone size={14} className="info-icon" />
+                        <span className="info-text">{contact.phone}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tags Section */}
+                  {tagsArray.length > 0 && (
+                    <div className="contact-tags-section">
+                      {tagsArray.slice(0, 3).map((tag, idx) => (
+                        <span key={idx} className="contact-tag-sleek">{tag}</span>
+                      ))}
+                      {tagsArray.length > 3 && (
+                        <span className="contact-tag-more">+{tagsArray.length - 3}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           ) : (
             <div className="contact-list">
               <div className="contact-list-header">
@@ -1706,13 +1722,6 @@ function ContactModal({
                 >
                   Tags
                 </button>
-                <button
-                  type="button"
-                  className={`details-sub-tab ${activeSubTab === 'notes' ? 'active' : ''}`}
-                  onClick={() => setActiveSubTab('notes')}
-                >
-                  Quick Notes
-                </button>
               </div>
 
               {/* Basic Information Section */}
@@ -1886,25 +1895,6 @@ function ContactModal({
                       💡 Press Enter or comma to add a tag. Click × to remove.
                     </p>
                   </div>
-                </div>
-              )}
-
-              {/* Notes Section */}
-              {activeSubTab === 'notes' && (
-                <div className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-amber-900 mb-4">Quick Notes</h3>
-                  <label className="form-field">
-                    <span>Additional Notes</span>
-                    <textarea
-                      value={formData.notes || ''}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      rows={6}
-                      placeholder="Add any quick notes about this contact..."
-                    />
-                  </label>
-                  <p style={{ fontSize: '12px', color: '#92400e', marginTop: '8px' }}>
-                    💡 For detailed timestamped notes, use the Notes tab.
-                  </p>
                 </div>
               )}
 

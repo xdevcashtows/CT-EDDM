@@ -23,7 +23,7 @@ const adSlotOptions = [
   { id: 'slot_16', label: '16 Slots', color: '#ede9fe', slots: 16 }
 ];
 
-export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
+export const CampaignConfigTab = ({ campaign, onUpdate, onClose, tab = 'settings' }) => {
   const [formData, setFormData] = useState({
     name: campaign.name || '',
     status: campaign.status || 'draft',
@@ -164,97 +164,183 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
     });
   };
 
-  return (
-    <div className="campaign-config-tab">
-      {/* Analytics Section */}
-      <div className="config-section">
-        <h3 className="config-section-title">Campaign Analytics</h3>
-        <div className="analytics-grid">
-          {/* Slot Fill Rate */}
-          <div className="analytics-card">
-            <div className="analytics-card-icon" style={{ backgroundColor: '#dbeafe' }}>
+  // Render based on tab prop
+  if (tab === 'analytics') {
+    return (
+      <div className="campaign-config-tab">
+        {/* Analytics Section */}
+        <div className="config-section analytics-section-sleek">
+          <h3 className="config-section-title-sleek">Campaign Analytics</h3>
+          <div className="analytics-grid-sleek">
+            {/* Slot Fill Rate */}
+            <div className="analytics-card-sleek">
+            <div className="analytics-card-icon-sleek" style={{ backgroundColor: '#dbeafe' }}>
               <Package size={20} style={{ color: '#3b82f6' }} />
             </div>
-            <div className="analytics-card-content">
-              <div className="analytics-card-label">Slot Fill Rate</div>
-              <div className="analytics-card-value">{fillPercentage}%</div>
-              <div className="analytics-card-detail">
-                {bookedSlots} of {totalSlots} booked
-              </div>
-              <div className="analytics-progress-bar">
-                <div
-                  className="analytics-progress-fill"
-                  style={{
-                    width: `${fillPercentage}%`,
-                    backgroundColor: '#3b82f6',
-                  }}
-                />
+              <div className="analytics-card-content-sleek">
+                <div className="analytics-card-label-sleek">Slot Fill Rate</div>
+                <div className="analytics-card-value-sleek">{fillPercentage}%</div>
+                <div className="analytics-card-detail-sleek">
+                  {bookedSlots} of {totalSlots} booked
+                </div>
+                <div className="analytics-progress-bar-sleek">
+                  <div
+                    className="analytics-progress-fill-sleek"
+                    style={{
+                      width: `${fillPercentage}%`,
+                      backgroundColor: '#3b82f6',
+                    }}
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Revenue */}
-          <div className="analytics-card">
-            <div className="analytics-card-icon" style={{ backgroundColor: '#dcfce7' }}>
+            {/* Revenue */}
+            <div className="analytics-card-sleek">
+            <div className="analytics-card-icon-sleek" style={{ backgroundColor: '#dcfce7' }}>
               <DollarSign size={20} style={{ color: '#22c55e' }} />
             </div>
-            <div className="analytics-card-content">
-              <div className="analytics-card-label">Revenue</div>
-              <div className="analytics-card-value">${revenueCollected.toLocaleString()}</div>
-              <div className="analytics-card-detail">
-                ${revenueTotal.toLocaleString()} expected
-              </div>
-              <div className="analytics-progress-bar">
-                <div
-                  className="analytics-progress-fill"
-                  style={{
-                    width: `${revenuePercentage}%`,
-                    backgroundColor: '#22c55e',
-                  }}
-                />
+              <div className="analytics-card-content-sleek">
+                <div className="analytics-card-label-sleek">Revenue</div>
+                <div className="analytics-card-value-sleek">${revenueCollected.toLocaleString()}</div>
+                <div className="analytics-card-detail-sleek">
+                  ${revenueTotal.toLocaleString()} expected
+                </div>
+                <div className="analytics-progress-bar-sleek">
+                  <div
+                    className="analytics-progress-fill-sleek"
+                    style={{
+                      width: `${revenuePercentage}%`,
+                      backgroundColor: '#22c55e',
+                    }}
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Available Slots */}
-          <div className="analytics-card">
-            <div className="analytics-card-icon" style={{ backgroundColor: '#fef3c7' }}>
+            {/* Available Slots */}
+            <div className="analytics-card-sleek">
+            <div className="analytics-card-icon-sleek" style={{ backgroundColor: '#fef3c7' }}>
               <TrendingUp size={20} style={{ color: '#eab308' }} />
             </div>
-            <div className="analytics-card-content">
-              <div className="analytics-card-label">Available Slots</div>
-              <div className="analytics-card-value">{availableSlots}</div>
-              <div className="analytics-card-detail">
-                {availableSlots === 0 ? 'All booked!' : 'Ready to sell'}
+              <div className="analytics-card-content-sleek">
+                <div className="analytics-card-label-sleek">Available Slots</div>
+                <div className="analytics-card-value-sleek">{availableSlots}</div>
+                <div className="analytics-card-detail-sleek">
+                  {availableSlots === 0 ? 'All booked!' : 'Ready to sell'}
+                </div>
+              </div>
+            </div>
+
+            {/* Total Reach */}
+            <div className="analytics-card-sleek">
+            <div className="analytics-card-icon-sleek" style={{ backgroundColor: '#e0e7ff' }}>
+              <Users size={20} style={{ color: '#6366f1' }} />
+            </div>
+              <div className="analytics-card-content-sleek">
+                <div className="analytics-card-label-sleek">Total Reach</div>
+                <div className="analytics-card-value-sleek">
+                  {(campaign.total_pieces || 0).toLocaleString()}
+                </div>
+                <div className="analytics-card-detail-sleek">Households</div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Total Reach */}
-          <div className="analytics-card">
-            <div className="analytics-card-icon" style={{ backgroundColor: '#e0e7ff' }}>
-              <Users size={20} style={{ color: '#6366f1' }} />
-            </div>
-            <div className="analytics-card-content">
-              <div className="analytics-card-label">Total Reach</div>
-              <div className="analytics-card-value">
-                {(campaign.total_pieces || 0).toLocaleString()}
+        {/* Route Information Section */}
+        <div className="config-section route-info-section-sleek">
+          <h3 className="config-section-title-sleek">
+            <Navigation size={18} style={{ marginRight: '0.5rem' }} />
+            Route Information
+          </h3>
+          
+          <div className="route-info-grid-sleek">
+            {/* Route Name & City */}
+            <div className="route-info-card-sleek">
+              <div className="route-info-icon-sleek" style={{ backgroundColor: '#0ea5e9' }}>
+                <Navigation size={18} style={{ color: 'white' }} />
               </div>
-              <div className="analytics-card-detail">Households</div>
+              <div className="route-info-content-sleek">
+                <div className="route-info-label-sleek">Route Name</div>
+                <div className="route-info-value-sleek">
+                  {campaign.route_snapshot?.length > 0 
+                    ? `${campaign.route_snapshot.length} routes selected`
+                    : 'No route data'}
+                </div>
+                {campaign.city && (
+                  <div className="route-info-sublabel-sleek">
+                    {campaign.city?.name || campaign.city}
+                    {campaign.city?.state && `, ${campaign.city.state}`}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Total Households */}
+            <div className="route-info-card-sleek">
+              <div className="route-info-icon-sleek" style={{ backgroundColor: '#f59e0b' }}>
+                <Home size={18} style={{ color: 'white' }} />
+              </div>
+              <div className="route-info-content-sleek">
+                <div className="route-info-label-sleek">Total Households</div>
+                <div className="route-info-value-sleek">
+                  {(campaign.total_pieces || 0).toLocaleString()}
+                </div>
+                <div className="route-info-sublabel-sleek">Delivery destinations</div>
+              </div>
+            </div>
+
+            {/* Routes Count */}
+            <div className="route-info-card-sleek">
+              <div className="route-info-icon-sleek" style={{ backgroundColor: '#22c55e' }}>
+                <Truck size={18} style={{ color: 'white' }} />
+              </div>
+              <div className="route-info-content-sleek">
+                <div className="route-info-label-sleek">Routes</div>
+                <div className="route-info-value-sleek">
+                  {campaign.route_snapshot?.length || 0}
+                </div>
+                <div className="route-info-sublabel-sleek">
+                  {campaign.route_snapshot?.length === 1 ? 'delivery route' : 'delivery routes'}
+                </div>
+              </div>
+            </div>
+
+            {/* Estimated Cost */}
+            <div className="route-info-card-sleek">
+              <div className="route-info-icon-sleek" style={{ backgroundColor: '#ef4444' }}>
+                <DollarSign size={18} style={{ color: 'white' }} />
+              </div>
+              <div className="route-info-content-sleek">
+                <div className="route-info-label-sleek">Postage Cost</div>
+                <div className="route-info-value-sleek">
+                  ${((campaign.total_pieces || 0) * 0.205).toLocaleString(undefined, { 
+                    minimumFractionDigits: 2, 
+                    maximumFractionDigits: 2 
+                  })}
+                </div>
+                <div className="route-info-sublabel-sleek">Est. at $0.205/piece</div>
+              </div>
             </div>
           </div>
         </div>
       </div>
+    );
+  }
 
+  // Settings Tab
+  return (
+    <div className="campaign-config-tab">
       {/* Settings Section */}
-      <div className="config-section">
-        <h3 className="config-section-title">Campaign Settings</h3>
-        <div className="config-form config-form--compact">
+      <div className="config-section settings-section-sleek">
+        <h3 className="config-section-title-sleek">Campaign Settings</h3>
+        <div className="config-form-sleek">
           {/* Row 1: Name and Status */}
-          <div className="form-row">
-            <div className="form-group form-group--flex-2">
-              <label htmlFor="campaign-name" className="form-label-with-icon">
-                <Edit3 size={14} style={{ color: '#3b82f6' }} />
+          <div className="form-row-sleek">
+            <div className="form-group-sleek form-group-sleek--flex-2">
+              <label htmlFor="campaign-name" className="form-label-sleek">
+                <Edit3 size={16} className="form-label-icon" />
                 Campaign Name
               </label>
               <input
@@ -262,22 +348,23 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
                 type="text"
                 value={formData.name}
                 onChange={(e) => handleChange('name', e.target.value)}
-                className="form-input"
+                className="form-input-sleek"
+                placeholder="Enter campaign name..."
               />
             </div>
 
-            <div className="form-group">
-              <label htmlFor="campaign-status" className="form-label-with-icon">
-                <TrendingUp size={14} style={{ color: '#22c55e' }} />
+            <div className="form-group-sleek">
+              <label htmlFor="campaign-status" className="form-label-sleek">
+                <TrendingUp size={16} className="form-label-icon" />
                 Status
               </label>
               <select
                 id="campaign-status"
                 value={formData.status}
                 onChange={(e) => handleChange('status', e.target.value)}
-                className="form-input"
+                className="form-input-sleek form-select-sleek"
                 style={{ 
-                  borderLeft: `3px solid ${statusOptions.find(s => s.value === formData.status)?.color || '#6b7280'}`
+                  borderLeft: `4px solid ${statusOptions.find(s => s.value === formData.status)?.color || '#6b7280'}`
                 }}
               >
                 {statusOptions.map((option) => (
@@ -290,10 +377,10 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
           </div>
 
           {/* Row 2: Mail Date and Location */}
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="mail-date" className="form-label-with-icon">
-                <Calendar size={14} style={{ color: '#8b5cf6' }} />
+          <div className="form-row-sleek">
+            <div className="form-group-sleek">
+              <label htmlFor="mail-date" className="form-label-sleek">
+                <Calendar size={16} className="form-label-icon" />
                 Mail Date
               </label>
               <input
@@ -301,13 +388,13 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
                 type="date"
                 value={formData.mail_date ? new Date(formData.mail_date).toISOString().split('T')[0] : ''}
                 onChange={(e) => handleChange('mail_date', e.target.value)}
-                className="form-input"
+                className="form-input-sleek"
               />
             </div>
 
-            <div className="form-group">
-              <label htmlFor="campaign-city" className="form-label-with-icon">
-                <MapPin size={14} style={{ color: '#f59e0b' }} />
+            <div className="form-group-sleek">
+              <label htmlFor="campaign-city" className="form-label-sleek">
+                <MapPin size={16} className="form-label-icon" />
                 Location / City
               </label>
               <input
@@ -315,35 +402,35 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
                 type="text"
                 value={formData.city || ''}
                 onChange={(e) => handleChange('city', e.target.value)}
-                className="form-input"
+                className="form-input-sleek"
                 placeholder="Enter city or location..."
               />
             </div>
           </div>
 
           {/* Row 3: Notes */}
-          <div className="form-group">
-            <label htmlFor="campaign-notes" className="form-label-with-icon">
-              <Mail size={14} style={{ color: '#64748b' }} />
+          <div className="form-group-sleek">
+            <label htmlFor="campaign-notes" className="form-label-sleek">
+              <Mail size={16} className="form-label-icon" />
               Notes
             </label>
             <textarea
               id="campaign-notes"
               value={formData.notes}
               onChange={(e) => handleChange('notes', e.target.value)}
-              className="form-input"
-              rows={3}
+              className="form-input-sleek form-textarea-sleek"
+              rows={4}
               placeholder="Add any notes about this campaign..."
             />
           </div>
 
           {/* Save Button */}
           {hasChanges && (
-            <div className="form-actions">
+            <div className="form-actions-sleek">
               <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="btn-save"
+                className="btn-save-sleek"
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
@@ -352,100 +439,22 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
         </div>
       </div>
 
-      {/* Route Information Section */}
-      <div className="config-section route-info-section">
-        <h3 className="config-section-title">
-          <Navigation size={18} style={{ marginRight: '0.5rem' }} />
-          Route Information
-        </h3>
-        
-        <div className="route-info-grid">
-          {/* Route Name & City */}
-          <div className="route-info-card" style={{ backgroundColor: '#f0f9ff' }}>
-            <div className="route-info-icon" style={{ backgroundColor: '#0ea5e9' }}>
-              <Navigation size={20} style={{ color: 'white' }} />
-            </div>
-            <div className="route-info-content">
-              <div className="route-info-label">Route Name</div>
-              <div className="route-info-value">
-                {campaign.route_snapshot?.length > 0 
-                  ? `${campaign.route_snapshot.length} routes selected`
-                  : 'No route data'}
-              </div>
-              {campaign.city && (
-                <div className="route-info-sublabel">
-                  {campaign.city?.name || campaign.city}
-                  {campaign.city?.state && `, ${campaign.city.state}`}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Total Households */}
-          <div className="route-info-card" style={{ backgroundColor: '#fef3c7' }}>
-            <div className="route-info-icon" style={{ backgroundColor: '#f59e0b' }}>
-              <Home size={20} style={{ color: 'white' }} />
-            </div>
-            <div className="route-info-content">
-              <div className="route-info-label">Total Households</div>
-              <div className="route-info-value">
-                {(campaign.total_pieces || 0).toLocaleString()}
-              </div>
-              <div className="route-info-sublabel">Delivery destinations</div>
-            </div>
-          </div>
-
-          {/* Routes Count */}
-          <div className="route-info-card" style={{ backgroundColor: '#f0fdf4' }}>
-            <div className="route-info-icon" style={{ backgroundColor: '#22c55e' }}>
-              <Truck size={20} style={{ color: 'white' }} />
-            </div>
-            <div className="route-info-content">
-              <div className="route-info-label">Routes</div>
-              <div className="route-info-value">
-                {campaign.route_snapshot?.length || 0}
-              </div>
-              <div className="route-info-sublabel">
-                {campaign.route_snapshot?.length === 1 ? 'delivery route' : 'delivery routes'}
-              </div>
-            </div>
-          </div>
-
-          {/* Estimated Cost */}
-          <div className="route-info-card" style={{ backgroundColor: '#fef2f2' }}>
-            <div className="route-info-icon" style={{ backgroundColor: '#ef4444' }}>
-              <DollarSign size={20} style={{ color: 'white' }} />
-            </div>
-            <div className="route-info-content">
-              <div className="route-info-label">Postage Cost</div>
-              <div className="route-info-value">
-                ${((campaign.total_pieces || 0) * 0.205).toLocaleString(undefined, { 
-                  minimumFractionDigits: 2, 
-                  maximumFractionDigits: 2 
-                })}
-              </div>
-              <div className="route-info-sublabel">Est. at $0.205/piece</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Ad Slot Options & Rates Section */}
-      <div className="config-section slot-rates-section">
-        <div className="section-header-with-action">
-          <h3 className="config-section-title">Ad Slot Options & Rates</h3>
+      <div className="config-section slot-rates-section-sleek">
+        <div className="section-header-sleek">
+          <h3 className="config-section-title-sleek">Ad Slot Options & Rates</h3>
           {!editingRates ? (
-            <button onClick={() => setEditingRates(true)} className="btn-edit-rates">
+            <button onClick={() => setEditingRates(true)} className="btn-edit-rates-sleek">
               <Edit3 size={16} />
               Edit Rates
             </button>
           ) : (
-            <div className="rates-actions">
-              <button onClick={handleCancelRates} className="btn-cancel-action">
+            <div className="rates-actions-sleek">
+              <button onClick={handleCancelRates} className="btn-cancel-action-sleek">
                 <X size={16} />
                 Cancel
               </button>
-              <button onClick={handleSave} disabled={isSaving} className="btn-save-action">
+              <button onClick={handleSave} disabled={isSaving} className="btn-save-action-sleek">
                 <Check size={16} />
                 {isSaving ? 'Saving...' : 'Save'}
               </button>
@@ -453,50 +462,48 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
           )}
         </div>
 
-        <div className="slot-options-grid">
+        <div className="slot-options-grid-sleek">
           {adSlotOptions.map((slot) => (
             <div 
               key={slot.id} 
-              className="slot-option-card"
-              style={{ backgroundColor: slot.color }}
+              className="slot-option-card-sleek"
             >
-              <div className="slot-option-header">
+              <div className="slot-option-header-sleek">
                 <div 
-                  className="slot-option-badge"
+                  className="slot-option-badge-sleek"
                   style={{ 
                     backgroundColor: slot.color,
-                    border: '2px solid rgba(0, 0, 0, 0.1)'
                   }}
                 >
-                  <span className="slot-number">{slot.slots}</span>
+                  <span className="slot-number-sleek">{slot.slots}</span>
                 </div>
-                <div className="slot-option-info">
+                <div className="slot-option-info-sleek">
                   <h4>{slot.label}</h4>
                   <p>{slot.slots === 1 ? 'Single slot' : `${slot.slots}-slot placement`}</p>
                 </div>
               </div>
 
-              <div className="slot-option-rate">
+              <div className="slot-option-rate-sleek">
                 {editingRates ? (
-                  <div className="rate-input-wrapper">
+                  <div className="rate-input-wrapper-sleek">
                     <label>Rate per slot</label>
-                    <div className="rate-input-group">
-                      <DollarSign size={18} className="rate-icon" />
+                    <div className="rate-input-group-sleek">
+                      <DollarSign size={18} className="rate-icon-sleek" />
                       <input
                         type="number"
                         min="0"
                         step="0.01"
                         value={formData[`${slot.id}_price`]}
                         onChange={(e) => handleChange(`${slot.id}_price`, parseFloat(e.target.value) || 0)}
-                        className="rate-input"
+                        className="rate-input-sleek"
                         placeholder="0.00"
                       />
                     </div>
                   </div>
                 ) : (
-                  <div className="rate-display">
-                    <span className="rate-label">Rate per slot</span>
-                    <span className="rate-value">${(formData[`${slot.id}_price`] || 0).toFixed(2)}</span>
+                  <div className="rate-display-sleek">
+                    <span className="rate-label-sleek">Rate per slot</span>
+                    <span className="rate-value-sleek">${(formData[`${slot.id}_price`] || 0).toFixed(2)}</span>
                   </div>
                 )}
               </div>
@@ -506,13 +513,13 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
       </div>
 
       {/* Danger Zone Section */}
-      <div className="config-section danger-zone">
-        <h3 className="config-section-title danger-title">
+      <div className="config-section danger-zone-sleek">
+        <h3 className="config-section-title-sleek danger-title-sleek">
           <AlertTriangle size={18} />
           Danger Zone
         </h3>
-        <div className="danger-zone-content">
-          <div className="danger-zone-info">
+        <div className="danger-zone-content-sleek">
+          <div className="danger-zone-info-sleek">
             <h4>Delete Campaign</h4>
             <p>
               Permanently delete this campaign and all associated data. This action cannot be undone.
@@ -520,7 +527,7 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
           </div>
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            className="btn-delete-campaign"
+            className="btn-delete-campaign-sleek"
           >
             <Trash2 size={16} />
             Delete Campaign

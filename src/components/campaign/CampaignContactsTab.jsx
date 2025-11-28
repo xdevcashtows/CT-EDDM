@@ -3,7 +3,9 @@ import {
   Search, Mail, Phone, Building, Plus, Tag, User, UserPlus, X, 
   AlertCircle, CheckCircle, Clock, List, Columns, Send, 
   CheckCircle2, Circle, GripVertical, Filter, ChevronDown, 
-  ChevronRight, DollarSign, LayoutGrid
+  ChevronRight, DollarSign, LayoutGrid, Star, Trash2, 
+  Flame, Thermometer, Snowflake, Image as ImageIcon, 
+  ImageOff
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
@@ -46,6 +48,7 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'kanban'
   const [pipelineStages, setPipelineStages] = useState(DEFAULT_PIPELINE_STAGES);
   const [collapsedNiches, setCollapsedNiches] = useState(new Set());
+  const [selectedContactIds, setSelectedContactIds] = useState(new Set());
   
   const renderCountRef = useRef(0);
 
@@ -556,6 +559,21 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
     }
   };
 
+  const formatTemperatureLabel = (value) => {
+    if (!value) return 'Warm';
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  };
+
+  const handleToggleFavorite = async (contactId, currentFavorite) => {
+    const { error } = await contactsAPI.update(contactId, { 
+      is_favorite: !currentFavorite 
+    });
+    if (!error) {
+      await loadData();
+      if (onUpdate) onUpdate();
+    }
+  };
+
   const handleRemoveContact = async (contactId) => {
     const contact = campaignContacts.find(c => c.id === contactId);
     const contactSlots = slots.filter(slot => slot.contact_id === contactId);
@@ -853,12 +871,6 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
                       </button>
                       <Tag size={20} />
                       <h3>{nicheName}</h3>
-                      {campaign.niche_restriction_type === 'one_per_campaign' && (
-                        <span className={`niche-status-badge ${nicheStatus}`}>
-                          {nicheStatus === 'filled' && <><CheckCircle size={14} /> Filled</>}
-                          {nicheStatus === 'available' && <><Clock size={14} /> Available</>}
-                        </span>
-                      )}
                     </div>
                     <div className="niche-stats">
                       <span className="niche-stat-item">
@@ -877,26 +889,178 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
                   </div>
                   
                   {!isCollapsed && (
-                    <div className="contacts-grid">
-                      {nicheContacts.map((contact) => {
-                        const emailStatus = getContactEmailStatus(contact.id);
-                        // Enrich contact with niche data
-                        const enrichedContact = {
-                          ...contact,
-                          niche: contact.niche_id ? niches.find(n => n.id === contact.niche_id) : null
-                        };
-                        return (
-                          <ContactCard
-                            key={contact.id}
-                            contact={enrichedContact}
-                            slots={getContactSlots(contact.id)}
-                            revenue={getContactRevenue(contact.id)}
-                            emailStatus={emailStatus}
-                            onView={() => handleViewContact(contact)}
-                            onRemove={() => handleRemoveContact(contact.id)}
-                          />
-                        );
-                      })}
+                    <div className="contacts-table-container">
+                      <table className="contacts-table">
+                        <thead>
+                          <tr>
+                            <th className="table-checkbox-col">
+                              <input
+                                type="checkbox"
+                                className="table-checkbox"
+                                checked={nicheContacts.slice(0, 10).every(c => selectedContactIds.has(c.id)) && nicheContacts.slice(0, 10).length > 0}
+                                onChange={(e) => {
+                                  const contactsToToggle = nicheContacts.slice(0, 10);
+                                  if (e.target.checked) {
+                                    setSelectedContactIds(prev => new Set([...prev, ...contactsToToggle.map(c => c.id)]));
+                                  } else {
+                                    setSelectedContactIds(prev => {
+                                      const newSet = new Set(prev);
+                                      contactsToToggle.forEach(contact => newSet.delete(contact.id));
+                                      return newSet;
+                                    });
+                                  }
+                                }}
+                              />
+                            </th>
+                            <th>Business Name</th>
+                            <th>Contact</th>
+                            <th>Stage</th>
+                            <th>Temperature</th>
+                            <th>Slots</th>
+                            <th>Revenue</th>
+                            <th>Ad Image</th>
+                            <th className="table-actions-col">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {nicheContacts.slice(0, 10).map((contact) => {
+                            const emailStatus = getContactEmailStatus(contact.id);
+                            const slots = getContactSlots(contact.id);
+                            const revenue = getContactRevenue(contact.id);
+                            const stage = pipelineStages.find(s => s.id === contact.stage);
+                            const hasAdImage = slots.some(slot => slot.client_ad?.image_url);
+                            const temperature = contact.temperature || 'warm';
+                            
+                            return (
+                              <tr key={contact.id} className="contacts-table-row">
+                                <td className="table-checkbox-col">
+                                  <input
+                                    type="checkbox"
+                                    className="table-checkbox"
+                                    checked={selectedContactIds.has(contact.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedContactIds(prev => new Set([...prev, contact.id]));
+                                      } else {
+                                        setSelectedContactIds(prev => {
+                                          const newSet = new Set(prev);
+                                          newSet.delete(contact.id);
+                                          return newSet;
+                                        });
+                                      }
+                                    }}
+                                  />
+                                </td>
+                                <td>
+                                  <div className="table-business-name">
+                                    <button
+                                      className="table-favorite-btn"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleFavorite(contact.id, contact.is_favorite);
+                                      }}
+                                      title={contact.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                                    >
+                                      <Star size={14} fill={contact.is_favorite ? 'currentColor' : 'none'} />
+                                    </button>
+                                    <span className="business-name-text" onClick={() => handleViewContact(contact)}>
+                                      {contact.business_name || 'Unnamed Business'}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="table-contact-info">
+                                    {contact.email && (
+                                      <div className="table-contact-item">
+                                        <Mail size={12} />
+                                        <span>{contact.email}</span>
+                                      </div>
+                                    )}
+                                    {contact.phone && (
+                                      <div className="table-contact-item">
+                                        <Phone size={12} />
+                                        <span>{contact.phone}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td>
+                                  <span 
+                                    className="table-stage-badge"
+                                    style={{
+                                      backgroundColor: stage?.color ? `${stage.color}15` : '#f3f4f6',
+                                      color: stage?.color || '#6b7280',
+                                      borderColor: stage?.color ? `${stage.color}40` : '#e5e7eb'
+                                    }}
+                                  >
+                                    {stage?.label || contact.stage || 'N/A'}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div className={`table-temperature-badge temperature-${temperature}`}>
+                                    {temperature === 'hot' && '🔥'}
+                                    {temperature === 'warm' && '☀️'}
+                                    {temperature === 'cold' && '❄️'}
+                                    <span>{formatTemperatureLabel(temperature)}</span>
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="table-slots-info">
+                                    <LayoutGrid size={14} />
+                                    <span>{slots.length}</span>
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="table-revenue-info">
+                                    <DollarSign size={14} />
+                                    <span>${revenue.toLocaleString()}</span>
+                                  </div>
+                                </td>
+                                <td>
+                                  {hasAdImage ? (
+                                    <div className="table-ad-status has-ad">
+                                      <ImageIcon size={14} />
+                                      <span>Yes</span>
+                                    </div>
+                                  ) : (
+                                    <div className="table-ad-status no-ad">
+                                      <ImageOff size={14} />
+                                      <span>No</span>
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="table-actions-col">
+                                  <div className="table-actions">
+                                    <button
+                                      className="table-action-btn view-btn"
+                                      onClick={() => handleViewContact(contact)}
+                                      title="View details"
+                                    >
+                                      <User size={14} />
+                                    </button>
+                                    <button
+                                      className="table-action-btn delete-btn"
+                                      onClick={() => {
+                                        if (confirm(`Are you sure you want to remove "${contact.business_name || 'this contact'}" from the campaign?`)) {
+                                          handleRemoveContact(contact.id);
+                                        }
+                                      }}
+                                      title="Remove from campaign"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {nicheContacts.length > 10 && (
+                        <div className="contacts-limit-notice">
+                          Showing 10 of {nicheContacts.length} contacts in this niche
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1005,131 +1169,153 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
   );
 };
 
-// Contact Card Component
-const ContactCard = ({ contact, slots, revenue, emailStatus, onView, onRemove }) => {
-  const tagsArray = Array.isArray(contact.tags) 
-    ? contact.tags 
-    : typeof contact.tags === 'string' 
-      ? contact.tags.split(',').map(t => t.trim()).filter(Boolean)
-      : [];
+// Contact Card Component - Redesigned
+const ContactCard = ({ contact, campaign, slots, revenue, emailStatus, pipelineStages, onView, onRemove, onToggleFavorite }) => {
+  const [isSelected, setIsSelected] = useState(false);
+  const hasAdImage = slots.some(slot => slot.client_ad?.image_url);
+  const hasSlotAssignment = slots.length > 0;
+  const stage = pipelineStages.find(s => s.id === contact.stage);
+  const temperature = contact.temperature || 'warm';
+
+  const getTemperatureIcon = () => {
+    switch (temperature) {
+      case 'hot':
+        return <Flame size={16} className="temperature-icon hot" />;
+      case 'cold':
+        return <Snowflake size={16} className="temperature-icon cold" />;
+      default:
+        return <Thermometer size={16} className="temperature-icon warm" />;
+    }
+  };
+
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    if (confirm(`Are you sure you want to remove "${contact.business_name || 'this contact'}" from the campaign?`)) {
+      onRemove();
+    }
+  };
+
+  const handleFavoriteToggle = (e) => {
+    e.stopPropagation();
+    if (onToggleFavorite) {
+      onToggleFavorite(contact.id, contact.is_favorite);
+    }
+  };
+
+  const handleCheckboxChange = (e) => {
+    e.stopPropagation();
+    setIsSelected(!isSelected);
+  };
 
   return (
-    <div className="contact-card-new" onClick={onView}>
-      {/* Header with Avatar and Actions */}
-      <div className="contact-card-new-header">
-        <div className="contact-card-new-avatar-section">
-          <div className="contact-avatar-new">
-            {contact.business_name?.charAt(0).toUpperCase() || 'A'}
-          </div>
-          <div className="contact-card-new-title-section">
-            <h4 className="contact-name-new">{contact.business_name || 'Unnamed Business'}</h4>
-            {contact.niche?.name && (
-              <span className="contact-niche-badge-new">
-                <Tag size={12} />
-                {contact.niche.name}
-              </span>
-            )}
-          </div>
+    <div className={`contact-card-sleek ${isSelected ? 'selected' : ''}`} onClick={onView}>
+      {/* Top Right Corner - Checkbox and Favorite Toggle */}
+      <div className="contact-card-top-actions">
+        <input
+          type="checkbox"
+          className="contact-card-checkbox"
+          checked={isSelected}
+          onChange={handleCheckboxChange}
+          onClick={(e) => e.stopPropagation()}
+        />
+        <button
+          className={`contact-card-favorite-btn ${contact.is_favorite ? 'active' : ''}`}
+          onClick={handleFavoriteToggle}
+          title={contact.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <Star size={16} fill={contact.is_favorite ? 'currentColor' : 'none'} />
+        </button>
+      </div>
+
+      {/* Business Name */}
+      <div className="contact-card-business-name">
+        <h4>{contact.business_name || 'Unnamed Business'}</h4>
+      </div>
+
+      {/* Main Info Grid */}
+      <div className="contact-card-info-grid">
+        {/* Assigned Campaign */}
+        <div className="contact-card-info-item">
+          <span className="info-label">Campaign</span>
+          <span className="info-value">{campaign?.name || 'N/A'}</span>
         </div>
-        <div className="contact-card-new-actions">
-          <button 
-            className="contact-card-action-btn-new view"
-            onClick={(e) => {
-              e.stopPropagation();
-              onView();
+
+        {/* Stage */}
+        <div className="contact-card-info-item">
+          <span className="info-label">Stage</span>
+          <span 
+            className="info-value stage-badge"
+            style={{ 
+              color: stage?.color || '#6b7280',
+              backgroundColor: stage?.color ? `${stage.color}15` : '#f3f4f6'
             }}
-            title="View details"
           >
-            <User size={16} />
-          </button>
-          <button 
-            className="contact-card-action-btn-new remove"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove();
-            }}
-            title="Remove from campaign"
-          >
-            <X size={16} />
-          </button>
+            {stage?.label || contact.stage || 'N/A'}
+          </span>
+        </div>
+
+        {/* Temperature */}
+        <div className="contact-card-info-item">
+          <span className="info-label">Temperature</span>
+          <div className="info-value temperature-display">
+            {getTemperatureIcon()}
+            <span className={`temperature-text ${temperature}`}>
+              {temperature.charAt(0).toUpperCase() + temperature.slice(1)}
+            </span>
+          </div>
+        </div>
+
+        {/* Niche */}
+        <div className="contact-card-info-item">
+          <span className="info-label">Niche</span>
+          <span className="info-value niche-value">
+            <Tag size={12} />
+            {contact.niche?.name || 'Unassigned'}
+          </span>
         </div>
       </div>
 
-      {/* Contact Information */}
-      <div className="contact-card-new-body">
-        {(contact.email || contact.phone) && (
-          <div className="contact-card-new-contact-info">
-            {contact.email && (
-              <a 
-                href={`mailto:${contact.email}`}
-                className="contact-info-link"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Mail size={14} />
-                <span>{contact.email}</span>
-              </a>
-            )}
-            {contact.phone && (
-              <a 
-                href={`tel:${contact.phone}`}
-                className="contact-info-link"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Phone size={14} />
-                <span>{contact.phone}</span>
-              </a>
-            )}
-          </div>
-        )}
+      {/* Status Indicators */}
+      <div className="contact-card-status-row">
+        {/* Slot Assignment Status */}
+        <div className={`status-indicator ${hasSlotAssignment ? 'assigned' : 'unassigned'}`}>
+          <LayoutGrid size={14} />
+          <span>{hasSlotAssignment ? 'Assigned' : 'Not Assigned'}</span>
+        </div>
 
-        {/* Tags */}
-        {tagsArray.length > 0 && (
-          <div className="contact-tags-new">
-            {tagsArray.slice(0, 3).map((tag, index) => (
-              <span key={index} className="contact-tag-new">
-                {tag}
-              </span>
-            ))}
-            {tagsArray.length > 3 && (
-              <span className="contact-tag-more-new">+{tagsArray.length - 3}</span>
-            )}
-          </div>
-        )}
+        {/* Ad Image Status */}
+        <div className={`status-indicator ${hasAdImage ? 'has-ad' : 'no-ad'}`}>
+          {hasAdImage ? (
+            <>
+              <ImageIcon size={14} />
+              <span>Ad Ready</span>
+            </>
+          ) : (
+            <>
+              <ImageOff size={14} />
+              <span>No Ad</span>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Footer with Stats */}
-      <div className="contact-card-new-footer">
-        <div className="contact-stat-new">
-          <LayoutGrid size={16} />
-          <div className="contact-stat-content">
-            <span className="contact-stat-label-new">Slots</span>
-            <span className="contact-stat-value-new">{slots.length}</span>
-          </div>
+      {/* Revenue Display */}
+      <div className="contact-card-revenue">
+        <DollarSign size={18} />
+        <div className="revenue-content">
+          <span className="revenue-label">Revenue</span>
+          <span className="revenue-value">${revenue.toLocaleString()}</span>
         </div>
-        <div className="contact-stat-new revenue">
-          <DollarSign size={16} />
-          <div className="contact-stat-content">
-            <span className="contact-stat-label-new">Revenue</span>
-            <span className="contact-stat-value-new">${revenue.toLocaleString()}</span>
-          </div>
-        </div>
-        {(emailStatus.sent > 0 || emailStatus.waiting > 0) && (
-          <div className="contact-stat-new email">
-            <Mail size={16} />
-            <div className="contact-stat-content">
-              <span className="contact-stat-label-new">Emails</span>
-              <div className="contact-email-status-new">
-                {emailStatus.sent > 0 && (
-                  <span className="email-status-dot sent" title={`${emailStatus.sent} sent`}></span>
-                )}
-                {emailStatus.waiting > 0 && (
-                  <span className="email-status-dot waiting" title={`${emailStatus.waiting} waiting`}></span>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Delete Button */}
+      <button
+        className="contact-card-delete-btn"
+        onClick={handleDelete}
+        title="Remove from campaign"
+      >
+        <Trash2 size={16} />
+      </button>
     </div>
   );
 };

@@ -7,7 +7,8 @@ import CampaignEmailsTab from './CampaignEmailsTab';
 import './CampaignDetailView.css';
 
 const tabs = [
-  { id: 'config', label: 'Settings & Analytics' },
+  { id: 'settings', label: 'Settings' },
+  { id: 'analytics', label: 'Analytics' },
   { id: 'canvas', label: 'Canvas' },
   { id: 'contacts', label: 'Contacts' },
   { id: 'emails', label: 'Emails' },
@@ -15,7 +16,7 @@ const tabs = [
 
 export const CampaignDetailView = ({ campaign, isOpen, onClose, onUpdate, activeTab, onTabChange }) => {
   // Use controlled activeTab from parent if provided, otherwise use local state
-  const [localActiveTab, setLocalActiveTab] = useState('config');
+  const [localActiveTab, setLocalActiveTab] = useState('settings');
   const isControlled = activeTab !== undefined && onTabChange !== undefined;
   const currentActiveTab = isControlled ? activeTab : localActiveTab;
   const setActiveTab = isControlled ? onTabChange : setLocalActiveTab;
@@ -83,11 +84,11 @@ export const CampaignDetailView = ({ campaign, isOpen, onClose, onUpdate, active
       // Trigger animation
       setTimeout(() => setIsAnimating(true), 10);
       
-      // Only reset to config tab if this is a different campaign
+      // Only reset to settings tab if this is a different campaign
       // (i.e., user opened a different campaign)
       if (previousCampaignIdRef.current !== null && previousCampaignIdRef.current !== campaign?.id) {
-        console.log('⚠️ [CampaignDetailView] Different campaign detected, resetting tab to config');
-        setActiveTab('config');
+        console.log('⚠️ [CampaignDetailView] Different campaign detected, resetting tab to settings');
+        setActiveTab('settings');
       } else {
         console.log('✅ [CampaignDetailView] Same campaign, preserving tab:', activeTabRef.current);
       }
@@ -96,12 +97,12 @@ export const CampaignDetailView = ({ campaign, isOpen, onClose, onUpdate, active
       previousCampaignIdRef.current = campaign?.id;
     } else {
       setIsAnimating(false);
-      // Reset to config tab only when modal is fully closed
+      // Reset to settings tab only when modal is fully closed
       // This ensures the tab doesn't reset while the modal is still open
       setTimeout(() => {
-        console.log('🔄 [CampaignDetailView] Modal closed, resetting tab to config');
+        console.log('🔄 [CampaignDetailView] Modal closed, resetting tab to settings');
         if (!isControlled) {
-          setActiveTab('config');
+          setActiveTab('settings');
         }
         previousCampaignIdRef.current = null;
       }, 300);
@@ -175,8 +176,11 @@ export const CampaignDetailView = ({ campaign, isOpen, onClose, onUpdate, active
 
         {/* Content */}
         <div className="campaign-detail-content">
-          {currentActiveTab === 'config' && campaign && (
-            <CampaignConfigTab campaign={campaign} onUpdate={onUpdate} onClose={onClose} />
+          {currentActiveTab === 'settings' && campaign && (
+            <CampaignConfigTab campaign={campaign} onUpdate={onUpdate} onClose={onClose} tab="settings" />
+          )}
+          {currentActiveTab === 'analytics' && campaign && (
+            <CampaignConfigTab campaign={campaign} onUpdate={onUpdate} onClose={onClose} tab="analytics" />
           )}
           {currentActiveTab === 'canvas' && campaign && (
             <CampaignCanvasTab campaign={campaign} onUpdate={onUpdate} />
