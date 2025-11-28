@@ -188,10 +188,13 @@ function Contacts() {
 
   const filteredAndSortedContacts = contacts
     .filter(contact => {
+      const searchLower = searchTerm.toLowerCase();
       const matchesSearch = 
-        contact.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contact.owner_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contact.email?.toLowerCase().includes(searchTerm.toLowerCase());
+        contact.business_name?.toLowerCase().includes(searchLower) ||
+        contact.owner_name?.toLowerCase().includes(searchLower) ||
+        contact.email?.toLowerCase().includes(searchLower) ||
+        contact.city?.toLowerCase().includes(searchLower) ||
+        contact.state?.toLowerCase().includes(searchLower);
       
       // If no stages selected, show all. Otherwise, only show contacts whose stage is selected
       const matchesStage = selectedStages.size === 0 || selectedStages.has(contact.stage);
@@ -851,7 +854,7 @@ function Contacts() {
               <Search size={18} className="search-icon" />
               <input
                 type="text"
-                placeholder="Search contacts..."
+                placeholder="Search by name, email, city, or state..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />

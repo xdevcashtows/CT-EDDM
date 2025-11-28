@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, Mail, Phone, Building, Plus, Tag, User, UserPlus, X, 
   AlertCircle, CheckCircle, Clock, List, Columns, Send, 
-  CheckCircle2, Circle, GripVertical, Filter, ChevronDown
+  CheckCircle2, Circle, GripVertical, Filter, ChevronDown, 
+  ChevronRight, DollarSign, LayoutGrid
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
@@ -44,8 +45,26 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
   const [showAddContactModal, setShowAddContactModal] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'kanban'
   const [pipelineStages, setPipelineStages] = useState(DEFAULT_PIPELINE_STAGES);
+  const [collapsedNiches, setCollapsedNiches] = useState(new Set());
   
   const renderCountRef = useRef(0);
+
+  // Expand/collapse all niches
+  const toggleAllNiches = (expand) => {
+    if (expand === undefined) {
+      // Toggle: if all are collapsed, expand all; otherwise collapse all
+      const allNicheIds = Object.keys(contactsByNiche);
+      const allCollapsed = allNicheIds.length > 0 && allNicheIds.every(id => collapsedNiches.has(id));
+      setCollapsedNiches(allCollapsed ? new Set() : new Set(allNicheIds));
+    } else if (expand) {
+      // Expand all
+      setCollapsedNiches(new Set());
+    } else {
+      // Collapse all
+      const allNicheIds = Object.keys(contactsByNiche);
+      setCollapsedNiches(new Set(allNicheIds));
+    }
+  };
   renderCountRef.current += 1;
   console.log('👥 [CampaignContactsTab] RENDER #' + renderCountRef.current, {
     campaignId: campaign?.id,
@@ -653,18 +672,8 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
           )}
         </div>
 
-        {/* Search and Action Bar */}
+        {/* Action Bar */}
         <div className="contacts-action-bar">
-          <div className="contacts-search-bar">
-            <Search size={18} />
-            <input
-              type="text"
-              placeholder="Search advertisers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
           <div className="contacts-view-controls">
             <button
               className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
@@ -729,18 +738,66 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
 
         {/* Right Column - Main Content */}
         <div className="contacts-tab-main-content">
-          {/* Campaign Mode Info */}
-          {campaign.niche_restriction_type === 'one_per_campaign' && (
-            <div className="campaign-mode-notice">
-              <AlertCircle size={18} />
-              <div>
-                <strong>One Business Per Niche:</strong> Only one business from each niche can claim a spot in this campaign (first come, first served).
-              </div>
+          {/* Search and Campaign Mode Info Row */}
+          <div className="search-notice-row">
+            <div className="contacts-search-bar">
+              <Search size={18} />
+              <input
+                type="text"
+                placeholder="Search advertisers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
             </div>
-          )}
+            {campaign.niche_restriction_type === 'one_per_campaign' && (
+              <div className="campaign-mode-notice">
+                <AlertCircle size={18} />
+                <div>
+                  <strong>One Business Per Niche:</strong> Only one business from each niche can claim a spot in this campaign (first come, first served).
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Contacts List or Kanban */}
           <div className="contacts-list-container">
+        {/* Contacts Count Display and Expand/Collapse Controls */}
+        {!loading && (
+          <div className="contacts-list-header">
+            <div className="contacts-count-display">
+              {searchTerm ? (
+                <span>
+                  Showing <strong>{filteredContacts.length}</strong> of <strong>{totalContacts}</strong> contact{totalContacts !== 1 ? 's' : ''}
+                </span>
+              ) : (
+                <span>
+                  Total: <strong>{totalContacts}</strong> contact{totalContacts !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            {viewMode === 'list' && Object.keys(contactsByNiche).length > 0 && (
+              <div className="niche-expand-controls">
+                <button
+                  className="expand-collapse-btn"
+                  onClick={() => toggleAllNiches(true)}
+                  title="Expand all niche sections"
+                >
+                  <ChevronDown size={16} />
+                  Expand All
+                </button>
+                <button
+                  className="expand-collapse-btn"
+                  onClick={() => toggleAllNiches(false)}
+                  title="Collapse all niche sections"
+                >
+                  <ChevronRight size={16} />
+                  Collapse All
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         {loading ? (
           <div className="contacts-loading">Loading contacts...</div>
         ) : filteredContacts.length === 0 ? (
@@ -762,11 +819,38 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
               const niche = niches.find(n => n.id === nicheId);
               const nicheName = niche?.name || 'Unassigned Niche';
               const nicheStatus = getNicheStatus(nicheId);
+              const isCollapsed = collapsedNiches.has(nicheId);
+              
+              // Calculate total revenue for this niche
+              const nicheRevenue = nicheContacts.reduce((sum, contact) => 
+                sum + getContactRevenue(contact.id), 0
+              );
+              const nicheSlots = nicheContacts.reduce((sum, contact) => 
+                sum + getContactSlots(contact.id).length, 0
+              );
               
               return (
                 <div key={nicheId} className="niche-section">
-                  <div className="niche-header">
+                  <div 
+                    className="niche-header"
+                    onClick={() => {
+                      const newCollapsed = new Set(collapsedNiches);
+                      if (isCollapsed) {
+                        newCollapsed.delete(nicheId);
+                      } else {
+                        newCollapsed.add(nicheId);
+                      }
+                      setCollapsedNiches(newCollapsed);
+                    }}
+                  >
                     <div className="niche-header-left">
+                      <button className="niche-collapse-toggle">
+                        {isCollapsed ? (
+                          <ChevronRight size={20} />
+                        ) : (
+                          <ChevronDown size={20} />
+                        )}
+                      </button>
                       <Tag size={20} />
                       <h3>{nicheName}</h3>
                       {campaign.niche_restriction_type === 'one_per_campaign' && (
@@ -777,26 +861,44 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
                       )}
                     </div>
                     <div className="niche-stats">
-                      {nicheContacts.length} advertiser{nicheContacts.length !== 1 ? 's' : ''}
+                      <span className="niche-stat-item">
+                        <User size={14} />
+                        {nicheContacts.length} advertiser{nicheContacts.length !== 1 ? 's' : ''}
+                      </span>
+                      <span className="niche-stat-item">
+                        <LayoutGrid size={14} />
+                        {nicheSlots} slot{nicheSlots !== 1 ? 's' : ''}
+                      </span>
+                      <span className="niche-stat-item">
+                        <DollarSign size={14} />
+                        ${nicheRevenue.toLocaleString()}
+                      </span>
                     </div>
                   </div>
                   
-                  <div className="contacts-grid">
-                    {nicheContacts.map((contact) => {
-                      const emailStatus = getContactEmailStatus(contact.id);
-                      return (
-                        <ContactCard
-                          key={contact.id}
-                          contact={contact}
-                          slots={getContactSlots(contact.id)}
-                          revenue={getContactRevenue(contact.id)}
-                          emailStatus={emailStatus}
-                          onView={() => handleViewContact(contact)}
-                          onRemove={() => handleRemoveContact(contact.id)}
-                        />
-                      );
-                    })}
-                  </div>
+                  {!isCollapsed && (
+                    <div className="contacts-grid">
+                      {nicheContacts.map((contact) => {
+                        const emailStatus = getContactEmailStatus(contact.id);
+                        // Enrich contact with niche data
+                        const enrichedContact = {
+                          ...contact,
+                          niche: contact.niche_id ? niches.find(n => n.id === contact.niche_id) : null
+                        };
+                        return (
+                          <ContactCard
+                            key={contact.id}
+                            contact={enrichedContact}
+                            slots={getContactSlots(contact.id)}
+                            revenue={getContactRevenue(contact.id)}
+                            emailStatus={emailStatus}
+                            onView={() => handleViewContact(contact)}
+                            onRemove={() => handleRemoveContact(contact.id)}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -822,6 +924,11 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
                         <div className="kanban-column-content">
                           {stageContacts.map((contact, index) => {
                             const emailStatus = getContactEmailStatus(contact.id);
+                            // Enrich contact with niche data
+                            const enrichedContact = {
+                              ...contact,
+                              niche: contact.niche_id ? niches.find(n => n.id === contact.niche_id) : null
+                            };
                             return (
                               <Draggable
                                 key={contact.id}
@@ -838,7 +945,7 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
                                       <GripVertical size={16} />
                                     </div>
                                     <ContactKanbanCard
-                                      contact={contact}
+                                      contact={enrichedContact}
                                       slots={getContactSlots(contact.id)}
                                       revenue={getContactRevenue(contact.id)}
                                       emailStatus={emailStatus}
@@ -867,7 +974,10 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
       {/* Contact Details Modal */}
       {showDetailsModal && selectedContact && (
         <ContactDetailsModal
-          contact={selectedContact}
+          contact={{
+            ...selectedContact,
+            niche: selectedContact.niche_id ? niches.find(n => n.id === selectedContact.niche_id) : null
+          }}
           slots={getContactSlots(selectedContact.id)}
           campaign={campaign}
           emailStatus={getContactEmailStatus(selectedContact.id)}
@@ -897,95 +1007,126 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
 
 // Contact Card Component
 const ContactCard = ({ contact, slots, revenue, emailStatus, onView, onRemove }) => {
-  return (
-    <div className="contact-card">
-      <div className="contact-card-actions">
-        <button 
-          className="contact-card-action-btn view"
-          onClick={onView}
-          title="View details"
-        >
-          <User size={16} />
-        </button>
-        <button 
-          className="contact-card-action-btn remove"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          title="Remove from campaign"
-        >
-          <X size={16} />
-        </button>
-      </div>
+  const tagsArray = Array.isArray(contact.tags) 
+    ? contact.tags 
+    : typeof contact.tags === 'string' 
+      ? contact.tags.split(',').map(t => t.trim()).filter(Boolean)
+      : [];
 
-      <div className="contact-card-content" onClick={onView}>
-        <div className="contact-card-header">
-          <div className="contact-avatar">
+  return (
+    <div className="contact-card-new" onClick={onView}>
+      {/* Header with Avatar and Actions */}
+      <div className="contact-card-new-header">
+        <div className="contact-card-new-avatar-section">
+          <div className="contact-avatar-new">
             {contact.business_name?.charAt(0).toUpperCase() || 'A'}
           </div>
-          <div className="contact-card-info">
-            <h4 className="contact-name">{contact.business_name}</h4>
+          <div className="contact-card-new-title-section">
+            <h4 className="contact-name-new">{contact.business_name || 'Unnamed Business'}</h4>
             {contact.niche?.name && (
-              <span className="contact-niche">{contact.niche.name}</span>
+              <span className="contact-niche-badge-new">
+                <Tag size={12} />
+                {contact.niche.name}
+              </span>
             )}
           </div>
         </div>
-
-        <div className="contact-card-details">
-          {contact.email && (
-            <div className="contact-detail">
-              <Mail size={14} />
-              <span>{contact.email}</span>
-            </div>
-          )}
-          {contact.phone && (
-            <div className="contact-detail">
-              <Phone size={14} />
-              <span>{contact.phone}</span>
-            </div>
-          )}
-          {contact.tags && contact.tags.length > 0 && (
-            <div className="contact-tags">
-              {contact.tags.slice(0, 2).map((tag, index) => (
-                <span key={index} className="contact-tag">
-                  <Tag size={12} />
-                  {tag}
-                </span>
-              ))}
-              {contact.tags.length > 2 && (
-                <span className="contact-tag-more">+{contact.tags.length - 2}</span>
-              )}
-            </div>
-          )}
+        <div className="contact-card-new-actions">
+          <button 
+            className="contact-card-action-btn-new view"
+            onClick={(e) => {
+              e.stopPropagation();
+              onView();
+            }}
+            title="View details"
+          >
+            <User size={16} />
+          </button>
+          <button 
+            className="contact-card-action-btn-new remove"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            title="Remove from campaign"
+          >
+            <X size={16} />
+          </button>
         </div>
+      </div>
 
-        <div className="contact-card-footer">
-          <div className="contact-stat">
-            <span className="contact-stat-label">Slots</span>
-            <span className="contact-stat-value">{slots.length}</span>
+      {/* Contact Information */}
+      <div className="contact-card-new-body">
+        {(contact.email || contact.phone) && (
+          <div className="contact-card-new-contact-info">
+            {contact.email && (
+              <a 
+                href={`mailto:${contact.email}`}
+                className="contact-info-link"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Mail size={14} />
+                <span>{contact.email}</span>
+              </a>
+            )}
+            {contact.phone && (
+              <a 
+                href={`tel:${contact.phone}`}
+                className="contact-info-link"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Phone size={14} />
+                <span>{contact.phone}</span>
+              </a>
+            )}
           </div>
-          <div className="contact-stat">
-            <span className="contact-stat-label">Revenue</span>
-            <span className="contact-stat-value">${revenue.toFixed(2)}</span>
+        )}
+
+        {/* Tags */}
+        {tagsArray.length > 0 && (
+          <div className="contact-tags-new">
+            {tagsArray.slice(0, 3).map((tag, index) => (
+              <span key={index} className="contact-tag-new">
+                {tag}
+              </span>
+            ))}
+            {tagsArray.length > 3 && (
+              <span className="contact-tag-more-new">+{tagsArray.length - 3}</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Footer with Stats */}
+      <div className="contact-card-new-footer">
+        <div className="contact-stat-new">
+          <LayoutGrid size={16} />
+          <div className="contact-stat-content">
+            <span className="contact-stat-label-new">Slots</span>
+            <span className="contact-stat-value-new">{slots.length}</span>
           </div>
         </div>
-
-        {/* Email Status */}
+        <div className="contact-stat-new revenue">
+          <DollarSign size={16} />
+          <div className="contact-stat-content">
+            <span className="contact-stat-label-new">Revenue</span>
+            <span className="contact-stat-value-new">${revenue.toLocaleString()}</span>
+          </div>
+        </div>
         {(emailStatus.sent > 0 || emailStatus.waiting > 0) && (
-          <div className="contact-email-status">
-            {emailStatus.sent > 0 && (
-              <span className="email-status-badge sent">
-                <CheckCircle2 size={12} />
-                {emailStatus.sent} sent
-              </span>
-            )}
-            {emailStatus.waiting > 0 && (
-              <span className="email-status-badge waiting">
-                <Clock size={12} />
-                {emailStatus.waiting} waiting
-              </span>
-            )}
+          <div className="contact-stat-new email">
+            <Mail size={16} />
+            <div className="contact-stat-content">
+              <span className="contact-stat-label-new">Emails</span>
+              <div className="contact-email-status-new">
+                {emailStatus.sent > 0 && (
+                  <span className="email-status-dot sent" title={`${emailStatus.sent} sent`}></span>
+                )}
+                {emailStatus.waiting > 0 && (
+                  <span className="email-status-dot waiting" title={`${emailStatus.waiting} waiting`}></span>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
