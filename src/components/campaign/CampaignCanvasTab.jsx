@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, DollarSign, User, Image as ImageIcon, CheckCircle, RotateCw } from 'lucide-react';
+import { Upload, DollarSign, User, Image as ImageIcon, CheckCircle, RotateCw, Plus } from 'lucide-react';
 import { adSlots as adSlotsAPI, contacts as contactsAPI, clientAds, designs as designsAPI } from '../../lib/api';
+import { storage } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import ImageUploader from '../ImageUploader';
 import './CampaignCanvasTab.css';
 
 export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
@@ -26,6 +28,14 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
     front_design_id: campaign.front_design_id,
     back_design_id: campaign.back_design_id,
     design_id: campaign.design_id,
+    prices: {
+      slot_1_price: campaign.slot_1_price,
+      slot_2_price: campaign.slot_2_price,
+      slot_4_price: campaign.slot_4_price,
+      slot_8_price: campaign.slot_8_price,
+      slot_12_price: campaign.slot_12_price,
+      slot_16_price: campaign.slot_16_price
+    },
     fullCampaign: campaign
   });
 
@@ -158,11 +168,66 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
   const fillPercentage = totalSlots > 0 ? ((bookedSlots / totalSlots) * 100).toFixed(1) : 0;
 
   const getSlotBasePrice = (slot) => {
-    const size = slot.slot_size?.toLowerCase();
-    if (size === 'small') return campaign.price_small || 0;
-    if (size === 'medium') return campaign.price_medium || 0;
-    if (size === 'large') return campaign.price_large || 0;
-    return 0;
+    // Map slot_size to the appropriate slot price field
+    const sizeOriginal = slot.slot_size;
+    const size = slot.slot_size?.toString().toLowerCase();
+    
+    console.log('🎯 Getting price for slot:', {
+      position: slot.slot_position,
+      slot_size_original: sizeOriginal,
+      slot_size_lowercase: size,
+      slot_size_type: typeof sizeOriginal
+    });
+    
+    console.log('💰 Available campaign prices:', {
+      slot_1: campaign.slot_1_price,
+      slot_2: campaign.slot_2_price,
+      slot_4: campaign.slot_4_price,
+      slot_8: campaign.slot_8_price,
+      slot_12: campaign.slot_12_price,
+      slot_16: campaign.slot_16_price,
+      price_small: campaign.price_small,
+      price_medium: campaign.price_medium,
+      price_large: campaign.price_large
+    });
+    
+    // Try to extract slot count from slot_size (e.g., "1", "2", "4", "8", "12", "16")
+    // or map from old size names (small, medium, large) to slot counts
+    let slotCount = null;
+    
+    if (!isNaN(size)) {
+      // If slot_size is already a number string, use it directly
+      slotCount = parseInt(size);
+      console.log(`✅ Slot size is numeric: ${slotCount}`);
+    } else {
+      // Map old size names to default slot counts (fallback)
+      if (size === 'small') slotCount = 1;
+      else if (size === 'medium') slotCount = 2;
+      else if (size === 'large') slotCount = 4;
+      console.log(`✅ Mapped size "${size}" to slot count: ${slotCount}`);
+    }
+    
+    let finalPrice = 0;
+    
+    // Get price based on slot count
+    if (slotCount === 1) finalPrice = Number(campaign.slot_1_price) || 0;
+    else if (slotCount === 2) finalPrice = Number(campaign.slot_2_price) || 0;
+    else if (slotCount === 4) finalPrice = Number(campaign.slot_4_price) || 0;
+    else if (slotCount === 8) finalPrice = Number(campaign.slot_8_price) || 0;
+    else if (slotCount === 12) finalPrice = Number(campaign.slot_12_price) || 0;
+    else if (slotCount === 16) finalPrice = Number(campaign.slot_16_price) || 0;
+    
+    // Fallback to old pricing if slot count pricing didn't work
+    if (finalPrice === 0) {
+      if (size === 'small') finalPrice = Number(campaign.price_small) || 0;
+      else if (size === 'medium') finalPrice = Number(campaign.price_medium) || 0;
+      else if (size === 'large') finalPrice = Number(campaign.price_large) || 0;
+      console.log(`⚠️ Used fallback pricing for size "${size}": $${finalPrice}`);
+    }
+    
+    console.log(`💵 Final price for ${slot.slot_position}: $${finalPrice}`);
+    
+    return finalPrice;
   };
 
   const getSlotFinalPrice = (slot) => {
@@ -171,11 +236,27 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
 
   const getSlotColor = (slot) => {
     const size = slot.slot_size?.toLowerCase();
-    // Use colors from campaign creation or defaults
-    if (size === 'small') return '#dbeafe';
-    if (size === 'medium') return '#dcfce7';
-    if (size === 'large') return '#fef9c3';
-    return '#f3f4f6';
+    
+    // Try to extract slot count
+    let slotCount = null;
+    if (!isNaN(size)) {
+      slotCount = parseInt(size);
+    } else {
+      // Map old size names to slot counts
+      if (size === 'small') slotCount = 1;
+      else if (size === 'medium') slotCount = 2;
+      else if (size === 'large') slotCount = 4;
+    }
+    
+    // Return colors based on slot count (matching CampaignConfigTab adSlotOptions colors)
+    if (slotCount === 1) return '#dbeafe';  // 1 Slot - blue
+    if (slotCount === 2) return '#dcfce7';  // 2 Slots - green
+    if (slotCount === 4) return '#fef9c3';  // 4 Slots - yellow
+    if (slotCount === 8) return '#fee2e2';  // 8 Slots - red
+    if (slotCount === 12) return '#e0f2fe'; // 12 Slots - cyan
+    if (slotCount === 16) return '#ede9fe'; // 16 Slots - purple
+    
+    return '#f3f4f6'; // Default gray
   };
 
   // Get current design and slots based on active side
@@ -479,7 +560,6 @@ const CanvasLayout = ({ design, slots, onSlotClick, getSlotColor, getSlotFinalPr
                     <div className="canvas-slot-info-overlay">
                       <div className="canvas-slot-info-top">
                         <span className="canvas-slot-position">{slot.slot_position}</span>
-                        <span className="canvas-slot-size">{slot.slot_size}</span>
                       </div>
                       <div className="canvas-slot-info-bottom">
                         {slot.contact?.business_name && (
@@ -512,6 +592,7 @@ const AssignSlotModal = ({ slot, contacts, onClose, onAssign }) => {
   const [contactAds, setContactAds] = useState([]);
   const [selectedAd, setSelectedAd] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showAdUploader, setShowAdUploader] = useState(false);
 
   useEffect(() => {
     if (slot.contact_id) {
@@ -542,8 +623,44 @@ const AssignSlotModal = ({ slot, contacts, onClose, onAssign }) => {
     setSelectedContact(contact);
     setSelectedAd(null);
     setContactAds([]);
+    setShowAdUploader(false);
     if (contact) {
       await loadContactAds(contact.id);
+    }
+  };
+
+  const handleAdUpload = async (file) => {
+    if (!selectedContact?.id || !user?.id) return;
+
+    // Upload to storage
+    const { data: uploadData, error: uploadError } = await storage.uploadClientAd(
+      user.id,
+      file,
+      selectedContact.id
+    );
+
+    if (uploadError) {
+      throw new Error('Failed to upload image');
+    }
+
+    // Save to database
+    const { data, error } = await clientAds.create({
+      contact_id: selectedContact.id,
+      user_id: user.id,
+      name: file.name,
+      image_url: uploadData.url,
+      file_name: file.name,
+      file_size: file.size,
+      approval_status: 'approved'
+    });
+
+    if (!error && data) {
+      // Add the new ad to the list and select it automatically
+      setContactAds([data, ...contactAds]);
+      setSelectedAd(data);
+      setShowAdUploader(false);
+    } else {
+      throw new Error('Failed to save ad');
     }
   };
 
@@ -615,7 +732,36 @@ const AssignSlotModal = ({ slot, contacts, onClose, onAssign }) => {
           {/* Ad Selection */}
           {selectedContact && (
             <div className="assign-form-group">
-              <label>Select Ad Creative</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <label style={{ margin: 0 }}>Select Ad Creative</label>
+                <button
+                  type="button"
+                  onClick={() => setShowAdUploader(!showAdUploader)}
+                  disabled={contactAds.length >= 8}
+                  className="btn-primary"
+                  style={{
+                    padding: '0.5rem 1rem',
+                    fontSize: '0.875rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <Plus size={16} />
+                  Upload New Ad
+                </button>
+              </div>
+
+              {showAdUploader && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <ImageUploader
+                    onUpload={handleAdUpload}
+                    label="Upload Client Ad"
+                    maxSizeMB={10}
+                  />
+                </div>
+              )}
+
               {loading ? (
                 <div className="assign-loading">Loading ads...</div>
               ) : contactAds.length > 0 ? (
@@ -637,9 +783,9 @@ const AssignSlotModal = ({ slot, contacts, onClose, onAssign }) => {
                     </div>
                   ))}
                 </div>
-              ) : (
+              ) : !showAdUploader && (
                 <div className="assign-no-ads">
-                  No ads found for this advertiser. Create ads on the Contacts page.
+                  No ads found for this advertiser. Upload one above.
                 </div>
               )}
             </div>

@@ -42,6 +42,22 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Update formData when campaign prop changes (after parent refreshes data)
+  useEffect(() => {
+    setFormData({
+      name: campaign.name || '',
+      status: campaign.status || 'draft',
+      mail_date: campaign.mail_date || '',
+      slot_1_price: campaign.slot_1_price || 0,
+      slot_2_price: campaign.slot_2_price || 0,
+      slot_4_price: campaign.slot_4_price || 0,
+      slot_8_price: campaign.slot_8_price || 0,
+      slot_12_price: campaign.slot_12_price || 0,
+      slot_16_price: campaign.slot_16_price || 0,
+      notes: campaign.notes || '',
+    });
+  }, [campaign]);
+
   // Calculate analytics
   const totalSlots = campaign.total_ad_slots || 0;
   const bookedSlots = campaign.booked_ad_slots || 0;
@@ -60,16 +76,43 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose }) => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const { error } = await campaignsAPI.update(campaign.id, formData);
-      if (!error) {
+      // Only send valid database fields with proper types
+      const cleanData = {
+        name: formData.name || '',
+        status: formData.status || 'draft',
+        mail_date: formData.mail_date || null,
+        slot_1_price: Number(formData.slot_1_price) || 0,
+        slot_2_price: Number(formData.slot_2_price) || 0,
+        slot_4_price: Number(formData.slot_4_price) || 0,
+        slot_8_price: Number(formData.slot_8_price) || 0,
+        slot_12_price: Number(formData.slot_12_price) || 0,
+        slot_16_price: Number(formData.slot_16_price) || 0,
+        notes: formData.notes || null
+      };
+      
+      console.log('Saving campaign config with data:', cleanData);
+      const { data, error } = await campaignsAPI.update(campaign.id, cleanData);
+      if (!error && data) {
+        console.log('Campaign saved successfully:', data);
+        
+        // Update formData with the saved values to reflect in the UI
+        setFormData(prev => ({
+          ...prev,
+          ...cleanData
+        }));
+        
         setHasChanges(false);
         setEditingRates(false);
+        
+        // Notify parent to refresh campaign data
         if (onUpdate) onUpdate();
       } else {
-        alert('Failed to save changes');
+        console.error('Failed to save campaign:', error);
+        alert('Failed to save changes: ' + (error.message || JSON.stringify(error)));
       }
     } catch (err) {
-      alert('Error saving changes');
+      console.error('Error saving campaign:', err);
+      alert('Error saving changes: ' + err.message);
     } finally {
       setIsSaving(false);
     }

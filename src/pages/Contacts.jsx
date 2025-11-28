@@ -10,9 +10,6 @@ import {
   Globe,
   MapPin,
   Calendar,
-  CheckCircle,
-  XCircle,
-  Clock,
   LayoutGrid,
   List,
   Columns
@@ -216,8 +213,11 @@ function Contacts() {
     );
 
     if (uploadError) {
+      console.error('Upload error:', uploadError);
       throw new Error('Failed to upload image');
     }
+
+    console.log('Upload successful, URL:', uploadData.url);
 
     // Save to database
     const { data, error } = await clientAds.create({
@@ -231,9 +231,24 @@ function Contacts() {
     });
 
     if (!error) {
+      console.log('Ad saved to database:', data);
       setContactAds([data, ...contactAds]);
     } else {
+      console.error('Database save error:', error);
       throw new Error('Failed to save ad');
+    }
+  };
+
+  const handleAdDelete = async (adId) => {
+    if (!confirm('Are you sure you want to delete this ad? This action cannot be undone.')) {
+      return;
+    }
+
+    const { error } = await clientAds.delete(adId);
+    if (!error) {
+      setContactAds(contactAds.filter(ad => ad.id !== adId));
+    } else {
+      alert('Failed to delete ad');
     }
   };
 
@@ -554,6 +569,7 @@ function Contacts() {
           onDelete={handleDeleteContact}
           onStageChange={handleStageChange}
           onAdUpload={handleAdUpload}
+          onAdDelete={handleAdDelete}
           onRequestApproval={handleRequestApproval}
           onAddActivity={handleAddActivity}
         />
@@ -574,6 +590,7 @@ function ContactModal({
   onDelete,
   onStageChange,
   onAdUpload,
+  onAdDelete,
   onRequestApproval,
   onAddActivity
 }) {
@@ -797,24 +814,31 @@ function ContactModal({
               <div className="ads-grid">
                 {ads.map(ad => (
                   <div key={ad.id} className="ad-card">
-                    <img src={ad.image_url} alt={ad.name} />
+                    {ad.image_url ? (
+                      <img 
+                        src={ad.image_url} 
+                        alt={ad.name}
+                        onError={(e) => {
+                          console.error('Failed to load image:', ad.image_url);
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div className="ad-image-placeholder" style={{ display: ad.image_url ? 'none' : 'flex' }}>
+                      <Upload size={32} />
+                      <span>Image not available</span>
+                      </div>
+                      <button
+                      className="ad-delete-btn"
+                      onClick={() => onAdDelete(ad.id)}
+                      title="Delete ad"
+                      >
+                      <Trash2 size={14} />
+                      </button>
                     <div className="ad-info">
                       <div className="ad-name">{ad.name}</div>
-                      <div className={`approval-status status-${ad.approval_status}`}>
-                        {ad.approval_status === 'approved' && <CheckCircle size={14} />}
-                        {ad.approval_status === 'rejected' && <XCircle size={14} />}
-                        {ad.approval_status === 'pending' && <Clock size={14} />}
-                        {ad.approval_status}
-                      </div>
                     </div>
-                    {ad.approval_status === 'pending' && !ad.approval_requested_at && (
-                      <button
-                        className="btn-sm"
-                        onClick={() => onRequestApproval(ad.id)}
-                      >
-                        Request Approval
-                      </button>
-                    )}
                   </div>
                 ))}
               </div>

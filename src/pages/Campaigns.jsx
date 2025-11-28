@@ -12,6 +12,7 @@ import {
   emailTemplates as emailTemplatesAPI,
   emailCampaigns
 } from '../lib/api';
+import { storage } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { enrichSavedRoutesWithLock } from '../utils/routeLocking';
 import { getMockLayoutForDesign, getDefaultMockLayout } from '../utils/mockLayouts';
@@ -19,6 +20,7 @@ import { CampaignCard } from '../components/campaign/CampaignCard';
 import { StatusFilter } from '../components/campaign/StatusFilter';
 import { ViewToggle } from '../components/campaign/ViewToggle';
 import CampaignDetailView from '../components/campaign/CampaignDetailView';
+import ImageUploader from '../components/ImageUploader';
 
 
 const cloneLayout = (layout = getDefaultMockLayout('9x12')) => ({
@@ -158,8 +160,17 @@ function Campaigns() {
     setDetailViewCampaign(null);
   };
 
-  const handleDetailViewUpdate = () => {
-    loadCampaigns();
+  const handleDetailViewUpdate = async () => {
+    // Reload campaigns to get fresh data
+    await loadCampaigns();
+    
+    // If detail view is open, refresh the campaign data
+    if (detailViewCampaign) {
+      const { data } = await campaignsAPI.getById(detailViewCampaign.id);
+      if (data) {
+        setDetailViewCampaign(data);
+      }
+    }
   };
 
   const handleDeleteCampaign = async (campaignId) => {
@@ -1646,11 +1657,12 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
 }
 
 // Slot Assignment Component
-function SlotAssignment({ slots, contacts, niches, uniqueNichePerSlot, onUpdate }) {
+function SlotAssignment({ slots, contacts, niches, uniqueNichePerSlot, userId, onUpdate }) {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedContact, setSelectedContact] = useState(null);
   const [contactAds, setContactAds] = useState([]);
   const [selectedAd, setSelectedAd] = useState(null);
+  const [showAdUploader, setShowAdUploader] = useState(false);
 
   const usedNiches = uniqueNichePerSlot
     ? new Set(slots.filter(s => s.contact_id).map(s => contacts.find(c => c.id === s.contact_id)?.niche_id).filter(Boolean))
@@ -1662,6 +1674,7 @@ function SlotAssignment({ slots, contacts, niches, uniqueNichePerSlot, onUpdate 
       setSelectedContact(null);
       setContactAds([]);
       setSelectedAd(null);
+      setShowAdUploader(false);
     }
   };
 
@@ -1670,6 +1683,42 @@ function SlotAssignment({ slots, contacts, niches, uniqueNichePerSlot, onUpdate 
     const { data } = await clientAds.getByContact(contact.id);
     setContactAds(data || []);
     setSelectedAd(null);
+    setShowAdUploader(false);
+  };
+
+  const handleAdUpload = async (file) => {
+    if (!selectedContact?.id || !userId) return;
+
+    // Upload to storage
+    const { data: uploadData, error: uploadError } = await storage.uploadClientAd(
+      userId,
+      file,
+      selectedContact.id
+    );
+
+    if (uploadError) {
+      throw new Error('Failed to upload image');
+    }
+
+    // Save to database
+    const { data, error } = await clientAds.create({
+      contact_id: selectedContact.id,
+      user_id: userId,
+      name: file.name,
+      image_url: uploadData.url,
+      file_name: file.name,
+      file_size: file.size,
+      approval_status: 'approved'
+    });
+
+    if (!error && data) {
+      // Add the new ad to the list and select it automatically
+      setContactAds([data, ...contactAds]);
+      setSelectedAd(data);
+      setShowAdUploader(false);
+    } else {
+      throw new Error('Failed to save ad');
+    }
   };
 
   const handleAssign = async () => {
@@ -1682,6 +1731,7 @@ function SlotAssignment({ slots, contacts, niches, uniqueNichePerSlot, onUpdate 
       setSelectedContact(null);
       setContactAds([]);
       setSelectedAd(null);
+      setShowAdUploader(false);
     } else {
       alert('Failed to assign slot');
     }
@@ -1731,9 +1781,33 @@ function SlotAssignment({ slots, contacts, niches, uniqueNichePerSlot, onUpdate 
             </select>
           </div>
 
-          {contactAds.length > 0 && (
+          {selectedContact && (
+            <>
             <div className="form-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <label>Select Ad</label>
+                  <button
+                    type="button"
+                    className="btn-primary btn-sm"
+                    onClick={() => setShowAdUploader(!showAdUploader)}
+                    disabled={contactAds.length >= 8}
+                  >
+                    <Plus size={16} />
+                    Upload New Ad
+                  </button>
+                </div>
+
+                {showAdUploader && (
+                  <div style={{ marginBottom: '1rem' }}>
+                    <ImageUploader
+                      onUpload={handleAdUpload}
+                      label="Upload Client Ad"
+                      maxSizeMB={10}
+                    />
+                  </div>
+                )}
+
+                {contactAds.length > 0 ? (
               <div className="ads-selection">
                 {contactAds.map(ad => (
                   <div
@@ -1746,8 +1820,10 @@ function SlotAssignment({ slots, contacts, niches, uniqueNichePerSlot, onUpdate 
                   </div>
                 ))}
               </div>
-            </div>
+                ) : !showAdUploader && (
+                  <p className="form-hint">No ads available. Upload one above.</p>
           )}
+              </div>
 
           <button
             className="btn-primary"
@@ -1756,6 +1832,8 @@ function SlotAssignment({ slots, contacts, niches, uniqueNichePerSlot, onUpdate 
           >
             Assign to Slot
           </button>
+            </>
+          )}
         </div>
       )}
     </div>

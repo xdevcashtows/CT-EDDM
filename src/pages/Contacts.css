@@ -633,6 +633,7 @@
 }
 
 .ad-card {
+  position: relative;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   overflow: hidden;
@@ -643,10 +644,49 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
+.ad-delete-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 10;
+  padding: 0;
+  color: #64748b;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.ad-delete-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+}
+
 .ad-card img {
   width: 100%;
   height: 150px;
   object-fit: cover;
+}
+
+.ad-image-placeholder {
+  width: 100%;
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  color: #94a3b8;
+  gap: 8px;
 }
 
 .ad-info {
@@ -657,7 +697,7 @@
   font-size: 14px;
   font-weight: 500;
   color: #1e293b;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -684,10 +724,7 @@
   color: #ef4444;
 }
 
-.ad-card button {
-  width: 100%;
-  margin-top: 8px;
-}
+/* Removed - delete button is now positioned absolutely */
 
 /* Activity Tab */
 .activities-list {
