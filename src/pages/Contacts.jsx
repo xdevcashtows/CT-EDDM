@@ -20,25 +20,34 @@ import {
   CheckCircle,
   Star,
   Settings,
-  GripVertical
+  GripVertical,
+  Save,
+  XCircle
 } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import './Contacts.css';
-import { contacts as contactsAPI, niches as nichesAPI, clientAds, activities } from '../lib/api';
+import { contacts as contactsAPI, niches as nichesAPI, clientAds, contactNotes as contactNotesAPI } from '../lib/api';
 import { storage } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import ImageUploader from '../components/ImageUploader';
 import PageLayout from '../components/PageLayout';
 
-const PIPELINE_STAGES = [
-  { value: 'lead', label: 'Lead', color: '#6b7280' },
-  { value: 'contacted', label: 'Contacted', color: '#3b82f6' },
-  { value: 'qualified', label: 'Qualified', color: '#f59e0b' },
-  { value: 'proposal_sent', label: 'Proposal Sent', color: '#ec4899' },
-  { value: 'negotiating', label: 'Negotiating', color: '#8b5cf6' },
-  { value: 'won', label: 'Won', color: '#0ea5e9' },
-  { value: 'active', label: 'Active', color: '#22c55e' },
-  { value: 'past', label: 'Past Client', color: '#64748b' },
-  { value: 'lost', label: 'Lost', color: '#dc2626' }
+const DEFAULT_PIPELINE_STAGES = [
+  { id: 'lead', label: 'Lead', color: '#6b7280' },
+  { id: 'contacted', label: 'Contacted', color: '#3b82f6' },
+  { id: 'qualified', label: 'Qualified', color: '#f59e0b' },
+  { id: 'proposal_sent', label: 'Proposal Sent', color: '#ec4899' },
+  { id: 'negotiating', label: 'Negotiating', color: '#8b5cf6' },
+  { id: 'won', label: 'Won', color: '#0ea5e9' },
+  { id: 'active', label: 'Active', color: '#22c55e' },
+  { id: 'past', label: 'Past Client', color: '#64748b' },
+  { id: 'lost', label: 'Lost', color: '#dc2626' }
+];
+
+const STAGE_COLORS = [
+  '#6b7280', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6',
+  '#0ea5e9', '#22c55e', '#64748b', '#dc2626', '#06b6d4',
+  '#f97316', '#84cc16', '#a855f7', '#14b8a6'
 ];
 
 const TEMPERATURE_OPTIONS = [
@@ -98,7 +107,7 @@ function Contacts() {
   const [showModal, setShowModal] = useState(false);
   const [showAdUpload, setShowAdUpload] = useState(false);
   const [contactAds, setContactAds] = useState([]);
-  const [contactActivities, setContactActivities] = useState([]);
+  const [contactNotes, setContactNotes] = useState([]);
   const [viewMode, setViewMode] = useState('grid');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadFile, setUploadFile] = useState(null);
@@ -106,19 +115,39 @@ function Contacts() {
   const [uploadErrors, setUploadErrors] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedContactIds, setSelectedContactIds] = useState(new Set());
-  const [showBulkEditPanel, setShowBulkEditPanel] = useState(false);
   const [bulkEditData, setBulkEditData] = useState({
     temperature: '',
     stage: '',
     niche_id: '',
     tags: ''
   });
+  const [pipelineStages, setPipelineStages] = useState([]);
+  const [showStageEditor, setShowStageEditor] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadData();
+      loadPipelineStages();
     }
   }, [user]);
+
+  const loadPipelineStages = () => {
+    const savedStages = localStorage.getItem(`pipeline_stages_${user?.id}`);
+    if (savedStages) {
+      try {
+        setPipelineStages(JSON.parse(savedStages));
+      } catch (e) {
+        setPipelineStages(DEFAULT_PIPELINE_STAGES);
+      }
+    } else {
+      setPipelineStages(DEFAULT_PIPELINE_STAGES);
+    }
+  };
+
+  const savePipelineStages = (stages) => {
+    setPipelineStages(stages);
+    localStorage.setItem(`pipeline_stages_${user?.id}`, JSON.stringify(stages));
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -133,13 +162,13 @@ function Contacts() {
   };
 
   const loadContactDetails = async (contactId) => {
-    const [adsRes, activitiesRes] = await Promise.all([
+    const [adsRes, notesRes] = await Promise.all([
       clientAds.getByContact(contactId),
-      activities.getByContact(contactId)
+      contactNotesAPI.getByContact(contactId)
     ]);
 
     if (!adsRes.error) setContactAds(adsRes.data || []);
-    if (!activitiesRes.error) setContactActivities(activitiesRes.data || []);
+    if (!notesRes.error) setContactNotes(notesRes.data || []);
   };
 
   // Get all unique tags from contacts
@@ -225,7 +254,7 @@ function Contacts() {
       notes: ''
     });
     setContactAds([]);
-    setContactActivities([]);
+    setContactNotes([]);
     setShowModal(true);
   };
 
@@ -233,8 +262,14 @@ function Contacts() {
     const payload = sanitizeContactPayload(contactData);
 
     // Convert tags from comma-separated string to array
-    if (payload.tags && typeof payload.tags === 'string') {
-      payload.tags = payload.tags.split(',').map(t => t.trim()).filter(Boolean);
+    if (typeof payload.tags === 'string') {
+      if (payload.tags.trim() === '') {
+        // Empty string should be an empty array
+        payload.tags = [];
+      } else {
+        // Convert comma-separated string to array
+        payload.tags = payload.tags.split(',').map(t => t.trim()).filter(Boolean);
+      }
     }
 
     if (selectedContact.id) {
@@ -309,7 +344,10 @@ function Contacts() {
     if (bulkEditData.temperature) updates.temperature = bulkEditData.temperature;
     if (bulkEditData.stage) updates.stage = bulkEditData.stage;
     if (bulkEditData.niche_id) updates.niche_id = bulkEditData.niche_id;
-    if (bulkEditData.tags) updates.tags = bulkEditData.tags;
+    if (bulkEditData.tags) {
+      // Convert tags to array format
+      updates.tags = bulkEditData.tags.split(',').map(t => t.trim()).filter(Boolean);
+    }
 
     if (Object.keys(updates).length === 0) {
       alert('Please select at least one field to update');
@@ -331,8 +369,115 @@ function Contacts() {
     alert(`Bulk edit complete!\nUpdated: ${successCount}\nFailed: ${errorCount}`);
     await loadData();
     setSelectedContactIds(new Set());
-    setShowBulkEditPanel(false);
     setBulkEditData({ temperature: '', stage: '', niche_id: '', tags: '' });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedContactIds.size === 0) {
+      alert('Please select at least one contact');
+      return;
+    }
+
+    const confirmMessage = `Are you sure you want to delete ${selectedContactIds.size} contact${selectedContactIds.size > 1 ? 's' : ''}?\n\nThis action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const contactId of selectedContactIds) {
+      const { error } = await contactsAPI.delete(contactId);
+      if (error) {
+        errorCount++;
+      } else {
+        successCount++;
+      }
+    }
+
+    alert(`Bulk delete complete!\nDeleted: ${successCount}\nFailed: ${errorCount}`);
+    await loadData();
+    setSelectedContactIds(new Set());
+  };
+
+  const handleExportCSV = () => {
+    // Prepare CSV headers
+    const headers = [
+      'business_name',
+      'owner_name',
+      'email',
+      'phone',
+      'website',
+      'address',
+      'city',
+      'state',
+      'zip',
+      'niche',
+      'stage',
+      'temperature',
+      'tags',
+      'notes',
+      'created_at'
+    ];
+
+    // Prepare CSV rows
+    const rows = filteredAndSortedContacts.map(contact => {
+      const tags = Array.isArray(contact.tags) 
+        ? contact.tags.join(', ') 
+        : typeof contact.tags === 'string' 
+        ? contact.tags 
+        : '';
+
+      const stage = pipelineStages.find(s => s.id === contact.stage)?.label || contact.stage || '';
+
+      return [
+        contact.business_name || '',
+        contact.owner_name || '',
+        contact.email || '',
+        contact.phone || '',
+        contact.website || '',
+        contact.address || '',
+        contact.city || '',
+        contact.state || '',
+        contact.zip || '',
+        contact.niche?.name || '',
+        stage,
+        contact.temperature || 'warm',
+        tags,
+        contact.notes || '',
+        contact.created_at ? new Date(contact.created_at).toLocaleDateString() : ''
+      ];
+    });
+
+    // Escape CSV values
+    const escapeCSV = (value) => {
+      if (value === null || value === undefined) return '';
+      const stringValue = String(value);
+      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    // Build CSV content
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(escapeCSV).join(','))
+    ].join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `contacts_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleStageChange = async (contactId, newStage) => {
@@ -342,6 +487,37 @@ function Contacts() {
       if (selectedContact?.id === contactId) {
         setSelectedContact(data);
       }
+    }
+  };
+
+  const handleDragEnd = async (result) => {
+    const { source, destination, draggableId } = result;
+
+    // Dropped outside the list
+    if (!destination) {
+      return;
+    }
+
+    // No movement
+    if (source.droppableId === destination.droppableId && source.index === destination.index) {
+      return;
+    }
+
+    const contactId = draggableId;
+    const newStage = destination.droppableId;
+
+    // Optimistically update UI
+    const updatedContacts = contacts.map(c => 
+      c.id === contactId ? { ...c, stage: newStage } : c
+    );
+    setContacts(updatedContacts);
+
+    // Update in database
+    const { error } = await contactsAPI.update(contactId, { stage: newStage });
+    if (error) {
+      // Revert on error
+      setContacts(contacts);
+      alert('Failed to update contact stage');
     }
   };
 
@@ -404,15 +580,32 @@ function Contacts() {
     }
   };
 
-  const handleAddActivity = async (activityData) => {
-    const { data, error } = await activities.create({
-      ...activityData,
+  const handleAddNote = async (noteText) => {
+    if (!selectedContact?.id || !noteText.trim()) return;
+
+    const { data, error } = await contactNotesAPI.create({
       contact_id: selectedContact.id,
-      user_id: user.id
+      user_id: user.id,
+      note: noteText.trim()
     });
 
     if (!error) {
-      setContactActivities([data, ...contactActivities]);
+      setContactNotes([data, ...contactNotes]);
+    } else {
+      alert('Failed to add note');
+    }
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    if (!confirm('Are you sure you want to delete this note?')) {
+      return;
+    }
+
+    const { error } = await contactNotesAPI.delete(noteId);
+    if (!error) {
+      setContactNotes(contactNotes.filter(note => note.id !== noteId));
+    } else {
+      alert('Failed to delete note');
     }
   };
 
@@ -610,6 +803,10 @@ function Contacts() {
       {...layoutProps}
       actions={
         <div style={{ display: 'flex', gap: '12px' }}>
+          <button className="btn-secondary" onClick={handleExportCSV}>
+            <Download size={20} />
+            Export CSV
+          </button>
           <button className="btn-secondary" onClick={() => setShowUploadModal(true)}>
             <Upload size={20} />
             Upload Contacts
@@ -757,7 +954,7 @@ function Contacts() {
             </div>
           </div>
 
-          {/* Results Count and Bulk Actions */}
+          {/* Results Count */}
           <div className="results-count-row">
             <div className="results-count">
               Showing {filteredAndSortedContacts.length} of {contacts.length} contacts
@@ -765,83 +962,7 @@ function Contacts() {
                 <span className="selected-count"> • {selectedContactIds.size} selected</span>
               )}
             </div>
-            {selectedContactIds.size > 0 && (
-              <button
-                className="btn-primary btn-sm"
-                onClick={() => setShowBulkEditPanel(!showBulkEditPanel)}
-              >
-                Bulk Edit ({selectedContactIds.size})
-              </button>
-            )}
           </div>
-
-          {/* Bulk Edit Panel */}
-          {showBulkEditPanel && selectedContactIds.size > 0 && (
-            <div className="bulk-edit-panel">
-              <h3>Bulk Edit {selectedContactIds.size} Contact{selectedContactIds.size > 1 ? 's' : ''}</h3>
-              <div className="bulk-edit-fields">
-                <label className="form-field">
-                  <span>Temperature</span>
-                  <select
-                    value={bulkEditData.temperature}
-                    onChange={(e) => setBulkEditData({ ...bulkEditData, temperature: e.target.value })}
-                  >
-                    <option value="">Don't change</option>
-                    {TEMPERATURE_OPTIONS.map(option => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="form-field">
-                  <span>Stage</span>
-                  <select
-                    value={bulkEditData.stage}
-                    onChange={(e) => setBulkEditData({ ...bulkEditData, stage: e.target.value })}
-                  >
-                    <option value="">Don't change</option>
-                    {PIPELINE_STAGES.map(stage => (
-                      <option key={stage.value} value={stage.value}>{stage.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="form-field">
-                  <span>Niche</span>
-                  <select
-                    value={bulkEditData.niche_id}
-                    onChange={(e) => setBulkEditData({ ...bulkEditData, niche_id: e.target.value })}
-                  >
-                    <option value="">Don't change</option>
-                    {niches.map(niche => (
-                      <option key={niche.id} value={niche.id}>{niche.name}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="form-field">
-                  <span>Add Tags (comma-separated)</span>
-                  <input
-                    type="text"
-                    value={bulkEditData.tags}
-                    onChange={(e) => setBulkEditData({ ...bulkEditData, tags: e.target.value })}
-                    placeholder="e.g. VIP, Hot Lead"
-                  />
-                </label>
-              </div>
-              <div className="bulk-edit-actions">
-                <button className="btn-primary" onClick={handleBulkEdit}>
-                  Apply Changes
-                </button>
-                <button 
-                  className="btn-secondary" 
-                  onClick={() => {
-                    setShowBulkEditPanel(false);
-                    setBulkEditData({ temperature: '', stage: '', niche_id: '', tags: '' });
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Stage Filters Row */}
           <div className="stage-filters">
@@ -851,13 +972,13 @@ function Contacts() {
             >
               All ({contacts.length})
             </button>
-            {PIPELINE_STAGES.map(stage => {
-              const count = contacts.filter(c => c.stage === stage.value).length;
+            {pipelineStages.map(stage => {
+              const count = contacts.filter(c => c.stage === stage.id).length;
               return (
                 <button
-                  key={stage.value}
-                  className={`stage-filter ${stageFilter === stage.value ? 'active' : ''}`}
-                  onClick={() => setStageFilter(stage.value)}
+                  key={stage.id}
+                  className={`stage-filter ${stageFilter === stage.id ? 'active' : ''}`}
+                  onClick={() => setStageFilter(stage.id)}
                   style={{ borderColor: stage.color }}
                 >
                   {stage.label} ({count})
@@ -867,6 +988,83 @@ function Contacts() {
         </div>
       </div>
 
+      {/* Bulk Edit Panel - Shows when contacts are selected */}
+      {selectedContactIds.size > 0 && (
+        <div className="bulk-edit-panel-compact">
+          <div className="bulk-edit-info">
+            <div className="bulk-edit-badge">
+              <CheckCircle size={16} />
+              <span>{selectedContactIds.size} selected</span>
+            </div>
+            <span className="bulk-edit-label">Bulk Edit:</span>
+          </div>
+          
+          <div className="bulk-edit-controls">
+            <select
+              className="bulk-edit-select"
+              value={bulkEditData.temperature}
+              onChange={(e) => setBulkEditData({ ...bulkEditData, temperature: e.target.value })}
+            >
+              <option value="">Temperature</option>
+              {TEMPERATURE_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+
+            <select
+              className="bulk-edit-select"
+              value={bulkEditData.stage}
+              onChange={(e) => setBulkEditData({ ...bulkEditData, stage: e.target.value })}
+            >
+              <option value="">Stage</option>
+              {pipelineStages.map(stage => (
+                <option key={stage.id} value={stage.id}>{stage.label}</option>
+              ))}
+            </select>
+
+            <select
+              className="bulk-edit-select"
+              value={bulkEditData.niche_id}
+              onChange={(e) => setBulkEditData({ ...bulkEditData, niche_id: e.target.value })}
+            >
+              <option value="">Niche</option>
+              {niches.map(niche => (
+                <option key={niche.id} value={niche.id}>{niche.name}</option>
+              ))}
+            </select>
+
+            <input
+              type="text"
+              className="bulk-edit-input"
+              value={bulkEditData.tags}
+              onChange={(e) => setBulkEditData({ ...bulkEditData, tags: e.target.value })}
+              placeholder="Add tags..."
+            />
+          </div>
+
+          <div className="bulk-edit-actions-compact">
+            <button className="btn-apply" onClick={handleBulkEdit}>
+              <CheckCircle size={16} />
+              Apply
+            </button>
+            <button className="btn-delete-bulk" onClick={handleBulkDelete} title="Delete selected contacts">
+              <Trash2 size={16} />
+              Delete
+            </button>
+            <button 
+              className="btn-clear" 
+              onClick={() => {
+                setSelectedContactIds(new Set());
+                setBulkEditData({ temperature: '', stage: '', niche_id: '', tags: '' });
+              }}
+              title="Clear selection"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Contacts Content */}
       {viewMode === 'pipeline' ? (
         filteredAndSortedContacts.length === 0 ? (
@@ -875,70 +1073,120 @@ function Contacts() {
           </div>
         ) : (
           <div className="contacts-kanban">
-            <div className="contacts-kanban-board">
-              {PIPELINE_STAGES.map(stage => {
-                const stageContacts = filteredAndSortedContacts.filter(c => c.stage === stage.value);
-                return (
-                  <div key={stage.value} className="contacts-kanban-column">
-                  <div className="contacts-kanban-column-header">
-                      <div>
-                        <h3>{stage.label}</h3>
-                        <p>{stageContacts.length} contact{stageContacts.length === 1 ? '' : 's'}</p>
-                      </div>
-                      <span
-                        className="contacts-kanban-column-count"
-                        style={{ background: stage.color + '20', color: stage.color }}
-                      >
-                        {stageContacts.length}
-                      </span>
-                    </div>
-                    <div className="contacts-kanban-column-body">
-                      {stageContacts.length === 0 ? (
-                        <div className="contacts-kanban-column-empty">
-                          <p>No contacts in this stage.</p>
-                        </div>
-                      ) : (
-                        stageContacts.map(contact => {
-                          const locationParts = [];
-                          if (contact.city) locationParts.push(contact.city);
-                          if (contact.state) locationParts.push(contact.state);
-                          const locationLabel = locationParts.length ? locationParts.join(', ') : '—';
-                          return (
-                            <div
-                              key={contact.id}
-                              className="contact-kanban-card"
-                              onClick={() => handleContactClick(contact)}
-                            >
-                              <div className="contact-kanban-card__top">
-                                <div>
-                                  <div className="contact-kanban-business">{contact.business_name}</div>
-                                  <div className="contact-kanban-location">{locationLabel}</div>
-                                  {contact.tags && (
-                                    <div className="contact-tags" style={{ marginTop: '8px' }}>
-                                      {(typeof contact.tags === 'string' 
-                                        ? contact.tags.split(',').map(t => t.trim()) 
-                                        : contact.tags
-                                      ).filter(Boolean).slice(0, 2).map((tag, idx) => (
-                                        <span key={idx} className="contact-tag">{tag}</span>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                                <div
-                                  className={`contact-temperature contact-temperature--${contact.temperature || 'warm'}`}
-                                >
-                                  {formatTemperatureLabel(contact.temperature)}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="pipeline-header">
+              <h3>Pipeline Board</h3>
+              <button 
+                className="btn-secondary btn-sm"
+                onClick={() => setShowStageEditor(true)}
+              >
+                <Settings size={16} />
+                Edit Stages
+              </button>
             </div>
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <div className="contacts-kanban-board">
+                {pipelineStages.map(stage => {
+                  const stageContacts = filteredAndSortedContacts.filter(c => c.stage === stage.id);
+                  
+                  // Helper function to convert hex to rgba
+                  const hexToRgba = (hex, alpha) => {
+                    const r = parseInt(hex.slice(1, 3), 16);
+                    const g = parseInt(hex.slice(3, 5), 16);
+                    const b = parseInt(hex.slice(5, 7), 16);
+                    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                  };
+                  
+                  // Helper to darken color
+                  const darkenColor = (hex) => {
+                    const r = Math.max(0, parseInt(hex.slice(1, 3), 16) - 60);
+                    const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - 60);
+                    const b = Math.max(0, parseInt(hex.slice(5, 7), 16) - 60);
+                    return `rgb(${r}, ${g}, ${b})`;
+                  };
+                  
+                  return (
+                    <div 
+                      key={stage.id} 
+                      className="contacts-kanban-column"
+                      style={{
+                        '--stage-color': stage.color,
+                        '--stage-color-light': hexToRgba(stage.color, 0.15),
+                        '--stage-color-lighter': hexToRgba(stage.color, 0.05),
+                        '--stage-color-dark': darkenColor(stage.color),
+                        borderColor: hexToRgba(stage.color, 0.3)
+                      }}
+                    >
+                      <div className="contacts-kanban-column-header" style={{ borderColor: stage.color }}>
+                        <div>
+                          <h3>{stage.label}</h3>
+                          <p>{stageContacts.length} contact{stageContacts.length === 1 ? '' : 's'}</p>
+                        </div>
+                        <span className="contacts-kanban-column-count">
+                          {stageContacts.length}
+                        </span>
+                      </div>
+                      <Droppable droppableId={stage.id}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`contacts-kanban-column-body ${snapshot.isDraggingOver ? 'dragging-over' : ''}`}
+                          >
+                            {stageContacts.length === 0 ? (
+                              <div className="contacts-kanban-column-empty">
+                                <p>No contacts in this stage.</p>
+                              </div>
+                            ) : (
+                              stageContacts.map((contact, index) => {
+                                const contactTags = typeof contact.tags === 'string' 
+                                  ? contact.tags.split(',').map(t => t.trim()) 
+                                  : Array.isArray(contact.tags) ? contact.tags : [];
+                                const displayTag = contactTags.filter(Boolean)[0];
+                                
+                                return (
+                                  <Draggable key={contact.id} draggableId={contact.id} index={index}>
+                                    {(provided, snapshot) => (
+                                      <div
+                                        ref={provided.innerRef}
+                                        {...provided.draggableProps}
+                                        {...provided.dragHandleProps}
+                                        className={`contact-kanban-card ${snapshot.isDragging ? 'dragging' : ''}`}
+                                        onClick={() => handleContactClick(contact)}
+                                      >
+                                        <div className="contact-kanban-card__content">
+                                          <div className="contact-kanban-card__header">
+                                            <div className="contact-kanban-business">{contact.business_name}</div>
+                                            <div
+                                              className={`contact-kanban-temperature contact-temperature--${contact.temperature || 'warm'}`}
+                                            >
+                                              {contact.temperature === 'hot' && '🔥'}
+                                              {contact.temperature === 'warm' && '☀️'}
+                                              {contact.temperature === 'cold' && '❄️'}
+                                              {!contact.temperature && '☀️'}
+                                            </div>
+                                          </div>
+                                          {contact.niche?.name && (
+                                            <div className="contact-kanban-niche">{contact.niche.name}</div>
+                                          )}
+                                          {displayTag && (
+                                            <div className="contact-kanban-tag">{displayTag}</div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </Draggable>
+                                );
+                              })
+                            )}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+                  );
+                })}
+              </div>
+            </DragDropContext>
           </div>
         )
       ) : (
@@ -1018,11 +1266,11 @@ function Contacts() {
                 <div
                   className="contact-stage"
                   style={{
-                    background: PIPELINE_STAGES.find(s => s.value === contact.stage)?.color + '20',
-                    color: PIPELINE_STAGES.find(s => s.value === contact.stage)?.color
+                    background: pipelineStages.find(s => s.id === contact.stage)?.color + '20',
+                    color: pipelineStages.find(s => s.id === contact.stage)?.color
                   }}
                 >
-                  {PIPELINE_STAGES.find(s => s.value === contact.stage)?.label}
+                  {pipelineStages.find(s => s.id === contact.stage)?.label}
                 </div>
                 <div
                   className={`contact-temperature contact-temperature--${contact.temperature || 'warm'}`}
@@ -1116,11 +1364,11 @@ function Contacts() {
                   <div
                     className="contact-stage contact-stage--list"
                     style={{
-                      background: PIPELINE_STAGES.find(s => s.value === contact.stage)?.color + '20',
-                      color: PIPELINE_STAGES.find(s => s.value === contact.stage)?.color
+                      background: pipelineStages.find(s => s.id === contact.stage)?.color + '20',
+                      color: pipelineStages.find(s => s.id === contact.stage)?.color
                     }}
                   >
-                    {PIPELINE_STAGES.find(s => s.value === contact.stage)?.label}
+                    {pipelineStages.find(s => s.id === contact.stage)?.label}
                   </div>
                   <div
                     className={`contact-temperature contact-temperature--${contact.temperature || 'warm'} contact-temperature--list`}
@@ -1141,7 +1389,8 @@ function Contacts() {
           contact={selectedContact}
           niches={niches}
           ads={contactAds}
-          activities={contactActivities}
+          notes={contactNotes}
+          pipelineStages={pipelineStages}
           onSave={handleSaveContact}
           onClose={() => setShowModal(false)}
           onDelete={handleDeleteContact}
@@ -1149,7 +1398,16 @@ function Contacts() {
           onAdUpload={handleAdUpload}
           onAdDelete={handleAdDelete}
           onRequestApproval={handleRequestApproval}
-          onAddActivity={handleAddActivity}
+          onAddNote={handleAddNote}
+          onDeleteNote={handleDeleteNote}
+        />
+      )}
+
+      {showStageEditor && (
+        <StageEditorModal
+          stages={pipelineStages}
+          onSave={savePipelineStages}
+          onClose={() => setShowStageEditor(false)}
         />
       )}
 
@@ -1306,7 +1564,8 @@ function ContactModal({
   contact, 
   niches, 
   ads, 
-  activities,
+  notes,
+  pipelineStages,
   onSave, 
   onClose, 
   onDelete,
@@ -1314,15 +1573,17 @@ function ContactModal({
   onAdUpload,
   onAdDelete,
   onRequestApproval,
-  onAddActivity
+  onAddNote,
+  onDeleteNote
 }) {
   const [formData, setFormData] = useState({
     ...contact,
     tags: Array.isArray(contact.tags) ? contact.tags.join(', ') : contact.tags || ''
   });
   const [activeTab, setActiveTab] = useState('details');
+  const [activeSubTab, setActiveSubTab] = useState('basic');
   const [showAdUploader, setShowAdUploader] = useState(false);
-  const [showActivityForm, setShowActivityForm] = useState(false);
+  const [newNoteText, setNewNoteText] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -1344,29 +1605,69 @@ function ContactModal({
           >
             Details
           </button>
-          {contact.id && (
-            <>
-              <button
-                className={`settings-tab ${activeTab === 'ads' ? 'active' : ''}`}
-                onClick={() => setActiveTab('ads')}
-              >
-                Ads ({ads.length}/8)
-              </button>
-              <button
-                className={`settings-tab ${activeTab === 'activity' ? 'active' : ''}`}
-                onClick={() => setActiveTab('activity')}
-              >
-                Activity
-              </button>
-            </>
-          )}
+            {contact.id && (
+              <>
+                <button
+                  className={`settings-tab ${activeTab === 'notes' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('notes')}
+                >
+                  Notes ({notes.length})
+                </button>
+                <button
+                  className={`settings-tab ${activeTab === 'ads' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('ads')}
+                >
+                  Ads ({ads.length}/8)
+                </button>
+              </>
+            )}
         </div>
 
         <div className="modal-body">
           {activeTab === 'details' && (
             <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+              {/* Sub-tabs for Details */}
+              <div className="details-sub-tabs">
+                <button
+                  type="button"
+                  className={`details-sub-tab ${activeSubTab === 'basic' ? 'active' : ''}`}
+                  onClick={() => setActiveSubTab('basic')}
+                >
+                  Basic Info
+                </button>
+                <button
+                  type="button"
+                  className={`details-sub-tab ${activeSubTab === 'location' ? 'active' : ''}`}
+                  onClick={() => setActiveSubTab('location')}
+                >
+                  Location
+                </button>
+                <button
+                  type="button"
+                  className={`details-sub-tab ${activeSubTab === 'sales' ? 'active' : ''}`}
+                  onClick={() => setActiveSubTab('sales')}
+                >
+                  Sales Info
+                </button>
+                <button
+                  type="button"
+                  className={`details-sub-tab ${activeSubTab === 'tags' ? 'active' : ''}`}
+                  onClick={() => setActiveSubTab('tags')}
+                >
+                  Tags
+                </button>
+                <button
+                  type="button"
+                  className={`details-sub-tab ${activeSubTab === 'notes' ? 'active' : ''}`}
+                  onClick={() => setActiveSubTab('notes')}
+                >
+                  Quick Notes
+                </button>
+              </div>
+
               {/* Basic Information Section */}
-              <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4">
+              {activeSubTab === 'basic' && (
+                <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-blue-900 mb-4">Basic Information</h3>
                 <div className="flex flex-col gap-4">
                   <div className="form-row">
@@ -1418,9 +1719,11 @@ function ContactModal({
                   </label>
                 </div>
               </div>
+              )}
 
               {/* Location Section */}
-              <div className="bg-green-50 border-l-4 border-green-500 rounded-lg p-4">
+              {activeSubTab === 'location' && (
+                <div className="bg-green-50 border-l-4 border-green-500 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-green-900 mb-4">Location</h3>
                 <div className="flex flex-col gap-4">
                   <label className="form-field">
@@ -1460,9 +1763,11 @@ function ContactModal({
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Sales Information Section */}
-              <div className="bg-purple-50 border-l-4 border-purple-500 rounded-lg p-4">
+              {activeSubTab === 'sales' && (
+                <div className="bg-purple-50 border-l-4 border-purple-500 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-purple-900 mb-4">Sales Information</h3>
                 <div className="flex flex-col gap-4">
                   <div className="form-row">
@@ -1484,8 +1789,8 @@ function ContactModal({
                         value={formData.stage}
                         onChange={(e) => setFormData({ ...formData, stage: e.target.value })}
                       >
-                        {PIPELINE_STAGES.map(stage => (
-                          <option key={stage.value} value={stage.value}>{stage.label}</option>
+                        {pipelineStages.map(stage => (
+                          <option key={stage.id} value={stage.id}>{stage.label}</option>
                         ))}
                       </select>
                     </label>
@@ -1515,31 +1820,43 @@ function ContactModal({
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Tags Section */}
-              <div className="form-field">
-                <span>Tags</span>
-                <TagInput
-                  tags={formData.tags}
-                  onChange={(tags) => setFormData({ ...formData, tags })}
-                />
-                <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                  Press Enter or comma to add a tag. Click × to remove.
-                </p>
-              </div>
+              {activeSubTab === 'tags' && (
+                <div className="bg-gradient-to-br from-pink-50 to-purple-50 border-l-4 border-pink-500 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-pink-900 mb-4">Tags & Labels</h3>
+                  <div className="form-field">
+                    <span className="text-pink-900 font-semibold">Organize with Tags</span>
+                    <TagInput
+                      tags={formData.tags}
+                      onChange={(tags) => setFormData({ ...formData, tags })}
+                    />
+                    <p style={{ fontSize: '12px', color: '#831843', marginTop: '8px', fontWeight: '500' }}>
+                      💡 Press Enter or comma to add a tag. Click × to remove.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Notes Section */}
-              <div className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-amber-900 mb-4">Notes</h3>
-                <label className="form-field">
-                  <span>Additional Notes</span>
-                  <textarea
-                    value={formData.notes || ''}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    rows={4}
-                  />
-                </label>
-              </div>
+              {activeSubTab === 'notes' && (
+                <div className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-amber-900 mb-4">Quick Notes</h3>
+                  <label className="form-field">
+                    <span>Additional Notes</span>
+                    <textarea
+                      value={formData.notes || ''}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      rows={6}
+                      placeholder="Add any quick notes about this contact..."
+                    />
+                  </label>
+                  <p style={{ fontSize: '12px', color: '#92400e', marginTop: '8px' }}>
+                    💡 For detailed timestamped notes, use the Notes tab.
+                  </p>
+                </div>
+              )}
 
               <div className="form-actions">
                 <button type="submit" className="btn-primary">
@@ -1556,6 +1873,68 @@ function ContactModal({
                 )}
               </div>
             </form>
+          )}
+
+          {activeTab === 'notes' && (
+            <div className="notes-tab">
+              <div className="tab-header">
+                <h3>Notes</h3>
+              </div>
+
+              <div className="notes-add-section">
+                <textarea
+                  value={newNoteText}
+                  onChange={(e) => setNewNoteText(e.target.value)}
+                  placeholder="Add a note about this contact..."
+                  rows={3}
+                  className="note-input"
+                />
+                <button
+                  className="btn-primary btn-sm"
+                  onClick={() => {
+                    onAddNote(newNoteText);
+                    setNewNoteText('');
+                  }}
+                  disabled={!newNoteText.trim()}
+                >
+                  <Plus size={16} />
+                  Add Note
+                </button>
+              </div>
+
+              <div className="notes-list">
+                {notes.length === 0 ? (
+                  <div className="notes-empty">
+                    <p>No notes yet. Add your first note above!</p>
+                  </div>
+                ) : (
+                  notes.map(note => (
+                    <div key={note.id} className="note-item">
+                      <div className="note-header">
+                        <span className="note-date">
+                          {new Date(note.created_at).toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true
+                          })}
+                        </span>
+                        <button
+                          className="note-delete-btn"
+                          onClick={() => onDeleteNote(note.id)}
+                          title="Delete note"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <div className="note-content">{note.note}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           )}
 
           {activeTab === 'ads' && (
@@ -1616,111 +1995,9 @@ function ContactModal({
             </div>
           )}
 
-          {activeTab === 'activity' && (
-            <div className="activity-tab">
-              <div className="tab-header">
-                <h3>Activity History</h3>
-                <button
-                  className="btn-primary btn-sm"
-                  onClick={() => setShowActivityForm(!showActivityForm)}
-                >
-                  <Plus size={16} />
-                  Add Activity
-                </button>
-              </div>
-
-              {showActivityForm && (
-                <ActivityForm onSubmit={onAddActivity} onCancel={() => setShowActivityForm(false)} />
-              )}
-
-              <div className="activities-list">
-                {activities.map(activity => (
-                  <div key={activity.id} className="activity-item">
-                    <div className="activity-type">{activity.activity_type}</div>
-                    <div className="activity-subject">{activity.subject}</div>
-                    <div className="activity-description">{activity.description}</div>
-                    <div className="activity-date">
-                      {new Date(activity.created_at).toLocaleString()}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
-  );
-}
-
-// Activity Form Component
-function ActivityForm({ onSubmit, onCancel }) {
-  const [formData, setFormData] = useState({
-    activity_type: 'note',
-    subject: '',
-    description: '',
-    due_date: null
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(formData);
-    onCancel();
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="activity-form">
-      <div className="form-row">
-        <label className="form-field">
-          <span>Type</span>
-          <select
-            value={formData.activity_type}
-            onChange={(e) => setFormData({ ...formData, activity_type: e.target.value })}
-          >
-            <option value="note">Note</option>
-            <option value="call">Call</option>
-            <option value="email">Email</option>
-            <option value="meeting">Meeting</option>
-            <option value="task">Task</option>
-            <option value="reminder">Reminder</option>
-          </select>
-        </label>
-        <label className="form-field">
-          <span>Subject</span>
-          <input
-            type="text"
-            value={formData.subject}
-            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-            required
-          />
-        </label>
-      </div>
-
-      <label className="form-field">
-        <span>Description</span>
-        <textarea
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          rows={3}
-        />
-      </label>
-
-      {['task', 'reminder'].includes(formData.activity_type) && (
-        <label className="form-field">
-          <span>Due Date</span>
-          <input
-            type="datetime-local"
-            value={formData.due_date || ''}
-            onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-          />
-        </label>
-      )}
-
-      <div className="form-actions">
-        <button type="submit" className="btn-primary btn-sm">Add</button>
-        <button type="button" className="btn-secondary btn-sm" onClick={onCancel}>Cancel</button>
-      </div>
-    </form>
   );
 }
 
@@ -1857,6 +2134,148 @@ function UploadContactsModal({
             disabled={!uploadFile || isUploading}
           >
             {isUploading ? 'Importing...' : 'Import Contacts'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Stage Editor Modal Component
+function StageEditorModal({ stages, onSave, onClose }) {
+  const [editableStages, setEditableStages] = useState([...stages]);
+  const [draggedIndex, setDraggedIndex] = useState(null);
+
+  const handleAddStage = () => {
+    const newStage = {
+      id: `stage_${Date.now()}`,
+      label: 'New Stage',
+      color: STAGE_COLORS[editableStages.length % STAGE_COLORS.length]
+    };
+    setEditableStages([...editableStages, newStage]);
+  };
+
+  const handleUpdateStage = (index, field, value) => {
+    const updated = [...editableStages];
+    updated[index] = { ...updated[index], [field]: value };
+    setEditableStages(updated);
+  };
+
+  const handleDeleteStage = (index) => {
+    if (editableStages.length <= 1) {
+      alert('You must have at least one stage');
+      return;
+    }
+    if (confirm('Are you sure you want to delete this stage? Contacts in this stage will need to be reassigned.')) {
+      setEditableStages(editableStages.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleDragStart = (index) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+
+    const newStages = [...editableStages];
+    const draggedItem = newStages[draggedIndex];
+    newStages.splice(draggedIndex, 1);
+    newStages.splice(index, 0, draggedItem);
+    
+    setEditableStages(newStages);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+
+  const handleSave = () => {
+    // Validate that all stages have labels
+    if (editableStages.some(s => !s.label.trim())) {
+      alert('All stages must have a label');
+      return;
+    }
+    onSave(editableStages);
+    onClose();
+  };
+
+  const handleReset = () => {
+    if (confirm('Reset to default stages? This will remove all custom stages.')) {
+      setEditableStages([...DEFAULT_PIPELINE_STAGES]);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content stage-editor-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Edit Pipeline Stages</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body">
+          <p className="stage-editor-instructions">
+            Drag and drop to reorder stages. Click on stage name or color to edit.
+          </p>
+
+          <div className="stage-list">
+            {editableStages.map((stage, index) => (
+              <div
+                key={stage.id}
+                className={`stage-item ${draggedIndex === index ? 'dragging' : ''}`}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+              >
+                <div className="stage-item-drag">
+                  <GripVertical size={20} />
+                </div>
+                <input
+                  type="color"
+                  value={stage.color}
+                  onChange={(e) => handleUpdateStage(index, 'color', e.target.value)}
+                  className="stage-color-input"
+                  title="Stage color"
+                />
+                <input
+                  type="text"
+                  value={stage.label}
+                  onChange={(e) => handleUpdateStage(index, 'label', e.target.value)}
+                  className="stage-label-input"
+                  placeholder="Stage name"
+                />
+                <button
+                  className="stage-delete-btn"
+                  onClick={() => handleDeleteStage(index)}
+                  title="Delete stage"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <button className="btn-secondary" onClick={handleAddStage}>
+            <Plus size={16} />
+            Add Stage
+          </button>
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn-secondary" onClick={handleReset}>
+            Reset to Default
+          </button>
+          <div style={{ flex: 1 }}></div>
+          <button className="btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn-primary" onClick={handleSave}>
+            <Save size={16} />
+            Save Changes
           </button>
         </div>
       </div>

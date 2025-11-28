@@ -142,6 +142,47 @@ export const activities = {
 };
 
 // ============================================
+// CONTACT NOTES
+// ============================================
+export const contactNotes = {
+  getByContact: async (contactId) => {
+    const { data, error } = await supabase
+      .from('contact_notes')
+      .select('*')
+      .eq('contact_id', contactId)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  },
+
+  create: async (noteData) => {
+    const { data, error } = await supabase
+      .from('contact_notes')
+      .insert(noteData)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  update: async (id, updates) => {
+    const { data, error} = await supabase
+      .from('contact_notes')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  delete: async (id) => {
+    const { error } = await supabase
+      .from('contact_notes')
+      .delete()
+      .eq('id', id);
+    return { error };
+  }
+};
+
+// ============================================
 // CLIENT ADS
 // ============================================
 export const clientAds = {
