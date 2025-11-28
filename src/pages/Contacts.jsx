@@ -17,7 +17,10 @@ import {
   Download,
   FileUp,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Star,
+  Settings,
+  GripVertical
 } from 'lucide-react';
 import './Contacts.css';
 import { contacts as contactsAPI, niches as nichesAPI, clientAds, activities } from '../lib/api';
@@ -102,6 +105,14 @@ function Contacts() {
   const [uploadPreview, setUploadPreview] = useState([]);
   const [uploadErrors, setUploadErrors] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedContactIds, setSelectedContactIds] = useState(new Set());
+  const [showBulkEditPanel, setShowBulkEditPanel] = useState(false);
+  const [bulkEditData, setBulkEditData] = useState({
+    temperature: '',
+    stage: '',
+    niche_id: '',
+    tags: ''
+  });
 
   useEffect(() => {
     if (user) {
@@ -259,6 +270,69 @@ function Contacts() {
         alert('Failed to delete contact');
       }
     }
+  };
+
+  const handleToggleFavorite = async (contactId, currentFavorite) => {
+    const { data, error } = await contactsAPI.update(contactId, { 
+      is_favorite: !currentFavorite 
+    });
+    if (!error) {
+      setContacts(contacts.map(c => c.id === contactId ? data : c));
+    }
+  };
+
+  const handleSelectContact = (contactId) => {
+    const newSelected = new Set(selectedContactIds);
+    if (newSelected.has(contactId)) {
+      newSelected.delete(contactId);
+    } else {
+      newSelected.add(contactId);
+    }
+    setSelectedContactIds(newSelected);
+  };
+
+  const handleSelectAllContacts = (checked) => {
+    if (checked) {
+      setSelectedContactIds(new Set(filteredAndSortedContacts.map(c => c.id)));
+    } else {
+      setSelectedContactIds(new Set());
+    }
+  };
+
+  const handleBulkEdit = async () => {
+    if (selectedContactIds.size === 0) {
+      alert('Please select at least one contact');
+      return;
+    }
+
+    const updates = {};
+    if (bulkEditData.temperature) updates.temperature = bulkEditData.temperature;
+    if (bulkEditData.stage) updates.stage = bulkEditData.stage;
+    if (bulkEditData.niche_id) updates.niche_id = bulkEditData.niche_id;
+    if (bulkEditData.tags) updates.tags = bulkEditData.tags;
+
+    if (Object.keys(updates).length === 0) {
+      alert('Please select at least one field to update');
+      return;
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const contactId of selectedContactIds) {
+      const { error } = await contactsAPI.update(contactId, updates);
+      if (error) {
+        errorCount++;
+      } else {
+        successCount++;
+      }
+    }
+
+    alert(`Bulk edit complete!\nUpdated: ${successCount}\nFailed: ${errorCount}`);
+    await loadData();
+    setSelectedContactIds(new Set());
+    setShowBulkEditPanel(false);
+    setBulkEditData({ temperature: '', stage: '', niche_id: '', tags: '' });
   };
 
   const handleStageChange = async (contactId, newStage) => {
@@ -683,10 +757,91 @@ function Contacts() {
             </div>
           </div>
 
-          {/* Results Count */}
-          <div className="results-count">
-            Showing {filteredAndSortedContacts.length} of {contacts.length} contacts
+          {/* Results Count and Bulk Actions */}
+          <div className="results-count-row">
+            <div className="results-count">
+              Showing {filteredAndSortedContacts.length} of {contacts.length} contacts
+              {selectedContactIds.size > 0 && (
+                <span className="selected-count"> • {selectedContactIds.size} selected</span>
+              )}
+            </div>
+            {selectedContactIds.size > 0 && (
+              <button
+                className="btn-primary btn-sm"
+                onClick={() => setShowBulkEditPanel(!showBulkEditPanel)}
+              >
+                Bulk Edit ({selectedContactIds.size})
+              </button>
+            )}
           </div>
+
+          {/* Bulk Edit Panel */}
+          {showBulkEditPanel && selectedContactIds.size > 0 && (
+            <div className="bulk-edit-panel">
+              <h3>Bulk Edit {selectedContactIds.size} Contact{selectedContactIds.size > 1 ? 's' : ''}</h3>
+              <div className="bulk-edit-fields">
+                <label className="form-field">
+                  <span>Temperature</span>
+                  <select
+                    value={bulkEditData.temperature}
+                    onChange={(e) => setBulkEditData({ ...bulkEditData, temperature: e.target.value })}
+                  >
+                    <option value="">Don't change</option>
+                    {TEMPERATURE_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="form-field">
+                  <span>Stage</span>
+                  <select
+                    value={bulkEditData.stage}
+                    onChange={(e) => setBulkEditData({ ...bulkEditData, stage: e.target.value })}
+                  >
+                    <option value="">Don't change</option>
+                    {PIPELINE_STAGES.map(stage => (
+                      <option key={stage.value} value={stage.value}>{stage.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="form-field">
+                  <span>Niche</span>
+                  <select
+                    value={bulkEditData.niche_id}
+                    onChange={(e) => setBulkEditData({ ...bulkEditData, niche_id: e.target.value })}
+                  >
+                    <option value="">Don't change</option>
+                    {niches.map(niche => (
+                      <option key={niche.id} value={niche.id}>{niche.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="form-field">
+                  <span>Add Tags (comma-separated)</span>
+                  <input
+                    type="text"
+                    value={bulkEditData.tags}
+                    onChange={(e) => setBulkEditData({ ...bulkEditData, tags: e.target.value })}
+                    placeholder="e.g. VIP, Hot Lead"
+                  />
+                </label>
+              </div>
+              <div className="bulk-edit-actions">
+                <button className="btn-primary" onClick={handleBulkEdit}>
+                  Apply Changes
+                </button>
+                <button 
+                  className="btn-secondary" 
+                  onClick={() => {
+                    setShowBulkEditPanel(false);
+                    setBulkEditData({ temperature: '', stage: '', niche_id: '', tags: '' });
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Stage Filters Row */}
           <div className="stage-filters">
@@ -797,9 +952,30 @@ function Contacts() {
               <div
                 key={contact.id}
                 className="contact-card"
-                onClick={() => handleContactClick(contact)}
               >
-                <div className="contact-header">
+                <div className="contact-card-actions">
+                  <input
+                    type="checkbox"
+                    className="contact-checkbox"
+                    checked={selectedContactIds.has(contact.id)}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      handleSelectContact(contact.id);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <button
+                    className={`contact-favorite-btn ${contact.is_favorite ? 'active' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleFavorite(contact.id, contact.is_favorite);
+                    }}
+                    title={contact.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                  >
+                    <Star size={16} fill={contact.is_favorite ? 'currentColor' : 'none'} />
+                  </button>
+                </div>
+                <div className="contact-header" onClick={() => handleContactClick(contact)}>
                   <div className="contact-avatar">
                     {contact.business_name?.charAt(0) || '?'}
                   </div>
@@ -809,7 +985,7 @@ function Contacts() {
                   </div>
                 </div>
                 
-                <div className="contact-details">
+                <div className="contact-details" onClick={() => handleContactClick(contact)}>
                   {contact.email && (
                     <div className="contact-detail">
                       <Mail size={14} />
@@ -828,7 +1004,7 @@ function Contacts() {
                 </div>
 
                 {contact.tags && (
-                  <div className="contact-tags">
+                  <div className="contact-tags" onClick={() => handleContactClick(contact)}>
                     {(typeof contact.tags === 'string' 
                       ? contact.tags.split(',').map(t => t.trim()) 
                       : contact.tags
@@ -838,7 +1014,7 @@ function Contacts() {
                   </div>
                 )}
 
-              <div className="contact-footer">
+              <div className="contact-footer" onClick={() => handleContactClick(contact)}>
                 <div
                   className="contact-stage"
                   style={{
@@ -859,8 +1035,17 @@ function Contacts() {
           ) : (
             <div className="contact-list">
               <div className="contact-list-header">
+                <div className="contact-list-header-cell contact-list-header-checkbox">
+                  <input
+                    type="checkbox"
+                    className="contact-checkbox"
+                    checked={selectedContactIds.size > 0 && selectedContactIds.size === filteredAndSortedContacts.length}
+                    onChange={(e) => handleSelectAllContacts(e.target.checked)}
+                  />
+                </div>
                 <span>Business</span>
                 <span>Contact</span>
+                <span>Niche</span>
                 <span>Location</span>
                 <span>Stage</span>
               </div>
@@ -868,13 +1053,34 @@ function Contacts() {
                 <div
                   key={contact.id}
                   className="contact-list-row"
-                  onClick={() => handleContactClick(contact)}
                 >
-                  <div className="contact-list-cell">
+                  <div className="contact-list-cell contact-list-cell-checkbox">
+                    <input
+                      type="checkbox"
+                      className="contact-checkbox"
+                      checked={selectedContactIds.has(contact.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleSelectContact(contact.id);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <button
+                      className={`contact-favorite-btn contact-favorite-btn--list ${contact.is_favorite ? 'active' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleFavorite(contact.id, contact.is_favorite);
+                      }}
+                      title={contact.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                      <Star size={14} fill={contact.is_favorite ? 'currentColor' : 'none'} />
+                    </button>
+                  </div>
+                  <div className="contact-list-cell" onClick={() => handleContactClick(contact)}>
                     <div className="contact-name">{contact.business_name}</div>
                     <div className="contact-owner">{contact.owner_name}</div>
                   </div>
-                  <div className="contact-list-cell">
+                  <div className="contact-list-cell" onClick={() => handleContactClick(contact)}>
                     {contact.email && (
                       <div className="contact-detail list-detail">
                         <Mail size={14} />
@@ -888,7 +1094,14 @@ function Contacts() {
                       </div>
                     )}
                   </div>
-                  <div className="contact-list-cell">
+                  <div className="contact-list-cell" onClick={() => handleContactClick(contact)}>
+                    {contact.niche?.name ? (
+                      <div className="contact-niche contact-niche--list">{contact.niche.name}</div>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </div>
+                  <div className="contact-list-cell" onClick={() => handleContactClick(contact)}>
                     <div className="contact-detail list-detail">
                       <MapPin size={14} />
                       <span>{contact.city || '—'}, {contact.state || '—'}</span>
@@ -899,7 +1112,7 @@ function Contacts() {
                       </div>
                     )}
                   </div>
-                  <div className="contact-list-cell contact-list-stage">
+                  <div className="contact-list-cell contact-list-stage" onClick={() => handleContactClick(contact)}>
                   <div
                     className="contact-stage contact-stage--list"
                     style={{
