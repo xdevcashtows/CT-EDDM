@@ -12,7 +12,12 @@ import {
   Calendar,
   LayoutGrid,
   List,
-  Columns
+  Columns,
+  X,
+  Download,
+  FileUp,
+  AlertCircle,
+  CheckCircle
 } from 'lucide-react';
 import './Contacts.css';
 import { contacts as contactsAPI, niches as nichesAPI, clientAds, activities } from '../lib/api';
@@ -49,6 +54,7 @@ const ALLOWED_CONTACT_FIELDS = [
   'city',
   'state',
   'zip',
+  'mailing_location',
   'niche_id',
   'stage',
   'temperature',
@@ -81,12 +87,21 @@ function Contacts() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
+  const [nicheFilter, setNicheFilter] = useState('all');
+  const [tagFilter, setTagFilter] = useState('all');
+  const [temperatureFilter, setTemperatureFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('name');
   const [selectedContact, setSelectedContact] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showAdUpload, setShowAdUpload] = useState(false);
   const [contactAds, setContactAds] = useState([]);
   const [contactActivities, setContactActivities] = useState([]);
   const [viewMode, setViewMode] = useState('grid');
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadPreview, setUploadPreview] = useState([]);
+  const [uploadErrors, setUploadErrors] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -116,15 +131,64 @@ function Contacts() {
     if (!activitiesRes.error) setContactActivities(activitiesRes.data || []);
   };
 
-  const filteredContacts = contacts.filter(contact => {
-    const matchesSearch = 
-      contact.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      contact.owner_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      contact.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStage = stageFilter === 'all' || contact.stage === stageFilter;
-    
-    return matchesSearch && matchesStage;
+  // Get all unique tags from contacts
+  const allTags = [...new Set(
+    contacts
+      .flatMap(c => {
+        if (!c.tags) return [];
+        if (typeof c.tags === 'string') {
+          return c.tags.split(',').map(t => t.trim()).filter(Boolean);
+        }
+        if (Array.isArray(c.tags)) {
+          return c.tags.filter(Boolean);
+        }
+        return [];
+      })
+  )].sort();
+
+  const filteredAndSortedContacts = contacts
+    .filter(contact => {
+      const matchesSearch = 
+        contact.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        contact.owner_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        contact.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStage = stageFilter === 'all' || contact.stage === stageFilter;
+      
+      const matchesNiche = nicheFilter === 'all' || contact.niche_id === nicheFilter;
+      
+      // Tag matching logic
+      const matchesTag = tagFilter === 'all' || (() => {
+        if (!contact.tags) return false;
+        const contactTags = typeof contact.tags === 'string' 
+          ? contact.tags.split(',').map(t => t.trim())
+          : Array.isArray(contact.tags) 
+          ? contact.tags 
+          : [];
+        return contactTags.includes(tagFilter);
+      })();
+      
+      const matchesTemperature = temperatureFilter === 'all' || 
+        (contact.temperature || 'warm') === temperatureFilter;
+      
+      return matchesSearch && matchesStage && matchesNiche && matchesTag && matchesTemperature;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return (a.business_name || '').localeCompare(b.business_name || '');
+        case 'name-desc':
+          return (b.business_name || '').localeCompare(a.business_name || '');
+        case 'stage':
+          return (a.stage || '').localeCompare(b.stage || '');
+        case 'temperature':
+          const tempOrder = { hot: 0, warm: 1, cold: 2 };
+          return tempOrder[a.temperature || 'warm'] - tempOrder[b.temperature || 'warm'];
+        case 'recent':
+          return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+        default:
+          return 0;
+      }
   });
 
   const handleContactClick = async (contact) => {
@@ -156,6 +220,11 @@ function Contacts() {
 
   const handleSaveContact = async (contactData) => {
     const payload = sanitizeContactPayload(contactData);
+
+    // Convert tags from comma-separated string to array
+    if (payload.tags && typeof payload.tags === 'string') {
+      payload.tags = payload.tags.split(',').map(t => t.trim()).filter(Boolean);
+    }
 
     if (selectedContact.id) {
       // Update existing
@@ -273,6 +342,176 @@ function Contacts() {
     }
   };
 
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setStageFilter('all');
+    setNicheFilter('all');
+    setTagFilter('all');
+    setTemperatureFilter('all');
+    setSortBy('name');
+  };
+
+  const hasActiveFilters = 
+    searchTerm !== '' || 
+    stageFilter !== 'all' || 
+    nicheFilter !== 'all' || 
+    tagFilter !== 'all' || 
+    temperatureFilter !== 'all' ||
+    sortBy !== 'name';
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      alert('Please upload a CSV file');
+      return;
+    }
+
+    setUploadFile(file);
+    parseCSV(file);
+  };
+
+  const parseCSV = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        alert('CSV file is empty or invalid');
+        return;
+      }
+
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const requiredHeader = 'business_name';
+      
+      if (!headers.includes(requiredHeader)) {
+        alert(`CSV must include "${requiredHeader}" column`);
+        return;
+      }
+
+      const preview = [];
+      const errors = [];
+
+      for (let i = 1; i < lines.length && i < 6; i++) {
+        const values = parseCSVLine(lines[i]);
+        const contact = {};
+        
+        headers.forEach((header, index) => {
+          if (values[index]) {
+            contact[header] = values[index].trim();
+          }
+        });
+
+        if (contact.business_name) {
+          preview.push(contact);
+        } else {
+          errors.push(`Row ${i + 1}: Missing business name`);
+        }
+      }
+
+      setUploadPreview(preview);
+      setUploadErrors(errors);
+    };
+
+    reader.readAsText(file);
+  };
+
+  const parseCSVLine = (line) => {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        values.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    values.push(current);
+    
+    return values.map(v => v.replace(/^"|"$/g, ''));
+  };
+
+  const handleImportContacts = async () => {
+    if (!uploadFile) return;
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    
+    reader.onload = async (e) => {
+      const text = e.target.result;
+      const lines = text.split('\n').filter(line => line.trim());
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        const contactData = {};
+        
+        headers.forEach((header, index) => {
+          if (values[index]) {
+            contactData[header] = values[index].trim();
+          }
+        });
+
+        if (!contactData.business_name) {
+          errorCount++;
+          continue;
+        }
+
+        // Map niche name to niche_id
+        if (contactData.niche && !contactData.niche_id) {
+          const niche = niches.find(n => 
+            n.name.toLowerCase() === contactData.niche.toLowerCase()
+          );
+          if (niche) {
+            contactData.niche_id = niche.id;
+          }
+          delete contactData.niche;
+        }
+
+        // Set defaults
+        if (!contactData.stage) contactData.stage = 'lead';
+        if (!contactData.temperature) contactData.temperature = 'warm';
+
+        // Convert tags from comma-separated string to array
+        if (contactData.tags && typeof contactData.tags === 'string') {
+          contactData.tags = contactData.tags.split(',').map(t => t.trim()).filter(Boolean);
+        }
+
+        const payload = sanitizeContactPayload(contactData);
+        const { error } = await contactsAPI.create({ ...payload, user_id: user.id });
+        
+        if (error) {
+          errorCount++;
+        } else {
+          successCount++;
+        }
+      }
+
+      setIsUploading(false);
+      setShowUploadModal(false);
+      setUploadFile(null);
+      setUploadPreview([]);
+      setUploadErrors([]);
+      
+      alert(`Import complete!\nSuccessfully imported: ${successCount}\nFailed: ${errorCount}`);
+      loadData();
+    };
+
+    reader.readAsText(uploadFile);
+  };
+
   const layoutProps = {
     title: 'Contacts',
     subtitle: 'Manage your clients and prospects from one workspace.',
@@ -296,16 +535,24 @@ function Contacts() {
     <PageLayout
       {...layoutProps}
       actions={
-        <button className="btn-primary" onClick={handleCreateContact}>
-          <Plus size={20} />
-          Add Contact
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button className="btn-secondary" onClick={() => setShowUploadModal(true)}>
+            <Upload size={20} />
+            Upload Contacts
+          </button>
+          <button className="btn-primary" onClick={handleCreateContact}>
+            <Plus size={20} />
+            Add Contact
+          </button>
+        </div>
       }
       className="page-shell--fullwidth"
     >
       <div className="contacts-page">
         {/* Filters */}
         <div className="contacts-filters">
+          {/* Search and View Toggle Row */}
+          <div className="search-and-view-row">
         <div className="search-box">
           <Search size={20} />
           <input
@@ -316,27 +563,6 @@ function Contacts() {
           />
         </div>
 
-        <div className="stage-filters">
-          <button
-            className={`stage-filter ${stageFilter === 'all' ? 'active' : ''}`}
-            onClick={() => setStageFilter('all')}
-          >
-            All ({contacts.length})
-          </button>
-          {PIPELINE_STAGES.map(stage => {
-            const count = contacts.filter(c => c.stage === stage.value).length;
-            return (
-              <button
-                key={stage.value}
-                className={`stage-filter ${stageFilter === stage.value ? 'active' : ''}`}
-                onClick={() => setStageFilter(stage.value)}
-                style={{ borderColor: stage.color }}
-              >
-                {stage.label} ({count})
-              </button>
-            );
-          })}
-        </div>
         <div className="view-toggle">
           <button
             type="button"
@@ -365,12 +591,130 @@ function Contacts() {
             <Columns size={16} />
             <span>Pipeline</span>
           </button>
+            </div>
+          </div>
+
+          {/* Filter Controls Row */}
+          <div className="filter-controls-row">
+            <div className="filter-group">
+              <label>Niche</label>
+              <select
+                value={nicheFilter}
+                onChange={(e) => setNicheFilter(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">All Niches</option>
+                {niches.map(niche => (
+                  <option key={niche.id} value={niche.id}>{niche.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label>Tags</label>
+              <select
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">All Tags</option>
+                {allTags.map(tag => (
+                  <option key={tag} value={tag}>{tag}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label>Temperature</label>
+              <div className="temperature-filter-buttons">
+                <button
+                  className={`temp-filter-btn ${temperatureFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setTemperatureFilter('all')}
+                >
+                  All
+                </button>
+                <button
+                  className={`temp-filter-btn temp-hot ${temperatureFilter === 'hot' ? 'active' : ''}`}
+                  onClick={() => setTemperatureFilter('hot')}
+                >
+                  Hot
+                </button>
+                <button
+                  className={`temp-filter-btn temp-warm ${temperatureFilter === 'warm' ? 'active' : ''}`}
+                  onClick={() => setTemperatureFilter('warm')}
+                >
+                  Warm
+                </button>
+                <button
+                  className={`temp-filter-btn temp-cold ${temperatureFilter === 'cold' ? 'active' : ''}`}
+                  onClick={() => setTemperatureFilter('cold')}
+                >
+                  Cold
+                </button>
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <label>Sort By</label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="filter-select"
+              >
+                <option value="name">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+                <option value="stage">Stage</option>
+                <option value="temperature">Temperature</option>
+                <option value="recent">Most Recent</option>
+              </select>
+            </div>
+
+            <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
+              {hasActiveFilters && (
+                <button
+                  className="clear-filters-btn"
+                  onClick={handleClearFilters}
+                  title="Clear all filters"
+                >
+                  <X size={16} />
+                  Clear Filters
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Results Count */}
+          <div className="results-count">
+            Showing {filteredAndSortedContacts.length} of {contacts.length} contacts
+          </div>
+
+          {/* Stage Filters Row */}
+          <div className="stage-filters">
+            <button
+              className={`stage-filter ${stageFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setStageFilter('all')}
+            >
+              All ({contacts.length})
+            </button>
+            {PIPELINE_STAGES.map(stage => {
+              const count = contacts.filter(c => c.stage === stage.value).length;
+              return (
+                <button
+                  key={stage.value}
+                  className={`stage-filter ${stageFilter === stage.value ? 'active' : ''}`}
+                  onClick={() => setStageFilter(stage.value)}
+                  style={{ borderColor: stage.color }}
+                >
+                  {stage.label} ({count})
+                </button>
+              );
+            })}
         </div>
       </div>
 
       {/* Contacts Content */}
       {viewMode === 'pipeline' ? (
-        filteredContacts.length === 0 ? (
+        filteredAndSortedContacts.length === 0 ? (
           <div className="empty-state">
             <p>No contacts found</p>
           </div>
@@ -378,7 +722,7 @@ function Contacts() {
           <div className="contacts-kanban">
             <div className="contacts-kanban-board">
               {PIPELINE_STAGES.map(stage => {
-                const stageContacts = filteredContacts.filter(c => c.stage === stage.value);
+                const stageContacts = filteredAndSortedContacts.filter(c => c.stage === stage.value);
                 return (
                   <div key={stage.value} className="contacts-kanban-column">
                   <div className="contacts-kanban-column-header">
@@ -414,6 +758,16 @@ function Contacts() {
                                 <div>
                                   <div className="contact-kanban-business">{contact.business_name}</div>
                                   <div className="contact-kanban-location">{locationLabel}</div>
+                                  {contact.tags && (
+                                    <div className="contact-tags" style={{ marginTop: '8px' }}>
+                                      {(typeof contact.tags === 'string' 
+                                        ? contact.tags.split(',').map(t => t.trim()) 
+                                        : contact.tags
+                                      ).filter(Boolean).slice(0, 2).map((tag, idx) => (
+                                        <span key={idx} className="contact-tag">{tag}</span>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                                 <div
                                   className={`contact-temperature contact-temperature--${contact.temperature || 'warm'}`}
@@ -434,12 +788,12 @@ function Contacts() {
         )
       ) : (
         <div className={`contacts-grid ${viewMode === 'list' ? 'list-view' : ''}`}>
-          {filteredContacts.length === 0 ? (
+          {filteredAndSortedContacts.length === 0 ? (
             <div className="empty-state">
               <p>No contacts found</p>
             </div>
           ) : viewMode === 'grid' ? (
-            filteredContacts.map(contact => (
+            filteredAndSortedContacts.map(contact => (
               <div
                 key={contact.id}
                 className="contact-card"
@@ -473,6 +827,17 @@ function Contacts() {
                   )}
                 </div>
 
+                {contact.tags && (
+                  <div className="contact-tags">
+                    {(typeof contact.tags === 'string' 
+                      ? contact.tags.split(',').map(t => t.trim()) 
+                      : contact.tags
+                    ).filter(Boolean).map((tag, idx) => (
+                      <span key={idx} className="contact-tag">{tag}</span>
+                    ))}
+                  </div>
+                )}
+
               <div className="contact-footer">
                 <div
                   className="contact-stage"
@@ -499,7 +864,7 @@ function Contacts() {
                 <span>Location</span>
                 <span>Stage</span>
               </div>
-              {filteredContacts.map(contact => (
+              {filteredAndSortedContacts.map(contact => (
                 <div
                   key={contact.id}
                   className="contact-list-row"
@@ -574,8 +939,152 @@ function Contacts() {
           onAddActivity={handleAddActivity}
         />
       )}
+
+      {showUploadModal && (
+        <UploadContactsModal
+          onClose={() => {
+            setShowUploadModal(false);
+            setUploadFile(null);
+            setUploadPreview([]);
+            setUploadErrors([]);
+          }}
+          onFileUpload={handleFileUpload}
+          uploadFile={uploadFile}
+          uploadPreview={uploadPreview}
+          uploadErrors={uploadErrors}
+          onImport={handleImportContacts}
+          isUploading={isUploading}
+        />
+      )}
     </div>
   </PageLayout>
+  );
+}
+
+// Tag Input Component
+function TagInput({ tags, onChange }) {
+  const [inputValue, setInputValue] = useState('');
+  const inputRef = React.useRef(null);
+
+  // Convert tags to array format
+  const getTagsArray = () => {
+    if (Array.isArray(tags)) {
+      return tags.filter(Boolean);
+    }
+    if (typeof tags === 'string' && tags.trim()) {
+      return tags.split(',').map(t => t.trim()).filter(Boolean);
+    }
+    return [];
+  };
+
+  const tagsArray = getTagsArray();
+
+  // Generate consistent color for a tag
+  const getTagColor = (tag) => {
+    const colors = [
+      { bg: '#dbeafe', text: '#1e40af', border: '#93c5fd' },
+      { bg: '#dcfce7', text: '#166534', border: '#86efac' },
+      { bg: '#fef3c7', text: '#92400e', border: '#fcd34d' },
+      { bg: '#fce7f3', text: '#9f1239', border: '#f9a8d4' },
+      { bg: '#e0e7ff', text: '#3730a3', border: '#a5b4fc' },
+      { bg: '#ffedd5', text: '#9a3412', border: '#fdba74' },
+      { bg: '#f3e8ff', text: '#6b21a8', border: '#d8b4fe' },
+      { bg: '#cffafe', text: '#155e75', border: '#67e8f9' }
+    ];
+    const colorIndex = tag.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length;
+    return colors[colorIndex];
+  };
+
+  const addTag = (tag) => {
+    const trimmedTag = tag.trim();
+    if (trimmedTag && !tagsArray.includes(trimmedTag)) {
+      const newTags = [...tagsArray, trimmedTag];
+      onChange(newTags);
+    }
+    setInputValue('');
+  };
+
+  const removeTag = (indexToRemove) => {
+    const newTags = tagsArray.filter((_, index) => index !== indexToRemove);
+    onChange(newTags);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (inputValue.trim()) {
+        addTag(inputValue);
+      }
+    } else if (e.key === 'Backspace' && !inputValue && tagsArray.length > 0) {
+      // Remove last tag if backspace is pressed with empty input
+      removeTag(tagsArray.length - 1);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    
+    // Check if comma was typed
+    if (value.includes(',')) {
+      const parts = value.split(',');
+      // Add all complete parts (before the last comma)
+      parts.slice(0, -1).forEach(part => {
+        if (part.trim()) {
+          addTag(part);
+        }
+      });
+      // Keep the last part (after the last comma) in the input
+      setInputValue(parts[parts.length - 1]);
+    } else {
+      setInputValue(value);
+    }
+  };
+
+  const handleContainerClick = () => {
+    inputRef.current?.focus();
+  };
+
+  return (
+    <div className="tag-input-container" onClick={handleContainerClick}>
+      <div className="tag-input-pills">
+        {tagsArray.map((tag, index) => {
+          const color = getTagColor(tag);
+          return (
+            <span
+              key={index}
+              className="tag-pill"
+              style={{
+                backgroundColor: color.bg,
+                color: color.text,
+                border: `1px solid ${color.border}`
+              }}
+            >
+              <span className="tag-pill-text">{tag}</span>
+              <button
+                type="button"
+                className="tag-pill-remove"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeTag(index);
+                }}
+                style={{ color: color.text }}
+              >
+                ×
+              </button>
+            </span>
+          );
+        })}
+        <input
+          ref={inputRef}
+          type="text"
+          className="tag-input-field"
+          value={inputValue}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          placeholder={tagsArray.length === 0 ? "Type and press Enter or comma..." : ""}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -594,7 +1103,10 @@ function ContactModal({
   onRequestApproval,
   onAddActivity
 }) {
-  const [formData, setFormData] = useState(contact);
+  const [formData, setFormData] = useState({
+    ...contact,
+    tags: Array.isArray(contact.tags) ? contact.tags.join(', ') : contact.tags || ''
+  });
   const [activeTab, setActiveTab] = useState('details');
   const [showAdUploader, setShowAdUploader] = useState(false);
   const [showActivityForm, setShowActivityForm] = useState(false);
@@ -612,9 +1124,9 @@ function ContactModal({
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
 
-        <div className="modal-tabs">
+        <div className="settings-tabs mb-6">
           <button
-            className={`tab ${activeTab === 'details' ? 'active' : ''}`}
+            className={`settings-tab ${activeTab === 'details' ? 'active' : ''}`}
             onClick={() => setActiveTab('details')}
           >
             Details
@@ -622,13 +1134,13 @@ function ContactModal({
           {contact.id && (
             <>
               <button
-                className={`tab ${activeTab === 'ads' ? 'active' : ''}`}
+                className={`settings-tab ${activeTab === 'ads' ? 'active' : ''}`}
                 onClick={() => setActiveTab('ads')}
               >
                 Ads ({ads.length}/8)
               </button>
               <button
-                className={`tab ${activeTab === 'activity' ? 'active' : ''}`}
+                className={`settings-tab ${activeTab === 'activity' ? 'active' : ''}`}
                 onClick={() => setActiveTab('activity')}
               >
                 Activity
@@ -639,135 +1151,181 @@ function ContactModal({
 
         <div className="modal-body">
           {activeTab === 'details' && (
-            <form onSubmit={handleSubmit} className="contact-form">
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Business Name *</label>
-                  <input
-                    type="text"
-                    value={formData.business_name}
-                    onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Owner Name</label>
-                  <input
-                    type="text"
-                    value={formData.owner_name || ''}
-                    onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
-                  />
+            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+              {/* Basic Information Section */}
+              <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-blue-900 mb-4">Basic Information</h3>
+                <div className="flex flex-col gap-4">
+                  <div className="form-row">
+                    <label className="form-field">
+                      <span>Business Name *</span>
+                      <input
+                        type="text"
+                        value={formData.business_name}
+                        onChange={(e) => setFormData({ ...formData, business_name: e.target.value })}
+                        required
+                      />
+                    </label>
+                    <label className="form-field">
+                      <span>Contact Name</span>
+                      <input
+                        type="text"
+                        value={formData.owner_name || ''}
+                        onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="form-row">
+                    <label className="form-field">
+                      <span>Email</span>
+                      <input
+                        type="email"
+                        value={formData.email || ''}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      />
+                    </label>
+                    <label className="form-field">
+                      <span>Phone</span>
+                      <input
+                        type="tel"
+                        value={formData.phone || ''}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      />
+                    </label>
+                  </div>
+
+                  <label className="form-field">
+                    <span>Website</span>
+                    <input
+                      type="url"
+                      value={formData.website || ''}
+                      onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                    />
+                  </label>
                 </div>
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Email</label>
-                  <input
-                    type="email"
-                    value={formData.email || ''}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Phone</label>
-                  <input
-                    type="tel"
-                    value={formData.phone || ''}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  />
+              {/* Location Section */}
+              <div className="bg-green-50 border-l-4 border-green-500 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-green-900 mb-4">Location</h3>
+                <div className="flex flex-col gap-4">
+                  <label className="form-field">
+                    <span>Address</span>
+                    <input
+                      type="text"
+                      value={formData.address || ''}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    />
+                  </label>
+
+                  <div className="form-row">
+                    <label className="form-field">
+                      <span>City</span>
+                      <input
+                        type="text"
+                        value={formData.city || ''}
+                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      />
+                    </label>
+                    <label className="form-field">
+                      <span>State</span>
+                      <input
+                        type="text"
+                        value={formData.state || ''}
+                        onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                      />
+                    </label>
+                    <label className="form-field">
+                      <span>ZIP</span>
+                      <input
+                        type="text"
+                        value={formData.zip || ''}
+                        onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
+                      />
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Website</label>
-                <input
-                  type="url"
-                  value={formData.website || ''}
-                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+              {/* Sales Information Section */}
+              <div className="bg-purple-50 border-l-4 border-purple-500 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-purple-900 mb-4">Sales Information</h3>
+                <div className="flex flex-col gap-4">
+                  <div className="form-row">
+                    <label className="form-field">
+                      <span>Niche</span>
+                      <select
+                        value={formData.niche_id || ''}
+                        onChange={(e) => setFormData({ ...formData, niche_id: e.target.value || null })}
+                      >
+                        <option value="">Select niche...</option>
+                        {niches.map(niche => (
+                          <option key={niche.id} value={niche.id}>{niche.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="form-field">
+                      <span>Stage</span>
+                      <select
+                        value={formData.stage}
+                        onChange={(e) => setFormData({ ...formData, stage: e.target.value })}
+                      >
+                        {PIPELINE_STAGES.map(stage => (
+                          <option key={stage.value} value={stage.value}>{stage.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="form-field">
+                    <span>Lead Temperature</span>
+                    <div className="temperature-selector">
+                      {TEMPERATURE_OPTIONS.map(option => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`temperature-option temperature-option--${option.value} ${
+                            (formData.temperature || 'warm') === option.value ? 'active' : ''
+                          }`}
+                          onClick={() => setFormData({ ...formData, temperature: option.value })}
+                        >
+                          <span className="temperature-icon">
+                            {option.value === 'hot' && '🔥'}
+                            {option.value === 'warm' && '☀️'}
+                            {option.value === 'cold' && '❄️'}
+                          </span>
+                          <span className="temperature-label">{option.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tags Section */}
+              <div className="form-field">
+                <span>Tags</span>
+                <TagInput
+                  tags={formData.tags}
+                  onChange={(tags) => setFormData({ ...formData, tags })}
                 />
+                <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                  Press Enter or comma to add a tag. Click × to remove.
+                </p>
               </div>
 
-              <div className="form-group">
-                <label>Address</label>
-                <input
-                  type="text"
-                  value={formData.address || ''}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>City</label>
-                  <input
-                    type="text"
-                    value={formData.city || ''}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              {/* Notes Section */}
+              <div className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-amber-900 mb-4">Notes</h3>
+                <label className="form-field">
+                  <span>Additional Notes</span>
+                  <textarea
+                    value={formData.notes || ''}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    rows={4}
                   />
-                </div>
-                <div className="form-group">
-                  <label>State</label>
-                  <input
-                    type="text"
-                    value={formData.state || ''}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>ZIP</label>
-                  <input
-                    type="text"
-                    value={formData.zip || ''}
-                    onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Niche</label>
-                  <select
-                    value={formData.niche_id || ''}
-                    onChange={(e) => setFormData({ ...formData, niche_id: e.target.value || null })}
-                  >
-                    <option value="">Select niche...</option>
-                    {niches.map(niche => (
-                      <option key={niche.id} value={niche.id}>{niche.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Stage</label>
-                  <select
-                    value={formData.stage}
-                    onChange={(e) => setFormData({ ...formData, stage: e.target.value })}
-                  >
-                    {PIPELINE_STAGES.map(stage => (
-                      <option key={stage.value} value={stage.value}>{stage.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Lead Temperature</label>
-                  <select
-                    value={formData.temperature || 'warm'}
-                    onChange={(e) => setFormData({ ...formData, temperature: e.target.value })}
-                  >
-                    {TEMPERATURE_OPTIONS.map(option => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Notes</label>
-                <textarea
-                  value={formData.notes || ''}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows={4}
-                />
+                </label>
               </div>
 
               <div className="form-actions">
@@ -900,8 +1458,8 @@ function ActivityForm({ onSubmit, onCancel }) {
   return (
     <form onSubmit={handleSubmit} className="activity-form">
       <div className="form-row">
-        <div className="form-group">
-          <label>Type</label>
+        <label className="form-field">
+          <span>Type</span>
           <select
             value={formData.activity_type}
             onChange={(e) => setFormData({ ...formData, activity_type: e.target.value })}
@@ -913,36 +1471,36 @@ function ActivityForm({ onSubmit, onCancel }) {
             <option value="task">Task</option>
             <option value="reminder">Reminder</option>
           </select>
-        </div>
-        <div className="form-group">
-          <label>Subject</label>
+        </label>
+        <label className="form-field">
+          <span>Subject</span>
           <input
             type="text"
             value={formData.subject}
             onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
             required
           />
-        </div>
+        </label>
       </div>
 
-      <div className="form-group">
-        <label>Description</label>
+      <label className="form-field">
+        <span>Description</span>
         <textarea
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           rows={3}
         />
-      </div>
+      </label>
 
       {['task', 'reminder'].includes(formData.activity_type) && (
-        <div className="form-group">
-          <label>Due Date</label>
+        <label className="form-field">
+          <span>Due Date</span>
           <input
             type="datetime-local"
             value={formData.due_date || ''}
             onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
           />
-        </div>
+        </label>
       )}
 
       <div className="form-actions">
@@ -950,6 +1508,146 @@ function ActivityForm({ onSubmit, onCancel }) {
         <button type="button" className="btn-secondary btn-sm" onClick={onCancel}>Cancel</button>
       </div>
     </form>
+  );
+}
+
+// Upload Contacts Modal Component
+function UploadContactsModal({ 
+  onClose, 
+  onFileUpload, 
+  uploadFile, 
+  uploadPreview, 
+  uploadErrors,
+  onImport,
+  isUploading 
+}) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content upload-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Upload Contacts</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body">
+          <div className="upload-instructions">
+            <div className="instruction-header">
+              <AlertCircle size={20} />
+              <h3>CSV File Format Instructions</h3>
+            </div>
+            
+            <p className="text-sm text-gray-700">Your CSV file should include the following columns (in any order):</p>
+            
+            <div className="required-columns">
+              <div className="column-item required">
+                <strong>business_name</strong> <span className="badge-required">REQUIRED</span>
+                <p className="text-sm text-gray-600">The name of the business or contact</p>
+              </div>
+            </div>
+
+            <div className="optional-columns">
+              <h4 className="text-lg font-semibold text-gray-800">Optional Columns:</h4>
+              <div className="columns-grid">
+                <div className="column-item"><strong className="text-gray-900">owner_name</strong> - <span className="text-gray-600">Contact person's name</span></div>
+                <div className="column-item"><strong className="text-gray-900">email</strong> - <span className="text-gray-600">Email address</span></div>
+                <div className="column-item"><strong className="text-gray-900">phone</strong> - <span className="text-gray-600">Phone number</span></div>
+                <div className="column-item"><strong className="text-gray-900">website</strong> - <span className="text-gray-600">Website URL</span></div>
+                <div className="column-item"><strong className="text-gray-900">address</strong> - <span className="text-gray-600">Street address</span></div>
+                <div className="column-item"><strong className="text-gray-900">city</strong> - <span className="text-gray-600">City</span></div>
+                <div className="column-item"><strong className="text-gray-900">state</strong> - <span className="text-gray-600">State</span></div>
+                <div className="column-item"><strong className="text-gray-900">zip</strong> - <span className="text-gray-600">ZIP code</span></div>
+                <div className="column-item"><strong className="text-gray-900">niche</strong> - <span className="text-gray-600">Industry/niche name</span></div>
+                <div className="column-item"><strong className="text-gray-900">stage</strong> - <span className="text-gray-600">Pipeline stage (lead, contacted, etc.)</span></div>
+                <div className="column-item"><strong className="text-gray-900">temperature</strong> - <span className="text-gray-600">hot, warm, or cold</span></div>
+                <div className="column-item"><strong className="text-gray-900">tags</strong> - <span className="text-gray-600">Comma-separated tags</span></div>
+                <div className="column-item"><strong className="text-gray-900">notes</strong> - <span className="text-gray-600">Additional notes</span></div>
+              </div>
+            </div>
+
+            <a 
+              href="/templates/contacts-import-template.csv" 
+              download="contacts-import-template.csv"
+              className="download-template"
+            >
+              <Download size={16} />
+              <span className="text-sm text-gray-700">Download CSV Template</span>
+            </a>
+          </div>
+
+          <div className="upload-section">
+            <label htmlFor="csv-upload" className="upload-dropzone">
+              <FileUp size={48} />
+              <p className="upload-text">
+                {uploadFile ? uploadFile.name : 'Click to upload CSV file'}
+              </p>
+              <p className="upload-subtext">or drag and drop</p>
+              <input
+                id="csv-upload"
+                type="file"
+                accept=".csv"
+                onChange={onFileUpload}
+                style={{ display: 'none' }}
+              />
+            </label>
+          </div>
+
+          {uploadPreview.length > 0 && (
+            <div className="upload-preview">
+              <div className="preview-header">
+                <CheckCircle size={20} />
+                <h3>Preview (first 5 rows)</h3>
+              </div>
+              <div className="preview-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Business Name</th>
+                      <th>Owner</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>City</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {uploadPreview.map((contact, idx) => (
+                      <tr key={idx}>
+                        <td>{contact.business_name}</td>
+                        <td>{contact.owner_name || '—'}</td>
+                        <td>{contact.email || '—'}</td>
+                        <td>{contact.phone || '—'}</td>
+                        <td>{contact.city || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {uploadErrors.length > 0 && (
+            <div className="upload-errors">
+              <h4>Errors Found:</h4>
+              <ul>
+                {uploadErrors.map((error, idx) => (
+                  <li key={idx}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button 
+            className="btn-primary" 
+            onClick={onImport}
+            disabled={!uploadFile || isUploading}
+          >
+            {isUploading ? 'Importing...' : 'Import Contacts'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

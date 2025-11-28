@@ -18,12 +18,10 @@ function NotificationsSettings() {
   }
 
   return (
-    <section className="settings-card notifications-card">
+    <div className="settings-card">
       <header className="settings-card-header">
-        <div>
-          <h2>Notifications</h2>
-          <p>Control how the CRM keeps you in the loop about leads, campaigns, and invoices.</p>
-        </div>
+        <h2>Notifications</h2>
+        <p>Control how the CRM keeps you in the loop about leads, campaigns, and invoices.</p>
       </header>
 
       <div className="notification-list">
@@ -53,13 +51,13 @@ function NotificationsSettings() {
         </label>
       </div>
 
-      <div className="contact-actions">
-        <button type="button" className="primary-button" onClick={handleSave}>
+      <div className="form-actions">
+        <button type="button" className="btn-primary" onClick={handleSave}>
           Save notification preferences
         </button>
         {feedback && <span className="form-help">{feedback}</span>}
       </div>
-    </section>
+    </div>
   )
 }
 

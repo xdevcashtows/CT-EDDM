@@ -3,12 +3,10 @@ import '../Settings.css'
 
 function SubscriptionSettings() {
   return (
-    <section className="settings-card subscription-card">
+    <div className="settings-card">
       <header className="settings-card-header">
-        <div>
-          <h2>Subscription</h2>
-          <p>Manage your plan, billing cadence, and workspace limits here.</p>
-        </div>
+        <h2>Subscription</h2>
+        <p>Manage your plan, billing cadence, and workspace limits here.</p>
       </header>
 
       <div className="subscription-details">
@@ -26,10 +24,12 @@ function SubscriptionSettings() {
         </div>
       </div>
 
-      <div className="pipeline-actions">
-        <button type="button">Manage subscription</button>
+      <div className="form-actions">
+        <button type="button" className="btn-secondary">
+          Manage subscription
+        </button>
       </div>
-    </section>
+    </div>
   )
 }
 

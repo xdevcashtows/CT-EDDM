@@ -44,18 +44,16 @@ function AccountSettings() {
   }
 
   return (
-    <section className="settings-card contact-card">
+    <div className="settings-card">
       <header className="settings-card-header">
-        <div>
-          <h2>Contact details</h2>
-          <p>
-            Your name, email, and company appear on invoices and documents. Update them here if you want something
-            different from the sign-up information to show up for clients.
-          </p>
-        </div>
+        <h2>Contact details</h2>
+        <p>
+          Your name, email, and company appear on invoices and documents. Update them here if you want something
+          different from the sign-up information to show up for clients.
+        </p>
       </header>
 
-      <form className="contact-form" onSubmit={handleSubmit}>
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
         <div className="contact-input-grid">
           <label className="form-field">
             <span>First name</span>
@@ -95,14 +93,14 @@ function AccountSettings() {
           </label>
         </div>
 
-        <div className="contact-actions">
-          <button type="submit" className="primary-button">
+        <div className="form-actions">
+          <button type="submit" className="btn-primary">
             Save contact details
           </button>
           {feedback && <span className="form-help">{feedback}</span>}
         </div>
       </form>
-    </section>
+    </div>
   )
 }
 

@@ -63,15 +63,13 @@ function PaymentLinksSettings() {
   }
 
   return (
-    <section className="settings-card payment-card">
+    <div className="settings-card">
       <header className="settings-card-header">
-        <div>
-          <h2>Payment links</h2>
-          <p>
-            Drop Stripe, Square, or any payment link here so your invoices always come with an actionable “pay”
-            experience for your clients.
-          </p>
-        </div>
+        <h2>Payment links</h2>
+        <p>
+          Drop Stripe, Square, or any payment link here so your invoices always come with an actionable “pay”
+          experience for your clients.
+        </p>
       </header>
 
       <form className="payment-form" onSubmit={handleSubmit}>
@@ -82,7 +80,7 @@ function PaymentLinksSettings() {
                 <strong>{link.name || 'New payment link'}</strong>
                 <button
                   type="button"
-                  className="ghost-button"
+                  className="btn-ghost"
                   onClick={() => removePaymentLink(link.id)}
                   aria-label="Remove payment link"
                 >
@@ -131,18 +129,18 @@ function PaymentLinksSettings() {
           ))}
         </div>
 
-        <div className="payment-form-actions">
-          <button type="button" className="secondary-button" onClick={addPaymentLink}>
+        <div className="form-actions payment-form-actions">
+          <button type="button" className="btn-secondary" onClick={addPaymentLink}>
             Add payment link
           </button>
-          <button type="submit" className="primary-button">
+          <button type="submit" className="btn-primary">
             Save payment links
           </button>
         </div>
 
         {feedback && <p className="form-help">{feedback}</p>}
       </form>
-    </section>
+    </div>
   )
 }
 

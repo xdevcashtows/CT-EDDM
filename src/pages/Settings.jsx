@@ -20,11 +20,9 @@ function Settings() {
       subtitle="Configure the brain behind your CRM before using the other features."
       tip="Welcome to the 9x12 Method CRM settings. Set these preferences first."
     >
+      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="settings-page">
-        <p className="settings-intro">
-          Everything you change on this screen controls how clients see your brand, how data behaves, and which
-          payment links you share with them. Configure it before touching any other feature.
-        </p>
+          {/* Removed settings-intro paragraph */}
 
         <div className="settings-tabs">
           {TAB_LINKS.map((tab) => (
@@ -39,6 +37,7 @@ function Settings() {
         </div>
 
         <Outlet />
+        </div>
       </div>
     </PageLayout>
   )

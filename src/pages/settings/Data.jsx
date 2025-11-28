@@ -15,12 +15,10 @@ function DataSettings() {
   }
 
   return (
-    <section className="settings-card data-card">
+    <div className="settings-card">
       <header className="settings-card-header">
-        <div>
-          <h2>Data</h2>
-          <p>Import contacts, export data, and let the CRM surface duplicate suggestions.</p>
-        </div>
+        <h2>Data</h2>
+        <p>Import contacts, export data, and let the CRM surface duplicate suggestions.</p>
       </header>
 
       <div className="data-grid">
@@ -31,10 +29,10 @@ function DataSettings() {
             can move into other systems whenever you need.
           </p>
           <div className="tile-actions">
-            <button type="button" onClick={handleAction('Import')}>
+            <button type="button" className="btn-secondary" onClick={handleAction('Import')}>
               Import contacts
             </button>
-            <button type="button" onClick={handleAction('Export')}>
+            <button type="button" className="btn-secondary" onClick={handleAction('Export')}>
               Export CSV
             </button>
           </div>
@@ -45,7 +43,7 @@ function DataSettings() {
             The CRM watches your entries for matching names and emails so you can clean duplicates from one view.
           </p>
           <div className="tile-actions">
-            <button type="button" onClick={handleAction('Find duplicates')}>
+            <button type="button" className="btn-secondary" onClick={handleAction('Find duplicates')}>
               Scan duplicates
             </button>
           </div>
@@ -58,13 +56,13 @@ function DataSettings() {
           Clicking this deletes every contact, pipeline, and setting in this workspace. Only use it when you are sure
           you want to start over. This cannot be undone.
         </p>
-        <button type="button" className="danger-button" onClick={handleAction('Delete all data')}>
+        <button type="button" className="btn-danger" onClick={handleAction('Delete all data')}>
           Delete all CRM data
         </button>
       </div>
 
       {actionMessage && <p className="form-help">{actionMessage}</p>}
-    </section>
+    </div>
   )
 }
 

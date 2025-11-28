@@ -1,0 +1,5 @@
+business_name,owner_name,email,phone,website,address,city,state,zip,niche,stage,temperature,tags,notes
+Acme Towing,John Smith,john@acmetowing.com,555-123-4567,www.acmetowing.com,123 Main St,Phoenix,AZ,85001,Towing,lead,warm,"VIP,Priority",Interested in EDDM campaign
+Best Auto Repair,Sarah Johnson,sarah@bestauto.com,555-234-5678,www.bestauto.com,456 Oak Ave,Tempe,AZ,85282,Auto Repair,contacted,hot,"Hot Lead,Follow Up",Follow up next week
+Quality Plumbing,Mike Davis,mike@qualityplumbing.com,555-345-6789,www.qualityplumbing.com,789 Elm St,Mesa,AZ,85201,Plumbing,qualified,warm,"Ready,Proposal Sent",Ready for proposal
+

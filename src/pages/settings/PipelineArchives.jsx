@@ -3,21 +3,21 @@ import '../Settings.css'
 
 function PipelineArchivesSettings() {
   return (
-    <section className="settings-card pipeline-card">
+    <div className="settings-card">
       <header className="settings-card-header">
-        <div>
-          <h2>Pipeline archives</h2>
-          <p>
-            View the pipelines you previously archived, inspect their numbers, and bring one back into your current
-            workflow whenever you are ready.
-          </p>
-        </div>
+        <h2>Pipeline archives</h2>
+        <p>
+          View the pipelines you previously archived, inspect their numbers, and bring one back into your current
+          workflow whenever you are ready.
+        </p>
       </header>
 
-      <div className="pipeline-actions">
-        <button type="button">View archived pipelines</button>
+      <div className="form-actions">
+        <button type="button" className="btn-secondary">
+          View archived pipelines
+        </button>
       </div>
-    </section>
+    </div>
   )
 }
 
