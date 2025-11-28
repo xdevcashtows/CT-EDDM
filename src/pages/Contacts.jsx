@@ -98,7 +98,7 @@ function Contacts() {
   const [niches, setNiches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [stageFilter, setStageFilter] = useState('all');
+  const [selectedStages, setSelectedStages] = useState(new Set());
   const [nicheFilter, setNicheFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
   const [temperatureFilter, setTemperatureFilter] = useState('all');
@@ -193,7 +193,8 @@ function Contacts() {
         contact.owner_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         contact.email?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesStage = stageFilter === 'all' || contact.stage === stageFilter;
+      // If no stages selected, show all. Otherwise, only show contacts whose stage is selected
+      const matchesStage = selectedStages.size === 0 || selectedStages.has(contact.stage);
       
       const matchesNiche = nicheFilter === 'all' || contact.niche_id === nicheFilter;
       
@@ -611,16 +612,38 @@ function Contacts() {
 
   const handleClearFilters = () => {
     setSearchTerm('');
-    setStageFilter('all');
+    setSelectedStages(new Set());
     setNicheFilter('all');
     setTagFilter('all');
     setTemperatureFilter('all');
     setSortBy('name');
   };
 
+  const handleToggleStage = (stageId) => {
+    setSelectedStages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(stageId)) {
+        newSet.delete(stageId);
+      } else {
+        newSet.add(stageId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleToggleAllStages = () => {
+    // If no stages or all stages are selected, clear selection (shows all contacts)
+    // Otherwise, select all stages
+    if (selectedStages.size === 0 || selectedStages.size === pipelineStages.length) {
+      setSelectedStages(new Set());
+    } else {
+      setSelectedStages(new Set(pipelineStages.map(s => s.id)));
+    }
+  };
+
   const hasActiveFilters = 
     searchTerm !== '' || 
-    stageFilter !== 'all' || 
+    selectedStages.size > 0 || 
     nicheFilter !== 'all' || 
     tagFilter !== 'all' || 
     temperatureFilter !== 'all' ||
@@ -820,173 +843,187 @@ function Contacts() {
       className="page-shell--fullwidth"
     >
       <div className="contacts-page">
-        {/* Filters */}
-        <div className="contacts-filters">
-          {/* Search and View Toggle Row */}
-          <div className="search-and-view-row">
-        <div className="search-box">
-          <Search size={20} />
-          <input
-            type="text"
-            placeholder="Search contacts..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+        {/* Filters - Redesigned */}
+        <div className="contacts-filters-modern">
+          {/* Top Row: Search + View Toggle */}
+          <div className="filters-top-row">
+            <div className="search-box-modern">
+              <Search size={18} className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search contacts..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
 
-        <div className="view-toggle">
-          <button
-            type="button"
-            className={`view-toggle-button ${viewMode === 'grid' ? 'active' : ''}`}
-            onClick={() => setViewMode('grid')}
-            title="Grid view"
-          >
-            <LayoutGrid size={16} />
-            <span>Grid</span>
-          </button>
-          <button
-            type="button"
-            className={`view-toggle-button ${viewMode === 'list' ? 'active' : ''}`}
-            onClick={() => setViewMode('list')}
-            title="List view"
-          >
-            <List size={16} />
-            <span>List</span>
-          </button>
-          <button
-            type="button"
-            className={`view-toggle-button ${viewMode === 'pipeline' ? 'active' : ''}`}
-            onClick={() => setViewMode('pipeline')}
-            title="Pipeline view"
-          >
-            <Columns size={16} />
-            <span>Pipeline</span>
-          </button>
+            <div className="view-toggle-modern">
+              <button
+                type="button"
+                className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                onClick={() => setViewMode('grid')}
+                title="Grid view"
+              >
+                <LayoutGrid size={18} />
+                <span>Grid</span>
+              </button>
+              <button
+                type="button"
+                className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
+                onClick={() => setViewMode('list')}
+                title="List view"
+              >
+                <List size={18} />
+                <span>List</span>
+              </button>
+              <button
+                type="button"
+                className={`view-btn ${viewMode === 'pipeline' ? 'active' : ''}`}
+                onClick={() => setViewMode('pipeline')}
+                title="Pipeline view"
+              >
+                <Columns size={18} />
+                <span>Pipeline</span>
+              </button>
             </div>
           </div>
 
-          {/* Filter Controls Row */}
-          <div className="filter-controls-row">
-            <div className="filter-group">
-              <label>Niche</label>
-              <select
-                value={nicheFilter}
-                onChange={(e) => setNicheFilter(e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All Niches</option>
-                {niches.map(niche => (
-                  <option key={niche.id} value={niche.id}>{niche.name}</option>
-                ))}
-              </select>
-            </div>
+          {/* Middle Row: Filters */}
+          <div className="filters-middle-row">
+            <div className="filter-chip-group">
+              <div className={`filter-chip ${nicheFilter !== 'all' ? 'has-filter' : ''}`}>
+                <label>Niche {nicheFilter !== 'all' && <span className="filter-indicator">●</span>}</label>
+                <select
+                  value={nicheFilter}
+                  onChange={(e) => setNicheFilter(e.target.value)}
+                >
+                  <option value="all">All Niches</option>
+                  {niches.map(niche => (
+                    <option key={niche.id} value={niche.id}>{niche.name}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="filter-group">
-              <label>Tags</label>
-              <select
-                value={tagFilter}
-                onChange={(e) => setTagFilter(e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All Tags</option>
-                {allTags.map(tag => (
-                  <option key={tag} value={tag}>{tag}</option>
-                ))}
-              </select>
-            </div>
+              <div className={`filter-chip ${tagFilter !== 'all' ? 'has-filter' : ''}`}>
+                <label>Tags {tagFilter !== 'all' && <span className="filter-indicator">●</span>}</label>
+                <select
+                  value={tagFilter}
+                  onChange={(e) => setTagFilter(e.target.value)}
+                >
+                  <option value="all">All Tags</option>
+                  {allTags.map(tag => (
+                    <option key={tag} value={tag}>{tag}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="filter-group">
-              <label>Temperature</label>
-              <div className="temperature-filter-buttons">
-                <button
-                  className={`temp-filter-btn ${temperatureFilter === 'all' ? 'active' : ''}`}
-                  onClick={() => setTemperatureFilter('all')}
+              <div className={`temp-filter-group ${temperatureFilter !== 'all' ? 'has-filter' : ''}`}>
+                <label>Temperature {temperatureFilter !== 'all' && <span className="filter-indicator">●</span>}</label>
+                <div className="temp-buttons">
+                  <button
+                    className={`temp-btn ${temperatureFilter === 'all' ? 'active' : ''}`}
+                    onClick={() => setTemperatureFilter('all')}
+                  >
+                    All
+                  </button>
+                  <button
+                    className={`temp-btn hot ${temperatureFilter === 'hot' ? 'active' : ''}`}
+                    onClick={() => setTemperatureFilter('hot')}
+                  >
+                    🔥 Hot
+                  </button>
+                  <button
+                    className={`temp-btn warm ${temperatureFilter === 'warm' ? 'active' : ''}`}
+                    onClick={() => setTemperatureFilter('warm')}
+                  >
+                    ☀️ Warm
+                  </button>
+                  <button
+                    className={`temp-btn cold ${temperatureFilter === 'cold' ? 'active' : ''}`}
+                    onClick={() => setTemperatureFilter('cold')}
+                  >
+                    ❄️ Cold
+                  </button>
+                </div>
+              </div>
+
+              <div className={`filter-chip ${sortBy !== 'name' ? 'has-filter' : ''}`}>
+                <label>Sort By {sortBy !== 'name' && <span className="filter-indicator">●</span>}</label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
                 >
-                  All
-                </button>
-                <button
-                  className={`temp-filter-btn temp-hot ${temperatureFilter === 'hot' ? 'active' : ''}`}
-                  onClick={() => setTemperatureFilter('hot')}
-                >
-                  Hot
-                </button>
-                <button
-                  className={`temp-filter-btn temp-warm ${temperatureFilter === 'warm' ? 'active' : ''}`}
-                  onClick={() => setTemperatureFilter('warm')}
-                >
-                  Warm
-                </button>
-                <button
-                  className={`temp-filter-btn temp-cold ${temperatureFilter === 'cold' ? 'active' : ''}`}
-                  onClick={() => setTemperatureFilter('cold')}
-                >
-                  Cold
-                </button>
+                  <option value="name">Name (A-Z)</option>
+                  <option value="name-desc">Name (Z-A)</option>
+                  <option value="stage">Stage</option>
+                  <option value="temperature">Temperature</option>
+                  <option value="recent">Most Recent</option>
+                </select>
               </div>
             </div>
 
-            <div className="filter-group">
-              <label>Sort By</label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="filter-select"
+            {hasActiveFilters && (
+              <button
+                className="clear-all-btn"
+                onClick={handleClearFilters}
+                title="Clear all filters"
               >
-                <option value="name">Name (A-Z)</option>
-                <option value="name-desc">Name (Z-A)</option>
-                <option value="stage">Stage</option>
-                <option value="temperature">Temperature</option>
-                <option value="recent">Most Recent</option>
-              </select>
-            </div>
-
-            <div className="filter-group" style={{ justifyContent: 'flex-end' }}>
-              {hasActiveFilters && (
-                <button
-                  className="clear-filters-btn"
-                  onClick={handleClearFilters}
-                  title="Clear all filters"
-                >
-                  <X size={16} />
-                  Clear Filters
-                </button>
-              )}
-            </div>
+                <X size={16} />
+                <span>Clear</span>
+              </button>
+            )}
           </div>
 
-          {/* Results Count */}
-          <div className="results-count-row">
-            <div className="results-count">
-              Showing {filteredAndSortedContacts.length} of {contacts.length} contacts
-              {selectedContactIds.size > 0 && (
-                <span className="selected-count"> • {selectedContactIds.size} selected</span>
+          {/* Bottom Row: Stage Pills + Results Count */}
+          <div className="filters-bottom-row">
+            <div className="stage-pills-wrapper">
+              {selectedStages.size > 0 && selectedStages.size < pipelineStages.length && (
+                <span className="stage-filter-indicator">
+                  {selectedStages.size} of {pipelineStages.length} stages selected
+                </span>
               )}
+              <div className="stage-pills">
+              <button
+                className={`stage-pill all-pill ${selectedStages.size === 0 ? 'active' : ''}`}
+                onClick={handleToggleAllStages}
+                title={selectedStages.size === 0 ? 'All stages shown (click to select all)' : `${selectedStages.size} of ${pipelineStages.length} stages selected`}
+              >
+                <span className="stage-pill-label">All</span>
+                <span className="stage-pill-count">{contacts.length}</span>
+              </button>
+              {pipelineStages.map(stage => {
+                const count = contacts.filter(c => c.stage === stage.id).length;
+                const isSelected = selectedStages.has(stage.id);
+                return (
+                  <button
+                    key={stage.id}
+                    className={`stage-pill ${isSelected ? 'active' : ''}`}
+                    onClick={() => handleToggleStage(stage.id)}
+                    style={{ 
+                      '--stage-color': stage.color,
+                      '--stage-color-light': `${stage.color}15`,
+                      '--stage-color-lighter': `${stage.color}08`,
+                      borderColor: stage.color
+                    }}
+                  >
+                    <span className="stage-pill-label">{stage.label}</span>
+                    <span className="stage-pill-count">{count}</span>
+                  </button>
+                );
+              })}
+              </div>
+            </div>
+
+            <div className="results-summary">
+              <span className="results-text">
+                {filteredAndSortedContacts.length} of {contacts.length} contacts
+                {selectedContactIds.size > 0 && (
+                  <span className="selected-badge">{selectedContactIds.size} selected</span>
+                )}
+              </span>
             </div>
           </div>
-
-          {/* Stage Filters Row */}
-          <div className="stage-filters">
-            <button
-              className={`stage-filter ${stageFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setStageFilter('all')}
-            >
-              All ({contacts.length})
-            </button>
-            {pipelineStages.map(stage => {
-              const count = contacts.filter(c => c.stage === stage.id).length;
-              return (
-                <button
-                  key={stage.id}
-                  className={`stage-filter ${stageFilter === stage.id ? 'active' : ''}`}
-                  onClick={() => setStageFilter(stage.id)}
-                  style={{ borderColor: stage.color }}
-                >
-                  {stage.label} ({count})
-                </button>
-              );
-            })}
         </div>
-      </div>
 
       {/* Bulk Edit Panel - Shows when contacts are selected */}
       {selectedContactIds.size > 0 && (

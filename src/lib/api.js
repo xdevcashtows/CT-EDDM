@@ -304,6 +304,91 @@ export const campaigns = {
     return { data, error };
   },
 
+  addContact: async (campaignId, contactId) => {
+    // Get current campaign to access campaign_contacts array
+    const { data: campaign, error: fetchError } = await supabase
+      .from('campaigns')
+      .select('campaign_contacts')
+      .eq('id', campaignId)
+      .single();
+
+    if (fetchError) {
+      return { data: null, error: fetchError };
+    }
+
+    // Get current contacts array or initialize empty array
+    const currentContacts = campaign.campaign_contacts || [];
+    
+    // Add contact if not already present
+    if (!currentContacts.includes(contactId)) {
+      const updatedContacts = [...currentContacts, contactId];
+      const { data, error } = await supabase
+        .from('campaigns')
+        .update({ campaign_contacts: updatedContacts })
+        .eq('id', campaignId)
+        .select()
+        .single();
+      return { data, error };
+    }
+
+    return { data: campaign, error: null };
+  },
+
+  removeContact: async (campaignId, contactId) => {
+    // Get current campaign to access campaign_contacts array
+    const { data: campaign, error: fetchError } = await supabase
+      .from('campaigns')
+      .select('campaign_contacts')
+      .eq('id', campaignId)
+      .single();
+
+    if (fetchError) {
+      return { data: null, error: fetchError };
+    }
+
+    // Get current contacts array or initialize empty array
+    const currentContacts = campaign.campaign_contacts || [];
+    
+    // Remove contact
+    const updatedContacts = currentContacts.filter(id => id !== contactId);
+    const { data, error } = await supabase
+      .from('campaigns')
+      .update({ campaign_contacts: updatedContacts })
+      .eq('id', campaignId)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  addContacts: async (campaignId, contactIds) => {
+    // Get current campaign to access campaign_contacts array
+    const { data: campaign, error: fetchError } = await supabase
+      .from('campaigns')
+      .select('campaign_contacts')
+      .eq('id', campaignId)
+      .single();
+
+    if (fetchError) {
+      return { data: null, error: fetchError };
+    }
+
+    // Get current contacts array or initialize empty array
+    const currentContacts = campaign.campaign_contacts || [];
+    
+    // Add contacts that aren't already present
+    const contactIdsArray = Array.isArray(contactIds) ? contactIds : [contactIds];
+    const newContacts = contactIdsArray.filter(id => !currentContacts.includes(id));
+    const updatedContacts = [...currentContacts, ...newContacts];
+    
+    const { data, error } = await supabase
+      .from('campaigns')
+      .update({ campaign_contacts: updatedContacts })
+      .eq('id', campaignId)
+      .select()
+      .single();
+    return { data, error };
+  },
+
   complete: async (id) => {
     const { data, error } = await supabase
       .from('campaigns')

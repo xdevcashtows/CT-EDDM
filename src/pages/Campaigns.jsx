@@ -108,6 +108,7 @@ function Campaigns() {
   const [viewMode, setViewMode] = useState('grid');
   const [showDetailView, setShowDetailView] = useState(false);
   const [detailViewCampaign, setDetailViewCampaign] = useState(null);
+  const [detailViewActiveTab, setDetailViewActiveTab] = useState('config');
 
   useEffect(() => {
     if (user) {
@@ -153,26 +154,39 @@ function Campaigns() {
   };
 
   const handleOpenCampaignDetail = (campaign) => {
+    console.log('🚪 [Campaigns] Opening detail view:', {
+      campaignId: campaign?.id,
+      campaignName: campaign?.name
+    });
     setDetailViewCampaign(campaign);
     setShowDetailView(true);
+    // Reset to config tab only when opening a different campaign
+    const currentCampaignId = detailViewCampaign?.id;
+    if (currentCampaignId && currentCampaignId !== campaign?.id) {
+      console.log('🔄 [Campaigns] Different campaign opened, resetting tab to config');
+      setDetailViewActiveTab('config');
+    }
   };
 
   const handleCloseDetailView = () => {
+    console.log('🚪 [Campaigns] Closing detail view');
     setShowDetailView(false);
     setDetailViewCampaign(null);
+    setDetailViewActiveTab('config');
   };
 
   const handleDetailViewUpdate = async () => {
-    // Reload campaigns to get fresh data
-    await loadCampaigns();
+    console.log('🔄 [Campaigns] handleDetailViewUpdate called:', {
+      detailViewCampaignId: detailViewCampaign?.id,
+      detailViewCampaignName: detailViewCampaign?.name,
+      showDetailView
+    });
     
-    // If detail view is open, refresh the campaign data
-    if (detailViewCampaign) {
-      const { data } = await campaignsAPI.getById(detailViewCampaign.id);
-      if (data) {
-        setDetailViewCampaign(data);
-      }
-    }
+    // Reload campaigns list to get fresh data for the cards view
+    // Note: We don't update detailViewCampaign here because each tab
+    // loads its own data internally, so updating it would cause an
+    // unnecessary remount of the CampaignDetailView component
+    await loadCampaigns();
   };
 
   const handleDeleteCampaign = async (campaignId) => {
@@ -301,6 +315,8 @@ function Campaigns() {
           isOpen={showDetailView}
           onClose={handleCloseDetailView}
           onUpdate={handleDetailViewUpdate}
+          activeTab={detailViewActiveTab}
+          onTabChange={setDetailViewActiveTab}
         />
       )}
     </div>

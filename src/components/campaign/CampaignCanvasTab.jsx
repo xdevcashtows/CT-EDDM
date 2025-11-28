@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, DollarSign, User, Image as ImageIcon, CheckCircle, RotateCw, Plus } from 'lucide-react';
+import { Upload, DollarSign, User, Image as ImageIcon, CheckCircle, RotateCw, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { adSlots as adSlotsAPI, contacts as contactsAPI, clientAds, designs as designsAPI } from '../../lib/api';
 import { storage } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
@@ -20,6 +20,8 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
     // Load orientation from localStorage, default to 'portrait'
     return localStorage.getItem('canvasOrientation') || 'portrait';
   });
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [clearMode, setClearMode] = useState('all'); // 'all' or slot size (1, 2, 4, 8, 12, 16)
 
   // Debug: Log campaign data
   console.log('CampaignCanvasTab mounted with campaign:', {
@@ -142,8 +144,67 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
     const { error } = await adSlotsAPI.update(slotId, { custom_price: newPrice });
     if (!error) {
       loadSlots();
-      if (onUpdate) onUpdate();
+      if (onUpdate) {
+        console.log('📞 [CampaignCanvasTab] Calling onUpdate');
+        onUpdate();
+      }
     }
+  };
+
+  const handleClearSlots = async () => {
+    let slotsToClear = [];
+
+    if (clearMode === 'all') {
+      // Clear all slots that have contacts assigned
+      slotsToClear = slots.filter(slot => slot.contact_id || slot.client_ad_id);
+    } else {
+      // Clear slots by size
+      const slotSize = parseInt(clearMode);
+      slotsToClear = slots.filter(slot => {
+        const slotCount = (slot.width || 1) * (slot.height || 1);
+        return slotCount === slotSize && (slot.contact_id || slot.client_ad_id);
+      });
+    }
+
+    if (slotsToClear.length === 0) {
+      alert('No slots to clear.');
+      setShowClearModal(false);
+      return;
+    }
+
+    // Unassign all selected slots
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const slot of slotsToClear) {
+      const { error } = await adSlotsAPI.update(slot.id, {
+        contact_id: null,
+        client_ad_id: null,
+        status: 'available',
+        custom_price: null
+      });
+
+      if (error) {
+        errorCount++;
+        console.error(`Error clearing slot ${slot.id}:`, error);
+      } else {
+        successCount++;
+      }
+    }
+
+    // Reload slots and update
+    await loadSlots();
+    if (onUpdate) onUpdate();
+
+    // Show results
+    if (errorCount > 0) {
+      alert(`Cleared ${successCount} slot(s). ${errorCount} slot(s) failed to clear.`);
+    } else {
+      alert(`Successfully cleared ${successCount} slot(s).`);
+    }
+
+    setShowClearModal(false);
+    setClearMode('all');
   };
 
   // Helper functions - defined before usage
@@ -353,28 +414,10 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
         <div className="canvas-loading">Loading canvas...</div>
       ) : (
         <div className="canvas-content">
-          {/* Controls Row - Side Toggle and Orientation Toggle */}
+          {/* Controls Row - Orientation Toggle (left), Side Toggle (center), Clear Button (right) */}
           {(frontDesign || backDesign) && (
             <div className="canvas-controls">
-              {/* Side Toggle */}
-              <div className="canvas-side-toggle">
-                <button
-                  className={`side-toggle-btn ${activeSide === 'front' ? 'active' : ''}`}
-                  onClick={() => setActiveSide('front')}
-                  disabled={!frontDesign}
-                >
-                  Front {!frontDesign && '(N/A)'}
-                </button>
-                <button
-                  className={`side-toggle-btn ${activeSide === 'back' ? 'active' : ''}`}
-                  onClick={() => setActiveSide('back')}
-                  disabled={!backDesign}
-                >
-                  Back {!backDesign && '(N/A)'}
-                </button>
-              </div>
-
-              {/* Orientation Toggle */}
+              {/* Orientation Toggle - Left */}
               <div className="canvas-orientation-toggle">
                 <button
                   className={`orientation-toggle-btn ${orientation === 'portrait' ? 'active' : ''}`}
@@ -395,6 +438,36 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
                     <rect x="2" y="7" width="20" height="10" rx="2" ry="2"/>
                   </svg>
                   <span>Landscape</span>
+                </button>
+              </div>
+
+              {/* Side Toggle - Center */}
+              <div className="canvas-side-toggle">
+                <button
+                  className={`side-toggle-btn ${activeSide === 'front' ? 'active' : ''}`}
+                  onClick={() => setActiveSide('front')}
+                  disabled={!frontDesign}
+                >
+                  Front {!frontDesign && '(N/A)'}
+                </button>
+                <button
+                  className={`side-toggle-btn ${activeSide === 'back' ? 'active' : ''}`}
+                  onClick={() => setActiveSide('back')}
+                  disabled={!backDesign}
+                >
+                  Back {!backDesign && '(N/A)'}
+                </button>
+              </div>
+
+              {/* Clear Canvas Button - Right */}
+              <div className="canvas-clear-controls">
+                <button
+                  className="canvas-clear-btn"
+                  onClick={() => setShowClearModal(true)}
+                  title="Clear all or selected slot sizes"
+                >
+                  <Trash2 size={18} />
+                  <span>Clear Canvas</span>
                 </button>
               </div>
             </div>
@@ -445,9 +518,26 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
           }}
           onAssign={() => {
             loadSlots();
-            if (onUpdate) onUpdate();
+            if (onUpdate) {
+        console.log('📞 [CampaignCanvasTab] Calling onUpdate');
+        onUpdate();
+      }
             setShowAssignModal(false);
             setSelectedSlot(null);
+          }}
+        />
+      )}
+
+      {/* Clear Canvas Modal */}
+      {showClearModal && (
+        <ClearCanvasModal
+          slots={slots}
+          clearMode={clearMode}
+          onClearModeChange={setClearMode}
+          onConfirm={handleClearSlots}
+          onCancel={() => {
+            setShowClearModal(false);
+            setClearMode('all');
           }}
         />
       )}
@@ -1020,6 +1110,109 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
               className="btn-assign"
             >
               {loading ? 'Assigning...' : 'Assign to Slot'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Clear Canvas Modal Component
+const ClearCanvasModal = ({ slots, clearMode, onClearModeChange, onConfirm, onCancel }) => {
+  // Count slots by size
+  const getSlotsBySize = (size) => {
+    return slots.filter(slot => {
+      const slotCount = (slot.width || 1) * (slot.height || 1);
+      return slotCount === size && (slot.contact_id || slot.client_ad_id);
+    }).length;
+  };
+
+  const allAssignedSlots = slots.filter(slot => slot.contact_id || slot.client_ad_id).length;
+  const slotsToClear = clearMode === 'all' 
+    ? allAssignedSlots 
+    : getSlotsBySize(parseInt(clearMode));
+
+  const slotSizeOptions = [
+    { value: 'all', label: 'All Slots', count: allAssignedSlots },
+    { value: '1', label: '1 Slot Size', count: getSlotsBySize(1) },
+    { value: '2', label: '2 Slot Size', count: getSlotsBySize(2) },
+    { value: '4', label: '4 Slot Size', count: getSlotsBySize(4) },
+    { value: '8', label: '8 Slot Size', count: getSlotsBySize(8) },
+    { value: '12', label: '12 Slot Size', count: getSlotsBySize(12) },
+    { value: '16', label: '16 Slot Size', count: getSlotsBySize(16) },
+  ].filter(option => option.count > 0 || option.value === 'all');
+
+  return (
+    <div className="assign-modal-backdrop" onClick={onCancel}>
+      <div className="assign-modal clear-canvas-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="assign-modal-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <AlertTriangle size={24} style={{ color: '#f59e0b' }} />
+            <h3>Clear Canvas</h3>
+          </div>
+          <button onClick={onCancel} className="assign-modal-close">×</button>
+        </div>
+
+        <div className="assign-modal-content">
+          <div style={{ marginBottom: '1.5rem' }}>
+            <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
+              This will unassign all contacts from the selected slots. This action cannot be undone.
+            </p>
+            
+            <div className="assign-form-group">
+              <label>Clear by Slot Size</label>
+              <div className="clear-options-grid">
+                {slotSizeOptions.map(option => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`clear-option-btn ${clearMode === option.value ? 'active' : ''}`}
+                    onClick={() => onClearModeChange(option.value)}
+                    disabled={option.count === 0 && option.value !== 'all'}
+                  >
+                    <div className="clear-option-label">{option.label}</div>
+                    <div className="clear-option-count">
+                      {option.count} slot{option.count !== 1 ? 's' : ''}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {slotsToClear > 0 && (
+              <div style={{
+                padding: '1rem',
+                background: '#fef3c7',
+                border: '1px solid #fcd34d',
+                borderRadius: '0.5rem',
+                marginTop: '1rem'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <AlertTriangle size={16} style={{ color: '#d97706' }} />
+                  <strong style={{ color: '#92400e' }}>Warning</strong>
+                </div>
+                <p style={{ color: '#78350f', fontSize: '0.875rem', margin: 0 }}>
+                  This will unassign <strong>{slotsToClear}</strong> contact{slotsToClear !== 1 ? 's' : ''} from their slot{slotsToClear !== 1 ? 's' : ''}.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="assign-modal-footer">
+          <div className="assign-modal-actions">
+            <button onClick={onCancel} className="btn-cancel">
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={slotsToClear === 0}
+              className="btn-remove"
+              style={{ backgroundColor: '#dc2626' }}
+            >
+              <Trash2 size={16} />
+              Clear {slotsToClear} Slot{slotsToClear !== 1 ? 's' : ''}
             </button>
           </div>
         </div>

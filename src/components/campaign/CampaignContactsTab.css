@@ -11,6 +11,8 @@
   position: sticky;
   top: 0;
   z-index: 10;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Action Bar */
@@ -662,14 +664,199 @@
 
 .add-contact-modal-filters {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid #e5e7eb;
+  align-items: center;
 }
 
 .add-contact-modal-filters .contacts-search-bar {
   flex: 1;
   max-width: none;
+}
+
+.filter-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.filter-toggle-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.filter-toggle-btn:active {
+  background: #f3f4f6;
+}
+
+.filter-chevron {
+  transition: transform 0.2s;
+  color: #6b7280;
+}
+
+.filter-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* Filters Panel */
+.add-contact-filters-panel {
+  padding: 1rem 1.5rem;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
+}
+
+.filters-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.filter-select {
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  color: #111827;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-select:hover {
+  border-color: #9ca3af;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Active Filters */
+.active-filters {
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.active-filters-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  margin-right: 0.75rem;
+}
+
+.active-filters-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  align-items: center;
+}
+
+.active-filter-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  color: #1e40af;
+  font-weight: 500;
+}
+
+.active-filter-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: #bfdbfe;
+  border: none;
+  border-radius: 50%;
+  color: #1e40af;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.active-filter-remove:hover {
+  background: #93c5fd;
+  color: #1e3a8a;
+}
+
+.clear-all-filters-btn {
+  padding: 0.375rem 0.75rem;
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.clear-all-filters-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+@media (max-width: 768px) {
+  .add-contact-modal-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-toggle-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .filters-panel-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .niche-filter-select {
@@ -769,7 +956,7 @@
   position: relative;
 }
 
-.add-contact-item:hover {
+.add-contact-item:hover:not(.in-campaign) {
   background: white;
   border-color: #3b82f6;
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
@@ -779,6 +966,17 @@
   background: #eff6ff;
   border-color: #3b82f6;
   border-width: 2px;
+}
+
+.add-contact-item.in-campaign {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #f3f4f6;
+}
+
+.add-contact-item.in-campaign:hover {
+  border-color: #e5e7eb;
+  box-shadow: none;
 }
 
 .contact-select-checkbox {
@@ -812,6 +1010,44 @@
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.in-campaign-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  color: #22c55e;
+}
+
+.contact-temperature {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 500;
+}
+
+.contact-temperature.hot {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.contact-temperature.warm {
+  background: #fef3c7;
+  color: #854d0e;
+}
+
+.contact-temperature.cold {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.contact-tag-count {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: #6b7280;
 }
 
 .contact-detail-text {
@@ -840,6 +1076,460 @@
 .add-contact-item-btn:hover {
   background: #2563eb;
   transform: scale(1.05);
+}
+
+/* View Toggle Controls */
+.contacts-view-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.view-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: white;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-toggle-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #eff6ff;
+}
+
+.view-toggle-btn.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+/* Contacts Tab Layout - Two Column */
+.contacts-tab-layout {
+  display: flex;
+  gap: 1.5rem;
+  min-height: calc(100vh - 200px);
+}
+
+/* Left Column - Niche Checklist */
+.niche-checklist-column {
+  width: 280px;
+  flex-shrink: 0;
+  background: white;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 250px);
+  position: sticky;
+  top: 1rem;
+  align-self: flex-start;
+}
+
+.niche-checklist-column-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 0.75rem 0.75rem 0 0;
+}
+
+.niche-checklist-column-header svg {
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.niche-checklist-column-header h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.niche-checklist-column-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+.niche-checklist-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.875rem;
+}
+
+.niche-checklist-column-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: 0.5rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s;
+}
+
+.niche-checklist-column-item.used {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.niche-checklist-item-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.niche-checklist-icon {
+  flex-shrink: 0;
+}
+
+.niche-checklist-icon.used-icon {
+  color: #22c55e;
+}
+
+.niche-checklist-icon.unused-icon {
+  color: #d1d5db;
+}
+
+.niche-checklist-item-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.niche-checklist-column-item.used .niche-checklist-item-name {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.niche-checklist-count-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  background: #22c55e;
+  color: white;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
+/* Right Column - Main Content */
+.contacts-tab-main-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Email Status Badges */
+.contact-email-status {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.email-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.email-status-badge.sent {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.email-status-badge.waiting {
+  background: #fef3c7;
+  color: #ca8a04;
+}
+
+.email-status-badge.small {
+  font-size: 0.625rem;
+  padding: 0.125rem 0.375rem;
+}
+
+.email-status-badge.small svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Email Status Section in Modal */
+.email-status-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #f9fafb;
+  border-radius: 0.5rem;
+}
+
+.email-status-section h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.email-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.email-status-item {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.email-status-item svg {
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+
+.email-status-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+}
+
+.email-status-value {
+  font-size: 0.875rem;
+  color: #111827;
+  font-weight: 600;
+}
+
+/* Kanban Board */
+.kanban-board {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding: 1rem;
+  min-height: 500px;
+}
+
+.kanban-column {
+  flex: 1;
+  min-width: 280px;
+  background: #f9fafb;
+  border-radius: 0.5rem;
+  border-top: 4px solid;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 300px);
+  transition: background 0.2s;
+}
+
+.kanban-column.dragging-over {
+  background: #f0f9ff;
+}
+
+.kanban-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.kanban-column-header h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.kanban-column-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  background: #e5e7eb;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.kanban-column-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.kanban-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s;
+  position: relative;
+}
+
+.kanban-card.dragging {
+  opacity: 0.5;
+  transform: rotate(2deg);
+}
+
+.kanban-card-drag-handle {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.25rem;
+  color: #9ca3af;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.kanban-card:hover .kanban-card-drag-handle {
+  opacity: 1;
+}
+
+.kanban-card-drag-handle:active {
+  cursor: grabbing;
+}
+
+.kanban-card-content {
+  padding: 0.75rem;
+  cursor: pointer;
+}
+
+.kanban-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.kanban-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.kanban-card-name {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanban-card-niche {
+  font-size: 0.75rem;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  display: inline-block;
+}
+
+.kanban-card-remove {
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.kanban-card:hover .kanban-card-remove {
+  opacity: 1;
+}
+
+.kanban-card-remove:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.kanban-card-details {
+  margin-bottom: 0.75rem;
+}
+
+.kanban-card-detail {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.kanban-card-detail svg {
+  flex-shrink: 0;
+}
+
+.kanban-card-detail span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanban-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.kanban-card-stat {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.kanban-card-stat span:last-child {
+  font-weight: 600;
+  color: #22c55e;
+}
+
+.kanban-card-email-status {
+  display: flex;
+  gap: 0.375rem;
 }
 
 /* Responsive */
@@ -906,6 +1596,43 @@
 
   .add-contact-item {
     padding: 0.75rem;
+  }
+
+  .contacts-view-controls {
+    order: -1;
+  }
+
+  .contacts-tab-layout {
+    flex-direction: column;
+  }
+
+  .niche-checklist-column {
+    width: 100%;
+    max-height: 300px;
+    position: static;
+    margin-bottom: 1.5rem;
+  }
+
+  .add-contact-modal-filters {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .add-contact-modal-filters .contacts-search-bar {
+    grid-column: 1;
+  }
+
+  .kanban-board {
+    flex-direction: column;
+  }
+
+  .kanban-column {
+    min-width: 100%;
+    max-height: 400px;
+  }
+
+  .email-status-grid {
+    grid-template-columns: 1fr;
   }
 }
 

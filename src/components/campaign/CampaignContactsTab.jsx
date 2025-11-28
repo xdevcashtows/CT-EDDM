@@ -1,8 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Mail, Phone, Building, Plus, Tag, User, UserPlus, X, AlertCircle, CheckCircle, Clock } from 'lucide-react';
-import { contacts as contactsAPI, adSlots as adSlotsAPI, niches as nichesAPI } from '../../lib/api';
+import { 
+  Search, Mail, Phone, Building, Plus, Tag, User, UserPlus, X, 
+  AlertCircle, CheckCircle, Clock, List, Columns, Send, 
+  CheckCircle2, Circle, GripVertical, Filter, ChevronDown
+} from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { 
+  contacts as contactsAPI, 
+  adSlots as adSlotsAPI, 
+  niches as nichesAPI,
+  emailCampaigns as emailCampaignsAPI,
+  emailLogs as emailLogsAPI,
+  campaigns as campaignsAPI
+} from '../../lib/api';
 import { useAuth } from '../../hooks/useAuth';
 import './CampaignContactsTab.css';
+
+const DEFAULT_PIPELINE_STAGES = [
+  { id: 'lead', label: 'Lead', color: '#6b7280' },
+  { id: 'contacted', label: 'Contacted', color: '#3b82f6' },
+  { id: 'qualified', label: 'Qualified', color: '#f59e0b' },
+  { id: 'proposal_sent', label: 'Proposal Sent', color: '#ec4899' },
+  { id: 'negotiating', label: 'Negotiating', color: '#8b5cf6' },
+  { id: 'won', label: 'Won', color: '#0ea5e9' },
+  { id: 'active', label: 'Active', color: '#22c55e' },
+  { id: 'past', label: 'Past Client', color: '#64748b' },
+  { id: 'lost', label: 'Lost', color: '#dc2626' }
+];
 
 export const CampaignContactsTab = ({ campaign, onUpdate }) => {
   const { user } = useAuth();
@@ -11,23 +35,39 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
   const [campaignContacts, setCampaignContacts] = useState([]);
   const [niches, setNiches] = useState([]);
   const [slots, setSlots] = useState([]);
+  const [emailCampaigns, setEmailCampaigns] = useState([]);
+  const [emailLogs, setEmailLogs] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedContact, setSelectedContact] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'kanban'
+  const [pipelineStages, setPipelineStages] = useState(DEFAULT_PIPELINE_STAGES);
 
   useEffect(() => {
     isMountedRef.current = true;
     
     if (user && campaign?.id) {
       loadData();
+      loadPipelineStages();
     }
 
     return () => {
       isMountedRef.current = false;
     };
-  }, [campaign?.id, user]);
+  }, [campaign?.id, campaign?.campaign_contacts, user]);
+
+  const loadPipelineStages = () => {
+    const savedStages = localStorage.getItem(`pipeline_stages_${user?.id}`);
+    if (savedStages) {
+      try {
+        setPipelineStages(JSON.parse(savedStages));
+      } catch (e) {
+        setPipelineStages(DEFAULT_PIPELINE_STAGES);
+      }
+    }
+  };
 
   const loadData = async () => {
     if (!user || !campaign?.id) return;
@@ -35,15 +75,20 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
     if (isMountedRef.current) setLoading(true);
     
     try {
-      // Load all contacts, slots, and niches
-      const [contactsRes, slotsRes, nichesRes] = await Promise.all([
+      // Load campaign to get updated campaign_contacts array
+      const [campaignRes, contactsRes, slotsRes, nichesRes, emailCampaignsRes] = await Promise.all([
+        campaignsAPI.getById(campaign.id),
         contactsAPI.getAll(user.id),
         adSlotsAPI.getByCampaign(campaign.id),
-        nichesAPI.getAll()
+        nichesAPI.getAll(),
+        emailCampaignsAPI.getByCampaign(campaign.id)
       ]);
 
       // Only update state if component is still mounted
       if (!isMountedRef.current) return;
+
+      // Update campaign with latest data (including campaign_contacts)
+      const updatedCampaign = campaignRes?.data || campaign;
 
       if (!contactsRes.error && contactsRes.data) {
         setAllContacts(contactsRes.data);
@@ -55,19 +100,35 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
 
       if (!slotsRes.error && slotsRes.data) {
         setSlots(slotsRes.data);
-        
-        // Extract unique contacts from slots
-        const uniqueContactIds = [...new Set(
-          slotsRes.data
-            .filter(slot => slot.contact_id)
-            .map(slot => slot.contact_id)
-        )];
+      }
 
-        const contacts = contactsRes.data?.filter(c => 
-          uniqueContactIds.includes(c.id)
+      // Load campaign contacts from campaign.campaign_contacts array
+      // This includes all contacts added to the campaign, regardless of slot assignment
+      if (contactsRes.data && updatedCampaign.campaign_contacts) {
+        const campaignContactIds = updatedCampaign.campaign_contacts || [];
+        const contacts = contactsRes.data.filter(c => 
+          campaignContactIds.includes(c.id)
         ) || [];
-        
         setCampaignContacts(contacts);
+      } else {
+        setCampaignContacts([]);
+      }
+
+      if (!emailCampaignsRes.error && emailCampaignsRes.data) {
+        setEmailCampaigns(emailCampaignsRes.data || []);
+        
+        // Load email logs for all email campaigns
+        const emailCampaignIds = (emailCampaignsRes.data || []).map(ec => ec.id);
+        if (emailCampaignIds.length > 0) {
+          const logsPromises = emailCampaignIds.map(campaignId => 
+            emailLogsAPI.getByEmailCampaign(campaignId)
+          );
+          const logsResults = await Promise.all(logsPromises);
+          const allLogs = logsResults
+            .filter(res => !res.error && res.data)
+            .flatMap(res => res.data || []);
+          setEmailLogs(allLogs);
+        }
       }
 
       setLoading(false);
@@ -104,13 +165,117 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
     return 0;
   };
 
+  // Get niches on canvas (via slots with contacts assigned) with counts
+  const getNichesOnCanvas = () => {
+    const nicheCounts = new Map();
+    
+    // Count how many times each niche appears on the canvas
+    slots.forEach(slot => {
+      if (slot.contact_id) {
+        const contact = campaignContacts.find(c => c.id === slot.contact_id);
+        if (contact?.niche_id) {
+          const currentCount = nicheCounts.get(contact.niche_id) || 0;
+          nicheCounts.set(contact.niche_id, currentCount + 1);
+        }
+      }
+    });
+    
+    return nicheCounts;
+  };
+
+  // Get niche checklist for the campaign - redesigned for left column
+  const getNicheChecklist = () => {
+    const nicheCounts = getNichesOnCanvas();
+    const allowedNicheIds = campaign.allowed_niches || [];
+    
+    if (campaign.niche_restriction_type === 'one_per_campaign') {
+      // For one_per_campaign, show only allowed niches
+      return allowedNicheIds.map(nicheId => {
+        const niche = niches.find(n => n.id === nicheId);
+        const count = nicheCounts.get(nicheId) || 0;
+        return {
+          nicheId,
+          nicheName: niche?.name || 'Unknown',
+          isUsed: count > 0,
+          count: count
+        };
+      }).sort((a, b) => {
+        // Sort used niches (green) to top
+        if (a.isUsed && !b.isUsed) return -1;
+        if (!a.isUsed && b.isUsed) return 1;
+        return a.nicheName.localeCompare(b.nicheName);
+      });
+    } else {
+      // For any mode, show all niches
+      const allNicheIds = new Set([
+        ...niches.map(n => n.id),
+        ...Array.from(nicheCounts.keys())
+      ]);
+      
+      return Array.from(allNicheIds).map(nicheId => {
+        const niche = niches.find(n => n.id === nicheId);
+        const count = nicheCounts.get(nicheId) || 0;
+        return {
+          nicheId,
+          nicheName: niche?.name || 'Unknown',
+          isUsed: count > 0,
+          count: count
+        };
+      }).sort((a, b) => {
+        // Sort used niches (green) to top
+        if (a.isUsed && !b.isUsed) return -1;
+        if (!a.isUsed && b.isUsed) return 1;
+        return a.nicheName.localeCompare(b.nicheName);
+      });
+    }
+  };
+
+  // Get email status for a contact
+  const getContactEmailStatus = (contactId) => {
+    const contactLogs = emailLogs.filter(log => log.contact_id === contactId);
+    const sentLogs = contactLogs.filter(log => log.status === 'sent');
+    const waitingLogs = contactLogs.filter(log => 
+      log.status === 'pending' || log.status === 'scheduled'
+    );
+    
+    // Check if there are scheduled email campaigns for this contact
+    const scheduledCampaigns = emailCampaigns.filter(ec => {
+      if (ec.status === 'scheduled' || ec.status === 'draft') {
+        const targetContacts = ec.target_contacts || [];
+        return targetContacts.includes(contactId);
+      }
+      return false;
+    });
+
+    return {
+      sent: sentLogs.length,
+      waiting: waitingLogs.length + scheduledCampaigns.length,
+      lastSent: sentLogs.length > 0 ? sentLogs[0].sent_at : null
+    };
+  };
+
+  // Get overall email stats
+  const getEmailStats = () => {
+    const allContactIds = campaignContacts.map(c => c.id);
+    let totalSent = 0;
+    let totalWaiting = 0;
+
+    allContactIds.forEach(contactId => {
+      const status = getContactEmailStatus(contactId);
+      totalSent += status.sent;
+      totalWaiting += status.waiting;
+    });
+
+    return { totalSent, totalWaiting };
+  };
+
   const filteredContacts = campaignContacts.filter(contact => {
     const searchLower = searchTerm.toLowerCase();
     return (
       contact.business_name?.toLowerCase().includes(searchLower) ||
       contact.email?.toLowerCase().includes(searchLower) ||
       contact.phone?.toLowerCase().includes(searchLower) ||
-      contact.tags?.some(tag => tag.toLowerCase().includes(searchLower))
+      (contact.tags && Array.isArray(contact.tags) && contact.tags.some(tag => tag.toLowerCase().includes(searchLower)))
     );
   });
 
@@ -127,16 +292,14 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
   // Get niche availability status for one_per_campaign mode
   const getNicheStatus = (nicheId) => {
     if (!campaign.niche_restriction_type || campaign.niche_restriction_type === 'any') {
-      return 'any'; // No restrictions
+      return 'any';
     }
     
     if (campaign.niche_restriction_type === 'one_per_campaign') {
-      // Check if this niche is in allowed_niches
       if (!campaign.allowed_niches?.includes(nicheId)) {
         return 'not_allowed';
       }
       
-      // Check if a contact from this niche already has a slot
       const hasContact = campaignContacts.some(c => c.niche_id === nicheId);
       return hasContact ? 'filled' : 'available';
     }
@@ -162,12 +325,30 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
     return niches;
   };
 
+  // Handle kanban drag and drop
+  const handleDragEnd = async (result) => {
+    if (!result.destination) return;
+
+    const { draggableId, destination } = result;
+    const contactId = draggableId.replace('contact-', '');
+    const newStage = destination.droppableId.replace('stage-', '');
+
+    // Update contact stage
+    const { error } = await contactsAPI.update(contactId, { stage: newStage });
+    if (!error) {
+      await loadData();
+      if (onUpdate) onUpdate();
+    }
+  };
+
   // Calculate summary stats
   const totalContacts = campaignContacts.length;
   const totalRevenue = campaignContacts.reduce((sum, contact) => 
     sum + getContactRevenue(contact.id), 0
   );
   const totalSlots = slots.filter(slot => slot.contact_id).length;
+  const emailStats = getEmailStats();
+  const nicheChecklist = getNicheChecklist();
   
   // Calculate niche slots stats (for one_per_campaign mode)
   const totalNicheSlots = campaign.niche_restriction_type === 'one_per_campaign' 
@@ -178,37 +359,220 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
     : 0;
 
   const handleAddContact = async (contactId) => {
-    // This would typically assign the contact to an available slot
-    // For now, we'll just refresh the data
-    await loadData();
-    setShowAddContactModal(false);
+    try {
+      // Get the contact details
+      const contact = allContacts.find(c => c.id === contactId);
+      if (!contact) {
+        alert('Contact not found');
+        return;
+      }
+
+      // Check niche restrictions for one_per_campaign mode - show warning but allow
+      let showWarning = false;
+      let warningMessage = '';
+
+      if (campaign.niche_restriction_type === 'one_per_campaign') {
+        const allowedNicheIds = campaign.allowed_niches || [];
+        const contactNiche = niches.find(n => n.id === contact.niche_id);
+        const contactNicheName = contactNiche?.name || 'this niche';
+        
+        if (!allowedNicheIds.includes(contact.niche_id)) {
+          const allowedNiches = niches.filter(n => allowedNicheIds.includes(n.id));
+          const allowedNicheNames = allowedNiches.map(n => n.name).join(', ');
+          showWarning = true;
+          warningMessage = 
+            `⚠️ Niche Restriction Warning\n\n` +
+            `"${contact.business_name}" belongs to the "${contactNicheName}" niche, which is not allowed in this campaign.\n\n` +
+            `This campaign is restricted to the following niche(s):\n${allowedNicheNames || 'None'}\n\n` +
+            `You can still add this contact, but it may cause issues with slot assignments.`;
+        } else {
+          // Check if a contact from this niche already exists
+          const existingContactFromNiche = campaignContacts.find(c => c.niche_id === contact.niche_id);
+          if (existingContactFromNiche) {
+            showWarning = true;
+            warningMessage = 
+              `⚠️ One Business Per Niche Restriction\n\n` +
+              `A contact from the "${contactNicheName}" niche is already in this campaign.\n\n` +
+              `Only one business per niche is allowed in this campaign mode.\n\n` +
+              `Existing contact: "${existingContactFromNiche.business_name}"\n\n` +
+              `You can still add this contact, but only one can be assigned to slots.`;
+          }
+        }
+      }
+
+      // Show warning if needed, but continue with addition
+      if (showWarning) {
+        const proceed = confirm(warningMessage + '\n\nDo you want to continue?');
+        if (!proceed) {
+          return;
+        }
+      }
+
+      // Add contact to campaign_contacts array (not assigning to slot)
+      const { error } = await campaignsAPI.addContact(campaign.id, contactId);
+
+      if (error) {
+        console.error('Error adding contact to campaign:', error);
+        alert('Failed to add contact to campaign. Please try again.');
+        return;
+      }
+
+      // Reload data to reflect changes
+      await loadData();
+      if (onUpdate) {
+        console.log('📞 [CampaignContactsTab] Calling onUpdate after handleAddContact');
+        onUpdate();
+      }
+    } catch (error) {
+      console.error('Error adding contact:', error);
+      alert('An error occurred while adding the contact. Please try again.');
+    }
+  };
+
+  const handleBulkAddContacts = async (contactIds) => {
+    try {
+      const contactIdsArray = Array.from(contactIds);
+      const validContactIds = [];
+      const warnings = [];
+      const errors = [];
+
+      // Validate contacts and check niche restrictions
+      for (const contactId of contactIdsArray) {
+        const contact = allContacts.find(c => c.id === contactId);
+        if (!contact) {
+          errors.push(`Contact ${contactId} not found`);
+          continue;
+        }
+
+        // Check if contact is already in campaign
+        if (campaignContacts.some(c => c.id === contactId)) {
+          errors.push(`${contact.business_name}: Already in campaign`);
+          continue;
+        }
+
+        // Check niche restrictions for one_per_campaign mode - collect warnings but allow
+        if (campaign.niche_restriction_type === 'one_per_campaign') {
+          const allowedNicheIds = campaign.allowed_niches || [];
+          const contactNiche = niches.find(n => n.id === contact.niche_id);
+          const contactNicheName = contactNiche?.name || 'this niche';
+          
+          if (!allowedNicheIds.includes(contact.niche_id)) {
+            warnings.push(`${contact.business_name}: Niche "${contactNicheName}" not allowed in this campaign`);
+          } else {
+            // Check if a contact from this niche already exists
+            const existingContactFromNiche = campaignContacts.find(c => c.niche_id === contact.niche_id);
+            if (existingContactFromNiche) {
+              warnings.push(`${contact.business_name}: Niche "${contactNicheName}" already filled by "${existingContactFromNiche.business_name}"`);
+            }
+          }
+        }
+
+        validContactIds.push(contactId);
+      }
+
+      // Show warnings if any, but allow user to proceed
+      if (warnings.length > 0) {
+        const warningText = 
+          `⚠️ Niche Restriction Warnings\n\n` +
+          `The following contacts violate niche restrictions:\n\n` +
+          `${warnings.slice(0, 5).join('\n')}${warnings.length > 5 ? `\n...and ${warnings.length - 5} more` : ''}\n\n` +
+          `You can still add these contacts, but they may cause issues with slot assignments.\n\n` +
+          `Do you want to continue?`;
+        
+        const proceed = confirm(warningText);
+        if (!proceed) {
+          return;
+        }
+      }
+
+      // Add all valid contacts to campaign_contacts array
+      if (validContactIds.length > 0) {
+        const { error } = await campaignsAPI.addContacts(campaign.id, validContactIds);
+        
+        if (error) {
+          alert('Failed to add contacts to campaign. Please try again.');
+          return;
+        }
+      }
+
+      // Reload data to reflect changes
+      await loadData();
+      if (onUpdate) {
+        console.log('📞 [CampaignContactsTab] Calling onUpdate after handleAddContact');
+        onUpdate();
+      }
+
+      // Show results
+      const successCount = validContactIds.length;
+      const errorCount = errors.length;
+      const warningCount = warnings.length;
+      
+      let resultMessage = `Successfully added ${successCount} contact(s) to the campaign.`;
+      
+      if (warningCount > 0) {
+        resultMessage += `\n\n⚠️ ${warningCount} contact(s) have niche restriction warnings.`;
+      }
+      
+      if (errorCount > 0) {
+        resultMessage += `\n\n${errorCount} contact(s) failed:\n${errors.slice(0, 3).join('\n')}${errors.length > 3 ? `\n...and ${errors.length - 3} more` : ''}`;
+      }
+      
+      alert(resultMessage);
+    } catch (error) {
+      console.error('Error bulk adding contacts:', error);
+      alert('An error occurred while adding contacts. Please try again.');
+    }
   };
 
   const handleRemoveContact = async (contactId) => {
-    if (!confirm('Remove this contact from the campaign? This will unassign all their slots.')) {
+    const contact = campaignContacts.find(c => c.id === contactId);
+    const contactSlots = slots.filter(slot => slot.contact_id === contactId);
+    const hasSlots = contactSlots.length > 0;
+    
+    const message = hasSlots 
+      ? `Remove "${contact?.business_name || 'this contact'}" from the campaign? This will also unassign all their slots (${contactSlots.length} slot(s)).`
+      : `Remove "${contact?.business_name || 'this contact'}" from the campaign?`;
+    
+    if (!confirm(message)) {
       return;
     }
     
-    // Get all slots for this contact
-    const contactSlots = slots.filter(slot => slot.contact_id === contactId);
+    // Remove contact from campaign_contacts array
+    const { error: removeError } = await campaignsAPI.removeContact(campaign.id, contactId);
     
-    // Unassign each slot
-    for (const slot of contactSlots) {
-      await adSlotsAPI.update(slot.id, { 
-        contact_id: null, 
-        client_ad_id: null,
-        status: 'available' 
-      });
+    if (removeError) {
+      console.error('Error removing contact from campaign:', removeError);
+      alert('Failed to remove contact from campaign. Please try again.');
+      return;
     }
     
-    // Reload data
+    // Also unassign any slots they have
+    if (hasSlots) {
+      for (const slot of contactSlots) {
+        await adSlotsAPI.update(slot.id, { 
+          contact_id: null, 
+          client_ad_id: null,
+          status: 'available' 
+        });
+      }
+    }
+    
     await loadData();
-    if (onUpdate) onUpdate();
+    if (onUpdate) {
+      console.log('📞 [CampaignContactsTab] Calling onUpdate after handleRemoveContact');
+      onUpdate();
+    }
   };
+
+  // Group contacts by stage for kanban
+  const contactsByStage = pipelineStages.reduce((acc, stage) => {
+    acc[stage.id] = filteredContacts.filter(c => c.stage === stage.id);
+    return acc;
+  }, {});
 
   return (
     <div className="campaign-contacts-tab">
-      {/* Summary Header */}
+      {/* Summary Header - Full Width */}
       <div className="contacts-summary-header">
         <div className="summary-stats">
           <div className="summary-stat">
@@ -241,6 +605,26 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
             </div>
           </div>
 
+          <div className="summary-stat">
+            <div className="summary-stat-icon" style={{ backgroundColor: '#e0e7ff' }}>
+              <Send size={20} style={{ color: '#6366f1' }} />
+            </div>
+            <div>
+              <div className="summary-stat-label">Emails Sent</div>
+              <div className="summary-stat-value">{emailStats.totalSent}</div>
+            </div>
+          </div>
+
+          <div className="summary-stat">
+            <div className="summary-stat-icon" style={{ backgroundColor: '#fef3c7' }}>
+              <Clock size={20} style={{ color: '#f59e0b' }} />
+            </div>
+            <div>
+              <div className="summary-stat-label">Emails Waiting</div>
+              <div className="summary-stat-value">{emailStats.totalWaiting}</div>
+            </div>
+          </div>
+
           {campaign.niche_restriction_type === 'one_per_campaign' && (
             <div className="summary-stat">
               <div className="summary-stat-icon" style={{ backgroundColor: '#fef3f2' }}>
@@ -268,6 +652,22 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
               className="search-input"
             />
           </div>
+          <div className="contacts-view-controls">
+            <button
+              className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+              title="List View"
+            >
+              <List size={18} />
+            </button>
+            <button
+              className={`view-toggle-btn ${viewMode === 'kanban' ? 'active' : ''}`}
+              onClick={() => setViewMode('kanban')}
+              title="Kanban View"
+            >
+              <Columns size={18} />
+            </button>
+          </div>
           <button 
             className="add-contact-btn"
             onClick={() => setShowAddContactModal(true)}
@@ -278,18 +678,56 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
         </div>
       </div>
 
-      {/* Campaign Mode Info */}
-      {campaign.niche_restriction_type === 'one_per_campaign' && (
-        <div className="campaign-mode-notice">
-          <AlertCircle size={18} />
-          <div>
-            <strong>One Business Per Niche:</strong> Only one business from each niche can claim a spot in this campaign (first come, first served).
+      {/* Two Column Layout */}
+      <div className="contacts-tab-layout">
+        {/* Left Column - Niche Checklist */}
+        <div className="niche-checklist-column">
+          <div className="niche-checklist-column-header">
+            <Tag size={18} />
+            <h3>Business Niches on Card</h3>
+          </div>
+          <div className="niche-checklist-column-content">
+            {nicheChecklist.length === 0 ? (
+              <div className="niche-checklist-empty">
+                <p>No niches to display</p>
+              </div>
+            ) : (
+              nicheChecklist.map((item) => (
+                <div 
+                  key={item.nicheId} 
+                  className={`niche-checklist-column-item ${item.isUsed ? 'used' : ''}`}
+                >
+                  <div className="niche-checklist-item-content">
+                    {item.isUsed ? (
+                      <CheckCircle2 size={18} className="niche-checklist-icon used-icon" />
+                    ) : (
+                      <Circle size={18} className="niche-checklist-icon unused-icon" />
+                    )}
+                    <span className="niche-checklist-item-name">{item.nicheName}</span>
+                  </div>
+                  {item.isUsed && item.count > 1 && (
+                    <span className="niche-checklist-count-badge">{item.count}</span>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
-      )}
 
-      {/* Contacts List - Organized by Niche */}
-      <div className="contacts-list-container">
+        {/* Right Column - Main Content */}
+        <div className="contacts-tab-main-content">
+          {/* Campaign Mode Info */}
+          {campaign.niche_restriction_type === 'one_per_campaign' && (
+            <div className="campaign-mode-notice">
+              <AlertCircle size={18} />
+              <div>
+                <strong>One Business Per Niche:</strong> Only one business from each niche can claim a spot in this campaign (first come, first served).
+              </div>
+            </div>
+          )}
+
+          {/* Contacts List or Kanban */}
+          <div className="contacts-list-container">
         {loading ? (
           <div className="contacts-loading">Loading contacts...</div>
         ) : filteredContacts.length === 0 ? (
@@ -305,7 +743,7 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
               </>
             )}
           </div>
-        ) : (
+        ) : viewMode === 'list' ? (
           <div className="niches-list">
             {Object.entries(contactsByNiche).map(([nicheId, nicheContacts]) => {
               const niche = niches.find(n => n.id === nicheId);
@@ -331,22 +769,86 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
                   </div>
                   
                   <div className="contacts-grid">
-                    {nicheContacts.map((contact) => (
-                      <ContactCard
-                        key={contact.id}
-                        contact={contact}
-                        slots={getContactSlots(contact.id)}
-                        revenue={getContactRevenue(contact.id)}
-                        onView={() => handleViewContact(contact)}
-                        onRemove={() => handleRemoveContact(contact.id)}
-                      />
-                    ))}
+                    {nicheContacts.map((contact) => {
+                      const emailStatus = getContactEmailStatus(contact.id);
+                      return (
+                        <ContactCard
+                          key={contact.id}
+                          contact={contact}
+                          slots={getContactSlots(contact.id)}
+                          revenue={getContactRevenue(contact.id)}
+                          emailStatus={emailStatus}
+                          onView={() => handleViewContact(contact)}
+                          onRemove={() => handleRemoveContact(contact.id)}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               );
             })}
           </div>
-        )}
+        ) : (
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <div className="kanban-board">
+              {pipelineStages.map((stage) => {
+                const stageContacts = contactsByStage[stage.id] || [];
+                return (
+                  <Droppable key={stage.id} droppableId={`stage-${stage.id}`}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={`kanban-column ${snapshot.isDraggingOver ? 'dragging-over' : ''}`}
+                        style={{ borderTopColor: stage.color }}
+                      >
+                        <div className="kanban-column-header">
+                          <h3 style={{ color: stage.color }}>{stage.label}</h3>
+                          <span className="kanban-column-count">{stageContacts.length}</span>
+                        </div>
+                        <div className="kanban-column-content">
+                          {stageContacts.map((contact, index) => {
+                            const emailStatus = getContactEmailStatus(contact.id);
+                            return (
+                              <Draggable
+                                key={contact.id}
+                                draggableId={`contact-${contact.id}`}
+                                index={index}
+                              >
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    className={`kanban-card ${snapshot.isDragging ? 'dragging' : ''}`}
+                                  >
+                                    <div {...provided.dragHandleProps} className="kanban-card-drag-handle">
+                                      <GripVertical size={16} />
+                                    </div>
+                                    <ContactKanbanCard
+                                      contact={contact}
+                                      slots={getContactSlots(contact.id)}
+                                      revenue={getContactRevenue(contact.id)}
+                                      emailStatus={emailStatus}
+                                      onView={() => handleViewContact(contact)}
+                                      onRemove={() => handleRemoveContact(contact.id)}
+                                    />
+                                  </div>
+                                )}
+                              </Draggable>
+                            );
+                          })}
+                          {provided.placeholder}
+                        </div>
+                      </div>
+                    )}
+                  </Droppable>
+                );
+              })}
+            </div>
+          </DragDropContext>
+          )}
+          </div>
+        </div>
       </div>
 
       {/* Contact Details Modal */}
@@ -355,6 +857,7 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
           contact={selectedContact}
           slots={getContactSlots(selectedContact.id)}
           campaign={campaign}
+          emailStatus={getContactEmailStatus(selectedContact.id)}
           onClose={() => {
             setShowDetailsModal(false);
             setSelectedContact(null);
@@ -371,6 +874,7 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
           niches={niches}
           availableNiches={getAvailableNiches()}
           onAdd={handleAddContact}
+          onBulkAdd={handleBulkAddContacts}
           onClose={() => setShowAddContactModal(false)}
         />
       )}
@@ -379,7 +883,7 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
 };
 
 // Contact Card Component
-const ContactCard = ({ contact, slots, revenue, onView, onRemove }) => {
+const ContactCard = ({ contact, slots, revenue, emailStatus, onView, onRemove }) => {
   return (
     <div className="contact-card">
       <div className="contact-card-actions">
@@ -453,13 +957,92 @@ const ContactCard = ({ contact, slots, revenue, onView, onRemove }) => {
             <span className="contact-stat-value">${revenue.toFixed(2)}</span>
           </div>
         </div>
+
+        {/* Email Status */}
+        {(emailStatus.sent > 0 || emailStatus.waiting > 0) && (
+          <div className="contact-email-status">
+            {emailStatus.sent > 0 && (
+              <span className="email-status-badge sent">
+                <CheckCircle2 size={12} />
+                {emailStatus.sent} sent
+              </span>
+            )}
+            {emailStatus.waiting > 0 && (
+              <span className="email-status-badge waiting">
+                <Clock size={12} />
+                {emailStatus.waiting} waiting
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Contact Kanban Card Component
+const ContactKanbanCard = ({ contact, slots, revenue, emailStatus, onView, onRemove }) => {
+  return (
+    <div className="kanban-card-content" onClick={onView}>
+      <div className="kanban-card-header">
+        <div className="contact-avatar small">
+          {contact.business_name?.charAt(0).toUpperCase() || 'A'}
+        </div>
+        <div className="kanban-card-info">
+          <h4 className="kanban-card-name">{contact.business_name}</h4>
+          {contact.niche?.name && (
+            <span className="kanban-card-niche">{contact.niche.name}</span>
+          )}
+        </div>
+        <button 
+          className="kanban-card-remove"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          title="Remove from campaign"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="kanban-card-details">
+        {contact.email && (
+          <div className="kanban-card-detail">
+            <Mail size={12} />
+            <span>{contact.email}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="kanban-card-footer">
+        <div className="kanban-card-stat">
+          <span>{slots.length} slot{slots.length !== 1 ? 's' : ''}</span>
+          <span>${revenue.toFixed(2)}</span>
+        </div>
+        {(emailStatus.sent > 0 || emailStatus.waiting > 0) && (
+          <div className="kanban-card-email-status">
+            {emailStatus.sent > 0 && (
+              <span className="email-status-badge sent small">
+                <CheckCircle2 size={10} />
+                {emailStatus.sent}
+              </span>
+            )}
+            {emailStatus.waiting > 0 && (
+              <span className="email-status-badge waiting small">
+                <Clock size={10} />
+                {emailStatus.waiting}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 // Contact Details Modal Component
-const ContactDetailsModal = ({ contact, slots, campaign, onClose }) => {
+const ContactDetailsModal = ({ contact, slots, campaign, emailStatus, onClose }) => {
   const getSlotBasePrice = (slot) => {
     const size = slot.slot_size?.toLowerCase();
     if (size === 'small') return campaign.price_small || 0;
@@ -541,6 +1124,44 @@ const ContactDetailsModal = ({ contact, slots, campaign, onClose }) => {
             )}
           </div>
 
+          {/* Email Status */}
+          {(emailStatus.sent > 0 || emailStatus.waiting > 0) && (
+            <div className="email-status-section">
+              <h4>Email Status</h4>
+              <div className="email-status-grid">
+                {emailStatus.sent > 0 && (
+                  <div className="email-status-item">
+                    <CheckCircle2 size={20} style={{ color: '#22c55e' }} />
+                    <div>
+                      <div className="email-status-label">Emails Sent</div>
+                      <div className="email-status-value">{emailStatus.sent}</div>
+                    </div>
+                  </div>
+                )}
+                {emailStatus.waiting > 0 && (
+                  <div className="email-status-item">
+                    <Clock size={20} style={{ color: '#f59e0b' }} />
+                    <div>
+                      <div className="email-status-label">Emails Waiting</div>
+                      <div className="email-status-value">{emailStatus.waiting}</div>
+                    </div>
+                  </div>
+                )}
+                {emailStatus.lastSent && (
+                  <div className="email-status-item">
+                    <Send size={20} style={{ color: '#6366f1' }} />
+                    <div>
+                      <div className="email-status-label">Last Sent</div>
+                      <div className="email-status-value">
+                        {new Date(emailStatus.lastSent).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Assigned Slots */}
           <div className="slots-section">
             <div className="slots-section-header">
@@ -578,36 +1199,57 @@ const ContactDetailsModal = ({ contact, slots, campaign, onClose }) => {
 };
 
 // Add Contact Modal Component
-const AddContactModal = ({ campaign, allContacts, campaignContacts, niches, availableNiches, onAdd, onClose }) => {
+const AddContactModal = ({ campaign, allContacts, campaignContacts, niches, availableNiches, onAdd, onBulkAdd, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [nicheFilter, setNicheFilter] = useState('all');
+  const [cityFilter, setCityFilter] = useState('all');
+  const [tagFilter, setTagFilter] = useState('all');
+  const [temperatureFilter, setTemperatureFilter] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
   const [selectedContactIds, setSelectedContactIds] = useState(new Set());
   const bulkSelectCheckboxRef = useRef(null);
 
-  // Filter out contacts already in the campaign
-  const campaignContactIds = new Set(campaignContacts.map(c => c.id));
-  const availableContacts = allContacts.filter(c => !campaignContactIds.has(c.id));
+  // Get all unique cities, tags, and temperatures from contacts
+  const allCities = [...new Set(allContacts.map(c => c.city).filter(Boolean))].sort();
+  const allTags = [...new Set(
+    allContacts.flatMap(c => {
+      if (!c.tags) return [];
+      if (typeof c.tags === 'string') return c.tags.split(',').map(t => t.trim()).filter(Boolean);
+      if (Array.isArray(c.tags)) return c.tags.filter(Boolean);
+      return [];
+    })
+  )].sort();
+  const allTemperatures = ['hot', 'warm', 'cold'];
 
-  // Apply filters
-  const filteredContacts = availableContacts.filter(contact => {
+  // Show ALL contacts (not just available ones) - user can still add contacts already in campaign
+  const filteredContacts = allContacts.filter(contact => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = !searchTerm || 
       contact.business_name?.toLowerCase().includes(searchLower) ||
+      contact.owner_name?.toLowerCase().includes(searchLower) ||
       contact.email?.toLowerCase().includes(searchLower) ||
       contact.phone?.toLowerCase().includes(searchLower);
     
     const matchesNiche = nicheFilter === 'all' || contact.niche_id === nicheFilter;
     
-    // For one_per_campaign mode, only show contacts from available niches
-    if (campaign.niche_restriction_type === 'one_per_campaign') {
-      const availableNicheIds = availableNiches.map(n => n.id);
-      return matchesSearch && matchesNiche && availableNicheIds.includes(contact.niche_id);
-    }
+    const matchesCity = cityFilter === 'all' || contact.city === cityFilter;
     
-    return matchesSearch && matchesNiche;
+    const matchesTag = tagFilter === 'all' || (() => {
+      if (!contact.tags) return false;
+      const contactTags = typeof contact.tags === 'string' 
+        ? contact.tags.split(',').map(t => t.trim())
+        : Array.isArray(contact.tags) 
+        ? contact.tags 
+        : [];
+      return contactTags.includes(tagFilter);
+    })();
+    
+    const matchesTemperature = temperatureFilter === 'all' || 
+      (contact.temperature || 'warm') === temperatureFilter;
+    
+    return matchesSearch && matchesNiche && matchesCity && matchesTag && matchesTemperature;
   });
 
-  // Handle individual contact selection
   const handleToggleContact = (contactId) => {
     const newSelected = new Set(selectedContactIds);
     if (newSelected.has(contactId)) {
@@ -618,7 +1260,6 @@ const AddContactModal = ({ campaign, allContacts, campaignContacts, niches, avai
     setSelectedContactIds(newSelected);
   };
 
-  // Handle select all / deselect all
   const handleSelectAll = (checked) => {
     if (checked) {
       setSelectedContactIds(new Set(filteredContacts.map(c => c.id)));
@@ -627,27 +1268,36 @@ const AddContactModal = ({ campaign, allContacts, campaignContacts, niches, avai
     }
   };
 
-  // Check if all filtered contacts are selected
   const allSelected = filteredContacts.length > 0 && selectedContactIds.size === filteredContacts.length;
   const someSelected = selectedContactIds.size > 0 && selectedContactIds.size < filteredContacts.length;
 
-  // Update indeterminate state of bulk select checkbox
   useEffect(() => {
     if (bulkSelectCheckboxRef.current) {
       bulkSelectCheckboxRef.current.indeterminate = someSelected;
     }
   }, [someSelected]);
 
-  // Handle bulk add
-  const handleBulkAdd = () => {
+  const handleBulkAdd = async () => {
     if (selectedContactIds.size === 0) {
       return;
     }
-    // Add all selected contacts
-    selectedContactIds.forEach(contactId => {
-      onAdd(contactId);
-    });
-    setSelectedContactIds(new Set());
+    
+    // If bulk add function is provided and multiple contacts selected, use it
+    if (onBulkAdd && selectedContactIds.size > 1) {
+      await onBulkAdd(selectedContactIds);
+      setSelectedContactIds(new Set());
+      // Don't close modal automatically - let user see results
+    } else {
+      // Otherwise, add contacts one by one
+      for (const contactId of selectedContactIds) {
+        await onAdd(contactId);
+      }
+      setSelectedContactIds(new Set());
+      // Close modal after single add
+      if (selectedContactIds.size === 1) {
+        onClose();
+      }
+    }
   };
 
   return (
@@ -673,24 +1323,159 @@ const AddContactModal = ({ campaign, allContacts, campaignContacts, niches, avai
             <Search size={18} />
             <input
               type="text"
-              placeholder="Search businesses..."
+              placeholder="Search by name, email, or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="search-input"
             />
           </div>
           
-          <select 
-            value={nicheFilter}
-            onChange={(e) => setNicheFilter(e.target.value)}
-            className="niche-filter-select"
+          <button
+            type="button"
+            className="filter-toggle-btn"
+            onClick={() => setShowFilters(!showFilters)}
+            title="Show filters"
           >
-            <option value="all">All Niches</option>
-            {(campaign.niche_restriction_type === 'one_per_campaign' ? availableNiches : niches).map(niche => (
-              <option key={niche.id} value={niche.id}>{niche.name}</option>
-            ))}
-          </select>
+            <Filter size={18} />
+            <span>Filters</span>
+            <ChevronDown 
+              size={16} 
+              className={`filter-chevron ${showFilters ? 'open' : ''}`}
+            />
+          </button>
         </div>
+
+        {/* Collapsible Filters Panel */}
+        {showFilters && (
+          <div className="add-contact-filters-panel">
+            <div className="filters-panel-grid">
+              <div className="filter-group">
+                <label className="filter-label">Niche</label>
+                <select 
+                  value={nicheFilter}
+                  onChange={(e) => setNicheFilter(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="all">All Niches</option>
+                  {niches.map(niche => (
+                    <option key={niche.id} value={niche.id}>{niche.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label className="filter-label">City</label>
+                <select 
+                  value={cityFilter}
+                  onChange={(e) => setCityFilter(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="all">All Cities</option>
+                  {allCities.map(city => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label className="filter-label">Tag</label>
+                <select 
+                  value={tagFilter}
+                  onChange={(e) => setTagFilter(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="all">All Tags</option>
+                  {allTags.map(tag => (
+                    <option key={tag} value={tag}>{tag}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label className="filter-label">Temperature</label>
+                <select 
+                  value={temperatureFilter}
+                  onChange={(e) => setTemperatureFilter(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="all">All Temperatures</option>
+                  {allTemperatures.map(temp => (
+                    <option key={temp} value={temp}>{temp.charAt(0).toUpperCase() + temp.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Active Filters Display */}
+            {(nicheFilter !== 'all' || cityFilter !== 'all' || tagFilter !== 'all' || temperatureFilter !== 'all') && (
+              <div className="active-filters">
+                <span className="active-filters-label">Active filters:</span>
+                <div className="active-filters-tags">
+                  {nicheFilter !== 'all' && (
+                    <span className="active-filter-tag">
+                      Niche: {niches.find(n => n.id === nicheFilter)?.name || nicheFilter}
+                      <button
+                        type="button"
+                        onClick={() => setNicheFilter('all')}
+                        className="active-filter-remove"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  )}
+                  {cityFilter !== 'all' && (
+                    <span className="active-filter-tag">
+                      City: {cityFilter}
+                      <button
+                        type="button"
+                        onClick={() => setCityFilter('all')}
+                        className="active-filter-remove"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  )}
+                  {tagFilter !== 'all' && (
+                    <span className="active-filter-tag">
+                      Tag: {tagFilter}
+                      <button
+                        type="button"
+                        onClick={() => setTagFilter('all')}
+                        className="active-filter-remove"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  )}
+                  {temperatureFilter !== 'all' && (
+                    <span className="active-filter-tag">
+                      Temperature: {temperatureFilter.charAt(0).toUpperCase() + temperatureFilter.slice(1)}
+                      <button
+                        type="button"
+                        onClick={() => setTemperatureFilter('all')}
+                        className="active-filter-remove"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNicheFilter('all');
+                      setCityFilter('all');
+                      setTagFilter('all');
+                      setTemperatureFilter('all');
+                    }}
+                    className="clear-all-filters-btn"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="add-contact-modal-content">
           {filteredContacts.length === 0 ? (
@@ -716,7 +1501,6 @@ const AddContactModal = ({ campaign, allContacts, campaignContacts, niches, avai
             </div>
           ) : (
             <>
-              {/* Bulk Select Header */}
               <div className="add-contact-list-header">
                 <div className="bulk-select-control">
                   <input
@@ -746,13 +1530,13 @@ const AddContactModal = ({ campaign, allContacts, campaignContacts, niches, avai
               <div className="add-contact-list">
                 {filteredContacts.map(contact => {
                   const isSelected = selectedContactIds.has(contact.id);
+                  const isInCampaign = campaignContacts.some(c => c.id === contact.id);
                   return (
                     <div 
                       key={contact.id} 
-                      className={`add-contact-item ${isSelected ? 'selected' : ''}`}
+                      className={`add-contact-item ${isSelected ? 'selected' : ''} ${isInCampaign ? 'in-campaign' : ''}`}
                       onClick={(e) => {
-                        // Don't trigger if clicking the checkbox
-                        if (e.target.type !== 'checkbox') {
+                        if (e.target.type !== 'checkbox' && !isInCampaign) {
                           handleToggleContact(contact.id);
                         }
                       }}
@@ -761,9 +1545,12 @@ const AddContactModal = ({ campaign, allContacts, campaignContacts, niches, avai
                         type="checkbox"
                         className="contact-select-checkbox"
                         checked={isSelected}
+                        disabled={isInCampaign}
                         onChange={(e) => {
                           e.stopPropagation();
-                          handleToggleContact(contact.id);
+                          if (!isInCampaign) {
+                            handleToggleContact(contact.id);
+                          }
                         }}
                         onClick={(e) => e.stopPropagation()}
                       />
@@ -771,28 +1558,50 @@ const AddContactModal = ({ campaign, allContacts, campaignContacts, niches, avai
                         {contact.business_name?.charAt(0).toUpperCase() || 'A'}
                       </div>
                       <div className="add-contact-item-info">
-                        <div className="add-contact-item-name">{contact.business_name}</div>
+                        <div className="add-contact-item-name">
+                          {contact.business_name}
+                          {isInCampaign && (
+                            <span className="in-campaign-badge" title="Already in campaign">
+                              <CheckCircle size={12} />
+                            </span>
+                          )}
+                        </div>
                         <div className="add-contact-item-details">
                           {contact.niche?.name && (
                             <span className="contact-niche">{contact.niche.name}</span>
                           )}
-                          {contact.email && (
+                          {contact.city && (
                             <span className="contact-detail-text">
-                              <Mail size={12} />
-                              {contact.email}
+                              <Building size={12} />
+                              {contact.city}
+                            </span>
+                          )}
+                          {contact.temperature && (
+                            <span className={`contact-temperature ${contact.temperature}`}>
+                              {contact.temperature.charAt(0).toUpperCase() + contact.temperature.slice(1)}
+                            </span>
+                          )}
+                          {contact.tags && Array.isArray(contact.tags) && contact.tags.length > 0 && (
+                            <span className="contact-tag-count">
+                              <Tag size={12} />
+                              {contact.tags.length} tag{contact.tags.length !== 1 ? 's' : ''}
                             </span>
                           )}
                         </div>
                       </div>
-                      <button 
-                        className="add-contact-item-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAdd(contact.id);
-                        }}
-                      >
-                        <Plus size={18} />
-                      </button>
+                      {!isInCampaign && (
+                        <button 
+                          className="add-contact-item-btn"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await onAdd(contact.id);
+                            // Close modal after adding single contact
+                            onClose();
+                          }}
+                        >
+                          <Plus size={18} />
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -806,4 +1615,3 @@ const AddContactModal = ({ campaign, allContacts, campaignContacts, niches, avai
 };
 
 export default CampaignContactsTab;
-

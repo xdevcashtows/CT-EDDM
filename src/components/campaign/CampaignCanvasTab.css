@@ -83,14 +83,27 @@
 /* Canvas Controls Container */
 .canvas-controls {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
   gap: 1.5rem;
   margin-bottom: 2rem;
   flex-wrap: wrap;
+  position: relative;
 }
 
-/* Side Toggle */
+/* Orientation Toggle - Left */
+.canvas-orientation-toggle {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  width: fit-content;
+  order: 1;
+}
+
+/* Side Toggle - Center */
 .canvas-side-toggle {
   display: flex;
   gap: 8px;
@@ -99,7 +112,42 @@
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   width: fit-content;
+  order: 2;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
+
+/* Clear Controls - Right */
+.canvas-clear-controls {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  order: 3;
+}
+
+.canvas-clear-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.canvas-clear-btn:hover {
+  background: #fecaca;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+/* Side Toggle - Moved to center via canvas-controls positioning */
 
 .side-toggle-btn {
   padding: 12px 32px;
@@ -131,16 +179,7 @@
   color: #94a3b8;
 }
 
-/* Orientation Toggle */
-.canvas-orientation-toggle {
-  display: flex;
-  gap: 8px;
-  padding: 8px;
-  background: #f8fafc;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  width: fit-content;
-}
+/* Orientation Toggle - Moved to left via canvas-controls order */
 
 .orientation-toggle-btn {
   display: flex;
@@ -818,6 +857,63 @@
   cursor: not-allowed;
 }
 
+/* Clear Canvas Modal */
+.clear-canvas-modal {
+  max-width: 500px;
+}
+
+.clear-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.clear-option-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: #f9fafb;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.clear-option-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.clear-option-btn.active {
+  background: #fee2e2;
+  border-color: #dc2626;
+  color: #b91c1c;
+}
+
+.clear-option-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.clear-option-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.clear-option-count {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.clear-option-btn.active .clear-option-count {
+  color: #991b1b;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .canvas-progress-header {
@@ -840,6 +936,33 @@
   .canvas-controls {
     flex-direction: column;
     gap: 1rem;
+  }
+
+  .canvas-side-toggle {
+    position: static;
+    transform: none;
+    width: 100%;
+    order: 2;
+  }
+
+  .canvas-orientation-toggle {
+    width: 100%;
+    order: 1;
+  }
+
+  .canvas-clear-controls {
+    margin-left: 0;
+    width: 100%;
+    order: 3;
+  }
+
+  .canvas-clear-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .clear-options-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .canvas-side-toggle {
