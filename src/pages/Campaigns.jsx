@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Plus } from 'lucide-react';
 import './Campaigns.css';
 import { 
@@ -109,6 +109,16 @@ function Campaigns() {
   const [showDetailView, setShowDetailView] = useState(false);
   const [detailViewCampaign, setDetailViewCampaign] = useState(null);
   const [detailViewActiveTab, setDetailViewActiveTab] = useState('config');
+  
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
+  console.log('🏠 [Campaigns] RENDER #' + renderCountRef.current, {
+    campaignsCount: campaigns.length,
+    showDetailView,
+    detailViewCampaignId: detailViewCampaign?.id,
+    detailViewActiveTab,
+    timestamp: new Date().toISOString()
+  });
 
   useEffect(() => {
     if (user) {
@@ -168,11 +178,15 @@ function Campaigns() {
     }
   };
 
-  const handleCloseDetailView = () => {
+  const handleCloseDetailView = async () => {
     console.log('🚪 [Campaigns] Closing detail view');
     setShowDetailView(false);
     setDetailViewCampaign(null);
     setDetailViewActiveTab('config');
+    
+    // Refresh campaigns list when closing detail view to show any changes
+    console.log('🔄 [Campaigns] Refreshing campaigns list after closing detail view');
+    await loadCampaigns();
   };
 
   const handleDetailViewUpdate = async () => {
@@ -182,11 +196,21 @@ function Campaigns() {
       showDetailView
     });
     
-    // Reload campaigns list to get fresh data for the cards view
-    // Note: We don't update detailViewCampaign here because each tab
-    // loads its own data internally, so updating it would cause an
-    // unnecessary remount of the CampaignDetailView component
-    await loadCampaigns();
+    // When detail view is open, only update the detail campaign to avoid blinking
+    // The campaigns list is hidden anyway, so no need to update it
+    if (detailViewCampaign?.id) {
+      const { data, error } = await campaignsAPI.getById(detailViewCampaign.id);
+      
+      if (!error && data) {
+        console.log('📝 [Campaigns] Updating detailViewCampaign only (single state update)');
+        setDetailViewCampaign(data);
+      }
+      
+      console.log('✅ [Campaigns] State update completed');
+    } else {
+      // If no detail view is open, reload campaigns for the cards view
+      await loadCampaigns();
+    }
   };
 
   const handleDeleteCampaign = async (campaignId) => {
@@ -311,6 +335,7 @@ function Campaigns() {
 
       {showDetailView && detailViewCampaign && (
         <CampaignDetailView
+          key={detailViewCampaign.id}
           campaign={detailViewCampaign}
           isOpen={showDetailView}
           onClose={handleCloseDetailView}

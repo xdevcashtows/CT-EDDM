@@ -44,8 +44,21 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
   const [showAddContactModal, setShowAddContactModal] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'kanban'
   const [pipelineStages, setPipelineStages] = useState(DEFAULT_PIPELINE_STAGES);
+  
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
+  console.log('👥 [CampaignContactsTab] RENDER #' + renderCountRef.current, {
+    campaignId: campaign?.id,
+    contactsCount: campaignContacts.length,
+    loading
+  });
 
   useEffect(() => {
+    console.log('🔄 [CampaignContactsTab] useEffect triggered', {
+      campaignId: campaign?.id,
+      reason: 'campaign.id or user changed'
+    });
+    
     isMountedRef.current = true;
     
     if (user && campaign?.id) {
@@ -56,7 +69,7 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
     return () => {
       isMountedRef.current = false;
     };
-  }, [campaign?.id, campaign?.campaign_contacts, user]);
+  }, [campaign?.id, user]);
 
   const loadPipelineStages = () => {
     const savedStages = localStorage.getItem(`pipeline_stages_${user?.id}`);

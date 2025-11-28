@@ -23,6 +23,18 @@ export const CampaignDetailView = ({ campaign, isOpen, onClose, onUpdate, active
   const [isAnimating, setIsAnimating] = useState(false);
   const previousCampaignIdRef = React.useRef(null);
   const activeTabRef = React.useRef(currentActiveTab);
+  const renderCountRef = React.useRef(0);
+  
+  // Track render count
+  renderCountRef.current += 1;
+  console.log('🎨 [CampaignDetailView] RENDER #' + renderCountRef.current, {
+    campaignId: campaign?.id,
+    campaignName: campaign?.name,
+    isOpen,
+    currentActiveTab,
+    isControlled,
+    timestamp: new Date().toISOString()
+  });
 
   // Debug: Track activeTab changes
   useEffect(() => {
@@ -30,17 +42,25 @@ export const CampaignDetailView = ({ campaign, isOpen, onClose, onUpdate, active
     activeTabRef.current = currentActiveTab;
   }, [currentActiveTab, isControlled]);
 
-  // Debug: Track campaign prop changes
+  // Debug: Track campaign object reference changes
+  const campaignRef = React.useRef(campaign);
   useEffect(() => {
+    const didObjectChange = campaignRef.current !== campaign;
+    const didIdChange = campaignRef.current?.id !== campaign?.id;
+    
     console.log('🟢 [CampaignDetailView] campaign prop changed:', {
       campaignId: campaign?.id,
       campaignName: campaign?.name,
       previousCampaignId: previousCampaignIdRef.current,
+      didObjectReferenceChange: didObjectChange,
+      didIdChange: didIdChange,
       isOpen,
       currentActiveTab: activeTabRef.current,
       isControlled
     });
-  }, [campaign?.id, campaign?.name, isOpen, isControlled]);
+    
+    campaignRef.current = campaign;
+  }, [campaign, isOpen, isControlled]);
 
   // Debug: Track component mount/unmount
   useEffect(() => {
