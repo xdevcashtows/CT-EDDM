@@ -168,48 +168,20 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
   const fillPercentage = totalSlots > 0 ? ((bookedSlots / totalSlots) * 100).toFixed(1) : 0;
 
   const getSlotBasePrice = (slot) => {
-    // Map slot_size to the appropriate slot price field
-    const sizeOriginal = slot.slot_size;
-    const size = slot.slot_size?.toString().toLowerCase();
+    // Calculate slot count from width * height
+    const slotCount = (slot.width || 1) * (slot.height || 1);
     
     console.log('🎯 Getting price for slot:', {
       position: slot.slot_position,
-      slot_size_original: sizeOriginal,
-      slot_size_lowercase: size,
-      slot_size_type: typeof sizeOriginal
+      slot_size: slot.slot_size,
+      width: slot.width,
+      height: slot.height,
+      calculated_count: slotCount
     });
-    
-    console.log('💰 Available campaign prices:', {
-      slot_1: campaign.slot_1_price,
-      slot_2: campaign.slot_2_price,
-      slot_4: campaign.slot_4_price,
-      slot_8: campaign.slot_8_price,
-      slot_12: campaign.slot_12_price,
-      slot_16: campaign.slot_16_price,
-      price_small: campaign.price_small,
-      price_medium: campaign.price_medium,
-      price_large: campaign.price_large
-    });
-    
-    // Try to extract slot count from slot_size (e.g., "1", "2", "4", "8", "12", "16")
-    // or map from old size names (small, medium, large) to slot counts
-    let slotCount = null;
-    
-    if (!isNaN(size)) {
-      // If slot_size is already a number string, use it directly
-      slotCount = parseInt(size);
-      console.log(`✅ Slot size is numeric: ${slotCount}`);
-    } else {
-      // Map old size names to default slot counts (fallback)
-      if (size === 'small') slotCount = 1;
-      else if (size === 'medium') slotCount = 2;
-      else if (size === 'large') slotCount = 4;
-      console.log(`✅ Mapped size "${size}" to slot count: ${slotCount}`);
-    }
     
     let finalPrice = 0;
     
-    // Get price based on slot count
+    // Get price based on calculated slot count
     if (slotCount === 1) finalPrice = Number(campaign.slot_1_price) || 0;
     else if (slotCount === 2) finalPrice = Number(campaign.slot_2_price) || 0;
     else if (slotCount === 4) finalPrice = Number(campaign.slot_4_price) || 0;
@@ -217,15 +189,16 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
     else if (slotCount === 12) finalPrice = Number(campaign.slot_12_price) || 0;
     else if (slotCount === 16) finalPrice = Number(campaign.slot_16_price) || 0;
     
-    // Fallback to old pricing if slot count pricing didn't work
+    // Fallback to old pricing system if slot pricing not set
     if (finalPrice === 0) {
-      if (size === 'small') finalPrice = Number(campaign.price_small) || 0;
-      else if (size === 'medium') finalPrice = Number(campaign.price_medium) || 0;
-      else if (size === 'large') finalPrice = Number(campaign.price_large) || 0;
-      console.log(`⚠️ Used fallback pricing for size "${size}": $${finalPrice}`);
+      const size = slot.slot_size?.toString().toLowerCase();
+      if (size === 'small' || slotCount === 1) finalPrice = Number(campaign.price_small) || 0;
+      else if (size === 'medium' || slotCount === 2) finalPrice = Number(campaign.price_medium) || 0;
+      else if (size === 'large' || slotCount >= 4) finalPrice = Number(campaign.price_large) || 0;
+      console.log(`⚠️ Used fallback pricing for slot count ${slotCount}: $${finalPrice}`);
     }
     
-    console.log(`💵 Final price for ${slot.slot_position}: $${finalPrice}`);
+    console.log(`💵 Final price for ${slot.slot_position} (${slotCount} cells): $${finalPrice}`);
     
     return finalPrice;
   };
@@ -235,18 +208,8 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
   };
 
   const getSlotColor = (slot) => {
-    const size = slot.slot_size?.toLowerCase();
-    
-    // Try to extract slot count
-    let slotCount = null;
-    if (!isNaN(size)) {
-      slotCount = parseInt(size);
-    } else {
-      // Map old size names to slot counts
-      if (size === 'small') slotCount = 1;
-      else if (size === 'medium') slotCount = 2;
-      else if (size === 'large') slotCount = 4;
-    }
+    // Calculate slot count from width * height
+    const slotCount = (slot.width || 1) * (slot.height || 1);
     
     // Return colors based on slot count (matching CampaignConfigTab adSlotOptions colors)
     if (slotCount === 1) return '#dbeafe';  // 1 Slot - blue

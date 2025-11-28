@@ -38,6 +38,8 @@ const getEmptyCampaignFormData = () => ({
   price_medium: 0,
   price_large: 0,
   unique_niche_per_slot: true,
+  niche_restriction_type: 'any', // 'any' or 'one_per_campaign'
+  allowed_niches: [], // array of niche IDs when restriction type is 'one_per_campaign'
   mail_date: null,
   notes: ''
 });
@@ -656,7 +658,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         ...prev,
         back_design_id: designId
       }));
-      // Auto-advance to pricing step after both templates selected
+      // Auto-advance to pricing step (step 1) after both templates selected
       setTimeout(() => {
         if (activeStep === 0 && canAdvanceFromStep(0)) {
           setActiveStep(1); // Move to pricing step
@@ -705,10 +707,12 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         // Create ad slots for front template
         if (newCampaign && selectedFrontDesign?.slot_config) {
           for (const slotConfig of selectedFrontDesign.slot_config) {
+            // Calculate numeric slot size (width * height)
+            const numericSlotSize = slotConfig.width * slotConfig.height;
             await adSlotsAPI.create({
               campaign_id: newCampaign.id,
               slot_position: `Front-${slotConfig.position}`,
-              slot_size: slotConfig.size,
+              slot_size: numericSlotSize.toString(), // Store as string number like "1", "2", "4", "8", etc.
               width: slotConfig.width,
               height: slotConfig.height,
               x_position: slotConfig.x,
@@ -721,10 +725,12 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         // Create ad slots for back template
         if (newCampaign && selectedBackDesign?.slot_config) {
           for (const slotConfig of selectedBackDesign.slot_config) {
+            // Calculate numeric slot size (width * height)
+            const numericSlotSize = slotConfig.width * slotConfig.height;
             await adSlotsAPI.create({
               campaign_id: newCampaign.id,
               slot_position: `Back-${slotConfig.position}`,
-              slot_size: slotConfig.size,
+              slot_size: numericSlotSize.toString(), // Store as string number like "1", "2", "4", "8", etc.
               width: slotConfig.width,
               height: slotConfig.height,
               x_position: slotConfig.x,
@@ -952,6 +958,151 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+
+  const handleNicheToggle = (nicheId) => {
+    setFormData(prev => {
+      const currentAllowed = prev.allowed_niches || [];
+      const isCurrentlyAllowed = currentAllowed.includes(nicheId);
+      
+      if (isCurrentlyAllowed) {
+        // Remove the niche
+        return {
+          ...prev,
+          allowed_niches: currentAllowed.filter(id => id !== nicheId)
+        };
+      } else {
+        // Add the niche
+        return {
+          ...prev,
+          allowed_niches: [...currentAllowed, nicheId]
+        };
+      }
+    });
+  };
+
+  const nicheStepContent = (
+    <div className="form-section">
+      <div className="section-heading">
+        <div>
+          <h3>Niche Selection</h3>
+          <p>Choose how niches will be managed for this campaign.</p>
+        </div>
+      </div>
+
+      <div className="contacts-card" style={{ borderLeft: '4px solid #8b5cf6', marginBottom: '24px' }}>
+        <div className="contacts-card-header">
+          <div className="contacts-card-icon" style={{ background: '#ede9fe' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b21a8" strokeWidth="2">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+              <line x1="7" y1="7" x2="7.01" y2="7"/>
+            </svg>
+          </div>
+          <div>
+            <h4>Niche Restriction Type</h4>
+            <p>Select how niches are allowed in this campaign</p>
+          </div>
+        </div>
+
+        <div className="contacts-selection-method">
+          <button
+            type="button"
+            className={`selection-method-btn ${formData.niche_restriction_type === 'any' ? 'active' : ''}`}
+            onClick={() => setFormData(prev => ({ ...prev, niche_restriction_type: 'any', allowed_niches: [] }))}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span>Any Niche Accepted</span>
+          </button>
+          <button
+            type="button"
+            className={`selection-method-btn ${formData.niche_restriction_type === 'one_per_campaign' ? 'active' : ''}`}
+            onClick={() => setFormData(prev => ({ ...prev, niche_restriction_type: 'one_per_campaign' }))}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 11l3 3L22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            <span>One Niche Per Campaign</span>
+          </button>
+        </div>
+
+        <div className="contacts-input-section">
+          <p className="form-hint" style={{ marginBottom: '12px' }}>
+            {formData.niche_restriction_type === 'any' 
+              ? '✓ All niches are allowed. Clients from any niche can participate in this campaign.'
+              : '⚠ Only ONE niche can be assigned per canvas (combining front and back ad slots). Select which niches are allowed below.'
+            }
+          </p>
+        </div>
+      </div>
+
+      {formData.niche_restriction_type === 'one_per_campaign' && (
+        <div className="contacts-card" style={{ borderLeft: '4px solid #3b82f6' }}>
+          <div className="contacts-card-header">
+            <div className="contacts-card-icon" style={{ background: '#dbeafe' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e40af" strokeWidth="2">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                <line x1="7" y1="7" x2="7.01" y2="7"/>
+              </svg>
+            </div>
+            <div>
+              <h4>Select Allowed Niches</h4>
+              <p>Check each niche that can participate in this campaign</p>
+            </div>
+          </div>
+
+          <div className="contacts-input-section">
+            {niches.length > 0 ? (
+              <>
+                <div className="contacts-list-redesign">
+                  {niches.map(niche => (
+                    <label key={niche.id} className="contact-card-item">
+                      <input
+                        type="checkbox"
+                        checked={(formData.allowed_niches || []).includes(niche.id)}
+                        onChange={() => handleNicheToggle(niche.id)}
+                      />
+                      <div className="contact-card-content">
+                        <div className="contact-avatar" style={{ 
+                          background: `hsl(${(niche.name.charCodeAt(0) * 137.5) % 360}, 70%, 85%)`
+                        }}>
+                          {niche.name?.charAt(0) || 'N'}
+                        </div>
+                        <div className="contact-info">
+                          <strong>{niche.name}</strong>
+                          {niche.description && <span>{niche.description}</span>}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {(formData.allowed_niches || []).length > 0 && (
+                  <div className="contacts-selected-count">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    <span>
+                      {(formData.allowed_niches || []).length} niche{(formData.allowed_niches || []).length === 1 ? '' : 's'} selected
+                      {' • '}Remember: Only ONE niche per canvas
+                    </span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="contacts-empty-state">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                  <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                  <line x1="7" y1="7" x2="7.01" y2="7"/>
+                </svg>
+                <p>No niches available. Create niches first to use this feature.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -1542,21 +1693,26 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     </div>
   );
 
-  const steps = ['Templates', 'Pricing', 'Route', 'Contacts'];
+  const steps = ['Templates', 'Pricing', 'Niches', 'Route', 'Contacts'];
   const stepContents = [
     templateStepContent,
     pricingStepContent,
+    nicheStepContent,
     routeStepContent,
     communicationsStepContent
   ];
   const isTemplateStepComplete = Boolean(
     formData.name?.trim() && formData.front_design_id && formData.back_design_id
   );
+  const isNicheStepComplete = 
+    formData.niche_restriction_type === 'any' || 
+    (formData.niche_restriction_type === 'one_per_campaign' && (formData.allowed_niches || []).length > 0);
   const isRouteStepComplete = Boolean(formData.saved_route_id);
 
   const canAdvanceFromStep = (stepIndex) => {
     if (stepIndex === 0) return isTemplateStepComplete;
-    if (stepIndex === 2) return isRouteStepComplete;
+    if (stepIndex === 2) return isNicheStepComplete;
+    if (stepIndex === 3) return isRouteStepComplete;
     return true;
   };
 
