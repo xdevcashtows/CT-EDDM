@@ -701,7 +701,14 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           route_snapshot: selectedRoute?.routes || [],
           design_snapshot: buildCampaignDesignSnapshot(selectedFrontDesign, selectedBackDesign),
           total_pieces: selectedRoute?.total_households || 0,
-          status: 'draft'
+          status: 'draft',
+          // Add slot pricing from slotPrices state
+          slot_1_price: Number(slotPrices.slot_1) || 0,
+          slot_2_price: Number(slotPrices.slot_2) || 0,
+          slot_4_price: Number(slotPrices.slot_4) || 0,
+          slot_8_price: Number(slotPrices.slot_8) || 0,
+          slot_12_price: Number(slotPrices.slot_12) || 0,
+          slot_16_price: Number(slotPrices.slot_16) || 0
         };
 
         const { data: newCampaign, error } = await campaignsAPI.create(campaignData);
@@ -709,38 +716,72 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
 
         // Create ad slots for front template
         if (newCampaign && selectedFrontDesign?.slot_config) {
+          console.log('Creating front slots for campaign:', newCampaign.id, 'Config:', selectedFrontDesign.slot_config);
           for (const slotConfig of selectedFrontDesign.slot_config) {
             // Calculate numeric slot size (width * height)
             const numericSlotSize = slotConfig.width * slotConfig.height;
-            await adSlotsAPI.create({
+            
+            // Map numeric size to text-based size for database constraint
+            let slotSizeText = 'small';
+            if (numericSlotSize === 1) slotSizeText = 'small';
+            else if (numericSlotSize === 2) slotSizeText = 'medium';
+            else if (numericSlotSize >= 4) slotSizeText = 'large';
+            
+            const slotData = {
               campaign_id: newCampaign.id,
               slot_position: `Front-${slotConfig.position}`,
-              slot_size: numericSlotSize.toString(), // Store as string number like "1", "2", "4", "8", etc.
+              slot_size: slotSizeText, // Use text-based size for database constraint
               width: slotConfig.width,
               height: slotConfig.height,
               x_position: slotConfig.x,
               y_position: slotConfig.y,
               status: 'available'
-            });
+            };
+            console.log('Creating front slot:', slotData);
+            const { data: slotData2, error: slotError } = await adSlotsAPI.create(slotData);
+            if (slotError) {
+              console.error('❌ Error creating front slot:', slotError);
+            } else {
+              console.log('✅ Successfully created front slot:', slotData2);
+            }
           }
+        } else {
+          console.warn('⚠️ Not creating front slots. newCampaign:', !!newCampaign, 'slot_config:', selectedFrontDesign?.slot_config);
         }
 
         // Create ad slots for back template
         if (newCampaign && selectedBackDesign?.slot_config) {
+          console.log('Creating back slots for campaign:', newCampaign.id, 'Config:', selectedBackDesign.slot_config);
           for (const slotConfig of selectedBackDesign.slot_config) {
             // Calculate numeric slot size (width * height)
             const numericSlotSize = slotConfig.width * slotConfig.height;
-            await adSlotsAPI.create({
+            
+            // Map numeric size to text-based size for database constraint
+            let slotSizeText = 'small';
+            if (numericSlotSize === 1) slotSizeText = 'small';
+            else if (numericSlotSize === 2) slotSizeText = 'medium';
+            else if (numericSlotSize >= 4) slotSizeText = 'large';
+            
+            const slotData = {
               campaign_id: newCampaign.id,
               slot_position: `Back-${slotConfig.position}`,
-              slot_size: numericSlotSize.toString(), // Store as string number like "1", "2", "4", "8", etc.
+              slot_size: slotSizeText, // Use text-based size for database constraint
               width: slotConfig.width,
               height: slotConfig.height,
               x_position: slotConfig.x,
               y_position: slotConfig.y,
               status: 'available'
-            });
+            };
+            console.log('Creating back slot:', slotData);
+            const { data: slotData2, error: slotError } = await adSlotsAPI.create(slotData);
+            if (slotError) {
+              console.error('❌ Error creating back slot:', slotError);
+            } else {
+              console.log('✅ Successfully created back slot:', slotData2);
+            }
           }
+        } else {
+          console.warn('⚠️ Not creating back slots. newCampaign:', !!newCampaign, 'slot_config:', selectedBackDesign?.slot_config);
         }
 
         if (formData.saved_route_id) {

@@ -222,16 +222,24 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
   const totalSlots = slots.length;
   const bookedSlots = slots.filter(slot => slot.contact_id || slot.client_ad).length;
   
-  // Calculate total value of all slots (front + back)
-  const totalValue = slots.reduce((sum, slot) => sum + getSlotBasePrice(slot), 0);
+  // Calculate total POTENTIAL value (all slots at base prices)
+  const totalPotentialValue = slots.reduce((sum, slot) => sum + getSlotBasePrice(slot), 0);
   
-  // Calculate filled value (sum of prices for booked slots)
-  const filledValue = slots
+  // Calculate booked slots at BASE prices (what we hoped to get)
+  const bookedBasePriceValue = slots
+    .filter(slot => slot.contact_id || slot.client_ad)
+    .reduce((sum, slot) => sum + getSlotBasePrice(slot), 0);
+  
+  // Calculate booked slots at ACTUAL prices (including negotiated discounts)
+  const bookedActualValue = slots
     .filter(slot => slot.contact_id || slot.client_ad)
     .reduce((sum, slot) => sum + getSlotFinalPrice(slot), 0);
   
-  // Progress percentage based on value, not count
-  const fillPercentage = totalValue > 0 ? ((filledValue / totalValue) * 100).toFixed(1) : 0;
+  // Progress percentages
+  // Green bar: Actual negotiated revenue as % of total potential
+  const actualPercentage = totalPotentialValue > 0 ? ((bookedActualValue / totalPotentialValue) * 100) : 0;
+  // Yellow bar: Shows the "discount gap" - what we hoped for but didn't get due to negotiations
+  const discountGapPercentage = totalPotentialValue > 0 ? ((bookedBasePriceValue - bookedActualValue) / totalPotentialValue * 100) : 0;
 
   // Get current design and slots based on active side
   const currentDesign = activeSide === 'front' ? frontDesign : backDesign;
@@ -243,13 +251,23 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
       <div className="canvas-progress-header">
         <div className="progress-stats">
           <div className="progress-stat">
-            <span className="progress-stat-label">Total Value</span>
-            <span className="progress-stat-value">${totalValue.toFixed(2)}</span>
+            <span className="progress-stat-label">Potential Revenue</span>
+            <span className="progress-stat-value">${totalPotentialValue.toFixed(2)}</span>
           </div>
           <div className="progress-stat">
-            <span className="progress-stat-label">Filled Value</span>
-            <span className="progress-stat-value">${filledValue.toFixed(2)}</span>
+            <span className="progress-stat-label">Actual Revenue</span>
+            <span className="progress-stat-value" style={{ color: '#22c55e' }}>
+              ${bookedActualValue.toFixed(2)}
+            </span>
           </div>
+          {bookedBasePriceValue > bookedActualValue && (
+            <div className="progress-stat">
+              <span className="progress-stat-label">Discounts Given</span>
+              <span className="progress-stat-value" style={{ color: '#f59e0b' }}>
+                -${(bookedBasePriceValue - bookedActualValue).toFixed(2)}
+              </span>
+            </div>
+          )}
           <div className="progress-stat">
             <span className="progress-stat-label">Slots Filled</span>
             <span className="progress-stat-value">{bookedSlots} / {totalSlots}</span>
@@ -258,13 +276,75 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
         <div className="progress-bar-container">
           <div className="progress-bar-label">
             <span>Revenue Progress</span>
-            <span className="progress-percentage">{fillPercentage}%</span>
+            <span className="progress-percentage">
+              {actualPercentage.toFixed(1)}%
+              {discountGapPercentage > 0 && (
+                <span style={{ color: '#f59e0b', marginLeft: '0.5rem', fontSize: '0.875rem' }}>
+                  (-{discountGapPercentage.toFixed(1)}% in discounts)
+                </span>
+              )}
+            </span>
           </div>
           <div className="progress-bar-track">
+            {/* Green bar: Actual revenue collected */}
             <div
               className="progress-bar-fill"
-              style={{ width: `${fillPercentage}%` }}
+              style={{ 
+                width: `${actualPercentage}%`,
+                backgroundColor: '#22c55e'
+              }}
             />
+            {/* Yellow bar: Discount gap (stacked on top of green) */}
+            {discountGapPercentage > 0 && (
+              <div
+                className="progress-bar-fill"
+                style={{ 
+                  width: `${discountGapPercentage}%`,
+                  backgroundColor: '#f59e0b',
+                  opacity: 0.6,
+                  marginLeft: `${actualPercentage}%`
+                }}
+              />
+            )}
+          </div>
+          {/* Legend */}
+          <div style={{ 
+            display: 'flex', 
+            gap: '1rem', 
+            marginTop: '0.5rem', 
+            fontSize: '0.75rem',
+            color: '#6b7280'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              <div style={{ 
+                width: '12px', 
+                height: '12px', 
+                backgroundColor: '#22c55e', 
+                borderRadius: '2px' 
+              }} />
+              <span>Actual Revenue</span>
+            </div>
+            {discountGapPercentage > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <div style={{ 
+                  width: '12px', 
+                  height: '12px', 
+                  backgroundColor: '#f59e0b', 
+                  opacity: 0.6,
+                  borderRadius: '2px' 
+                }} />
+                <span>Negotiated Discounts</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              <div style={{ 
+                width: '12px', 
+                height: '12px', 
+                backgroundColor: '#e5e7eb', 
+                borderRadius: '2px' 
+              }} />
+              <span>Unfilled Potential</span>
+            </div>
           </div>
         </div>
       </div>
@@ -569,6 +649,7 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
   const [loading, setLoading] = useState(false);
   const [showAdUploader, setShowAdUploader] = useState(false);
   const [customPrice, setCustomPrice] = useState(slot.custom_price || null);
+  const [allSlots, setAllSlots] = useState([]);
 
   useEffect(() => {
     if (slot.contact_id) {
@@ -578,7 +659,16 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
         loadContactAds(contact.id);
       }
     }
+    // Load all campaign slots for niche filtering
+    loadAllSlots();
   }, [slot, contacts]);
+
+  const loadAllSlots = async () => {
+    const { data, error } = await adSlotsAPI.getByCampaign(campaign.id);
+    if (!error && data) {
+      setAllSlots(data);
+    }
+  };
 
   const loadContactAds = async (contactId) => {
     setLoading(true);
@@ -688,12 +778,15 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
       updateData.custom_price = Number(customPrice);
     }
     
-    const { error } = await adSlotsAPI.update(slot.id, updateData);
+    console.log('🔄 Assigning slot with data:', updateData);
+    const { data, error } = await adSlotsAPI.update(slot.id, updateData);
 
     if (!error) {
+      console.log('✅ Slot assigned successfully:', data);
       onAssign();
     } else {
-      alert('Failed to assign slot');
+      console.error('❌ Failed to assign slot:', error);
+      alert('Failed to assign slot: ' + (error.message || JSON.stringify(error)));
     }
     setLoading(false);
   };
@@ -716,6 +809,44 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
     setLoading(false);
   };
 
+  // Filter contacts based on campaign's niche restrictions
+  const getAvailableContacts = () => {
+    // If no niche restrictions, all contacts are available
+    if (!campaign.niche_restriction_type || campaign.niche_restriction_type === 'any') {
+      return contacts;
+    }
+
+    // For "one_per_campaign" mode with allowed niches
+    if (campaign.niche_restriction_type === 'one_per_campaign' && campaign.allowed_niches?.length > 0) {
+      // Get niches already used by other slots (excluding current slot)
+      const usedNiches = new Set();
+      allSlots.forEach(s => {
+        if (s.id !== slot.id && s.contact_id) {
+          const contact = contacts.find(c => c.id === s.contact_id);
+          if (contact?.niche_id) {
+            usedNiches.add(contact.niche_id);
+          }
+        }
+      });
+
+      // Filter contacts:
+      // 1. Must have a niche that's in allowed_niches
+      // 2. That niche must not already be used (unless it's the current slot's contact)
+      return contacts.filter(contact => {
+        const isAllowedNiche = campaign.allowed_niches.includes(contact.niche_id);
+        const isNicheAvailable = !usedNiches.has(contact.niche_id);
+        const isCurrentContact = contact.id === slot.contact_id;
+        
+        return contact.niche_id && isAllowedNiche && (isNicheAvailable || isCurrentContact);
+      });
+    }
+
+    // Default: return all contacts
+    return contacts;
+  };
+
+  const availableContacts = getAvailableContacts();
+
   return (
     <div className="assign-modal-backdrop" onClick={onClose}>
       <div className="assign-modal" onClick={(e) => e.stopPropagation()}>
@@ -734,12 +865,25 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
               className="assign-select"
             >
               <option value="">Choose advertiser...</option>
-              {contacts.map(contact => (
+              {availableContacts.map(contact => (
                 <option key={contact.id} value={contact.id}>
                   {contact.business_name}
+                  {contact.niche?.name ? ` (${contact.niche.name})` : ''}
                 </option>
               ))}
             </select>
+            {campaign.niche_restriction_type === 'one_per_campaign' && (
+              <p style={{ 
+                fontSize: '0.875rem', 
+                color: '#6b7280', 
+                marginTop: '0.5rem' 
+              }}>
+                {availableContacts.length === 0 
+                  ? '⚠️ No available contacts. All allowed niches are already assigned.' 
+                  : `${availableContacts.length} contact${availableContacts.length === 1 ? '' : 's'} with available niches`
+                }
+              </p>
+            )}
           </div>
 
           {/* Ad Selection */}
@@ -885,4 +1029,5 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
 };
 
 export default CampaignCanvasTab;
+
 
