@@ -943,7 +943,11 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
                             const temperature = contact.temperature || 'warm';
                             
                             return (
-                              <tr key={contact.id} className="contacts-table-row">
+                              <tr 
+                                key={contact.id} 
+                                className="contacts-table-row"
+                                style={{ '--stage-color': stage?.color || '#6b7280' }}
+                              >
                                 <td className="table-checkbox-col">
                                   <input
                                     type="checkbox"

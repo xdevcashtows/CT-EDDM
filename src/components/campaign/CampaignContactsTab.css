@@ -737,6 +737,18 @@
 .contacts-table tbody tr {
   border-bottom: 1px solid #f1f5f9;
   transition: background 0.2s;
+  position: relative;
+}
+
+.contacts-table-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--stage-color, #6b7280);
+  z-index: 1;
 }
 
 .contacts-table tbody tr:hover {
@@ -752,6 +764,7 @@
   font-size: 0.875rem;
   color: #1e293b;
   vertical-align: middle;
+  position: relative;
 }
 
 .table-checkbox-col {
@@ -2406,6 +2419,22 @@
   user-select: none;
 }
 
+.kanban-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--stage-color, #6b7280);
+  border-radius: 0.5rem 0 0 0.5rem;
+  z-index: 1;
+}
+
+.kanban-card.dragging::before {
+  opacity: 0.7;
+}
+
 .kanban-card:active {
   cursor: grabbing;
 }
@@ -2418,7 +2447,9 @@
 
 .kanban-card-content {
   padding: 0.75rem;
+  padding-left: 1rem;
   cursor: pointer;
+  position: relative;
 }
 
 .kanban-card-header {
