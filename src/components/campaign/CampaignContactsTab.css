@@ -732,27 +732,27 @@
   letter-spacing: 0.5px;
   color: #64748b;
   white-space: nowrap;
+  vertical-align: middle;
 }
 
 .contacts-table tbody tr {
   border-bottom: 1px solid #f1f5f9;
-  transition: background 0.2s;
+  transition: all 0.2s;
   position: relative;
 }
 
-.contacts-table-row::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: var(--stage-color, #6b7280);
-  z-index: 1;
+.contacts-table-row {
+  border-left: 4px solid var(--stage-color, #6b7280);
+  box-shadow: inset 4px 0 0 var(--stage-color, #6b7280);
 }
 
 .contacts-table tbody tr:hover {
   background: #f8fafc;
+}
+
+.contacts-table-row:hover {
+  border-left-width: 6px;
+  box-shadow: inset 6px 0 0 var(--stage-color, #6b7280);
 }
 
 .contacts-table tbody tr:last-child {
@@ -760,7 +760,7 @@
 }
 
 .contacts-table td {
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   font-size: 0.875rem;
   color: #1e293b;
   vertical-align: middle;
@@ -768,8 +768,14 @@
 }
 
 .table-checkbox-col {
-  width: 40px;
+  width: 50px;
   text-align: center;
+  padding: 0.75rem 1rem;
+}
+
+/* Adjust checkbox column in body rows to account for colored bar */
+.contacts-table tbody .table-checkbox-col {
+  padding-left: 0.75rem;
 }
 
 .table-checkbox {
@@ -922,6 +928,7 @@
 .table-actions-col {
   width: 100px;
   text-align: right;
+  padding: 0.75rem 1rem;
 }
 
 .table-actions {
