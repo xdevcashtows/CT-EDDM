@@ -647,10 +647,24 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
 
   const getSanitizedFormData = () => {
     const { front_design_id, back_design_id, ...rest } = formData;
-    // Ensure date fields are null if empty string
-    if (rest.mail_date === '') {
-      rest.mail_date = null;
+    // Format mail_date for database: convert to YYYY-MM-DD format or null
+    let mailDate = null;
+    if (rest.mail_date) {
+      const mailDateStr = String(rest.mail_date).trim();
+      if (mailDateStr !== '') {
+        // If it's already in YYYY-MM-DD format (from date input), use it directly
+        if (/^\d{4}-\d{2}-\d{2}$/.test(mailDateStr)) {
+          mailDate = mailDateStr;
+        } else {
+          // Otherwise, try to parse and format it
+          const date = new Date(mailDateStr);
+          if (!isNaN(date.getTime())) {
+            mailDate = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+          }
+        }
+      }
     }
+    rest.mail_date = mailDate;
     return rest;
   };
 
@@ -1447,7 +1461,11 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           <label>Mail Date</label>
           <input
             type="date"
-            value={formData.mail_date || ''}
+            value={formData.mail_date 
+              ? (typeof formData.mail_date === 'string' && formData.mail_date.includes('T')
+                  ? formData.mail_date.split('T')[0]
+                  : formData.mail_date)
+              : ''}
             onChange={(e) => setFormData({ ...formData, mail_date: e.target.value })}
           />
           <p className="form-hint" style={{ marginTop: '8px', fontSize: '12px' }}>

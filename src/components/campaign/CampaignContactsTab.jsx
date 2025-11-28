@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, Mail, Phone, Building, Plus, Tag, User, UserPlus, X, 
   AlertCircle, CheckCircle, Clock, List, Columns, Send, 
-  CheckCircle2, Circle, GripVertical, Filter, ChevronDown, 
+  CheckCircle2, Circle, Filter, ChevronDown, 
   ChevronRight, DollarSign, LayoutGrid, Star, Trash2, 
   Flame, Thermometer, Snowflake, Image as ImageIcon, 
   ImageOff
@@ -692,29 +692,7 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
 
         {/* Action Bar */}
         <div className="contacts-action-bar">
-          <div className="contacts-view-controls">
-            <button
-              className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
-              onClick={() => setViewMode('list')}
-              title="List View"
-            >
-              <List size={18} />
-            </button>
-            <button
-              className={`view-toggle-btn ${viewMode === 'kanban' ? 'active' : ''}`}
-              onClick={() => setViewMode('kanban')}
-              title="Kanban View"
-            >
-              <Columns size={18} />
-            </button>
-          </div>
-          <button 
-            className="add-contact-btn"
-            onClick={() => setShowAddContactModal(true)}
-          >
-            <UserPlus size={18} />
-            Add Advertiser
-          </button>
+          {/* Add Advertiser button moved to view controls */}
         </div>
       </div>
 
@@ -757,7 +735,7 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
         {/* Right Column - Main Content */}
         <div className="contacts-tab-main-content">
           {/* Search and Campaign Mode Info Row */}
-          <div className="search-notice-row">
+          <div className="search-notice-row" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div className="contacts-search-bar">
               <Search size={18} />
               <input
@@ -769,13 +747,38 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
               />
             </div>
             {campaign.niche_restriction_type === 'one_per_campaign' && (
-              <div className="campaign-mode-notice">
+              <div className="campaign-mode-notice" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
                 <AlertCircle size={18} />
                 <div>
                   <strong>One Business Per Niche:</strong> Only one business from each niche can claim a spot in this campaign (first come, first served).
                 </div>
               </div>
             )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: campaign.niche_restriction_type === 'one_per_campaign' ? '0' : 'auto' }}>
+              <div className="contacts-view-controls">
+                <button
+                  className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+                  onClick={() => setViewMode('list')}
+                  title="List View"
+                >
+                  <List size={18} />
+                </button>
+                <button
+                  className={`view-toggle-btn ${viewMode === 'kanban' ? 'active' : ''}`}
+                  onClick={() => setViewMode('kanban')}
+                  title="Pipeline View"
+                >
+                  <Columns size={18} />
+                </button>
+              </div>
+              <button 
+                className="add-contact-btn"
+                onClick={() => setShowAddContactModal(true)}
+              >
+                <UserPlus size={18} />
+                Add Advertiser
+              </button>
+            </div>
           </div>
 
           {/* Contacts List or Kanban */}
@@ -1111,11 +1114,13 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
                                   <div
                                     ref={provided.innerRef}
                                     {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
                                     className={`kanban-card ${snapshot.isDragging ? 'dragging' : ''}`}
+                                    style={{
+                                      cursor: 'grab',
+                                      ...provided.draggableProps.style
+                                    }}
                                   >
-                                    <div {...provided.dragHandleProps} className="kanban-card-drag-handle">
-                                      <GripVertical size={16} />
-                                    </div>
                                     <ContactKanbanCard
                                       contact={enrichedContact}
                                       slots={getContactSlots(contact.id)}

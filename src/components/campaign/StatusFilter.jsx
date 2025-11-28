@@ -8,40 +8,26 @@ const statusConfig = {
     textActive: 'text-white',
     label: 'Draft',
   },
-  working: {
-    bg: 'bg-yellow-100',
-    bgActive: 'bg-yellow-600',
-    text: 'text-yellow-700',
+  active: {
+    bg: 'bg-green-100',
+    bgActive: 'bg-green-600',
+    text: 'text-green-700',
     textActive: 'text-white',
-    label: 'Working',
+    label: 'Active',
   },
-  filled: {
-    bg: 'bg-orange-100',
-    bgActive: 'bg-orange-600',
-    text: 'text-orange-700',
-    textActive: 'text-white',
-    label: 'Filled',
-  },
-  printing: {
+  in_production: {
     bg: 'bg-cyan-100',
     bgActive: 'bg-cyan-600',
     text: 'text-cyan-700',
     textActive: 'text-white',
-    label: 'Printing',
+    label: 'In Production',
   },
-  bundling: {
+  printed: {
     bg: 'bg-blue-100',
     bgActive: 'bg-blue-600',
     text: 'text-blue-700',
     textActive: 'text-white',
-    label: 'Bundling',
-  },
-  delivered: {
-    bg: 'bg-lime-100',
-    bgActive: 'bg-lime-600',
-    text: 'text-lime-700',
-    textActive: 'text-white',
-    label: 'Delivered',
+    label: 'Printed',
   },
   mailed: {
     bg: 'bg-green-100',
@@ -49,6 +35,13 @@ const statusConfig = {
     text: 'text-green-700',
     textActive: 'text-white',
     label: 'Mailed',
+  },
+  completed: {
+    bg: 'bg-lime-100',
+    bgActive: 'bg-lime-600',
+    text: 'text-lime-700',
+    textActive: 'text-white',
+    label: 'Completed',
   },
   cancelled: {
     bg: 'bg-red-100',
@@ -61,12 +54,11 @@ const statusConfig = {
 
 const allStatuses = [
   'draft',
-  'working',
-  'filled',
-  'printing',
-  'bundling',
-  'delivered',
+  'active',
+  'in_production',
+  'printed',
   'mailed',
+  'completed',
   'cancelled',
 ];
 

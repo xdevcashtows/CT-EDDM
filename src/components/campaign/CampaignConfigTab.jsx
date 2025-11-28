@@ -1,17 +1,70 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, DollarSign, Users, MapPin, Mail, TrendingUp, Package, Edit3, Check, X, Trash2, AlertTriangle, Navigation, Home, Truck } from 'lucide-react';
-import { campaigns as campaignsAPI } from '../../lib/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { Calendar, DollarSign, Users, MapPin, Mail, TrendingUp, Package, Edit3, Check, X, Trash2, AlertTriangle, Navigation, Home, Truck, ChevronDown } from 'lucide-react';
+import { campaigns as campaignsAPI, cities as citiesAPI } from '../../lib/api';
+import { useAuth } from '../../hooks/useAuth';
 import './CampaignConfigTab.css';
 
 const statusOptions = [
   { value: 'draft', label: 'Draft', color: '#6b7280' },
-  { value: 'working', label: 'Working', color: '#eab308' },
-  { value: 'filled', label: 'Filled', color: '#f97316' },
-  { value: 'printing', label: 'Printing', color: '#06b6d4' },
-  { value: 'bundling', label: 'Bundling', color: '#3b82f6' },
-  { value: 'delivered', label: 'Delivered', color: '#84cc16' },
+  { value: 'active', label: 'Active', color: '#22c55e' },
+  { value: 'in_production', label: 'In Production', color: '#06b6d4' },
+  { value: 'printed', label: 'Printed', color: '#3b82f6' },
   { value: 'mailed', label: 'Mailed', color: '#22c55e' },
+  { value: 'completed', label: 'Completed', color: '#84cc16' },
   { value: 'cancelled', label: 'Cancelled', color: '#ef4444' },
+];
+
+const US_STATES = [
+  { value: 'AL', label: 'Alabama' },
+  { value: 'AK', label: 'Alaska' },
+  { value: 'AZ', label: 'Arizona' },
+  { value: 'AR', label: 'Arkansas' },
+  { value: 'CA', label: 'California' },
+  { value: 'CO', label: 'Colorado' },
+  { value: 'CT', label: 'Connecticut' },
+  { value: 'DE', label: 'Delaware' },
+  { value: 'FL', label: 'Florida' },
+  { value: 'GA', label: 'Georgia' },
+  { value: 'HI', label: 'Hawaii' },
+  { value: 'ID', label: 'Idaho' },
+  { value: 'IL', label: 'Illinois' },
+  { value: 'IN', label: 'Indiana' },
+  { value: 'IA', label: 'Iowa' },
+  { value: 'KS', label: 'Kansas' },
+  { value: 'KY', label: 'Kentucky' },
+  { value: 'LA', label: 'Louisiana' },
+  { value: 'ME', label: 'Maine' },
+  { value: 'MD', label: 'Maryland' },
+  { value: 'MA', label: 'Massachusetts' },
+  { value: 'MI', label: 'Michigan' },
+  { value: 'MN', label: 'Minnesota' },
+  { value: 'MS', label: 'Mississippi' },
+  { value: 'MO', label: 'Missouri' },
+  { value: 'MT', label: 'Montana' },
+  { value: 'NE', label: 'Nebraska' },
+  { value: 'NV', label: 'Nevada' },
+  { value: 'NH', label: 'New Hampshire' },
+  { value: 'NJ', label: 'New Jersey' },
+  { value: 'NM', label: 'New Mexico' },
+  { value: 'NY', label: 'New York' },
+  { value: 'NC', label: 'North Carolina' },
+  { value: 'ND', label: 'North Dakota' },
+  { value: 'OH', label: 'Ohio' },
+  { value: 'OK', label: 'Oklahoma' },
+  { value: 'OR', label: 'Oregon' },
+  { value: 'PA', label: 'Pennsylvania' },
+  { value: 'RI', label: 'Rhode Island' },
+  { value: 'SC', label: 'South Carolina' },
+  { value: 'SD', label: 'South Dakota' },
+  { value: 'TN', label: 'Tennessee' },
+  { value: 'TX', label: 'Texas' },
+  { value: 'UT', label: 'Utah' },
+  { value: 'VT', label: 'Vermont' },
+  { value: 'VA', label: 'Virginia' },
+  { value: 'WA', label: 'Washington' },
+  { value: 'WV', label: 'West Virginia' },
+  { value: 'WI', label: 'Wisconsin' },
+  { value: 'WY', label: 'Wyoming' },
 ];
 
 const adSlotOptions = [
@@ -24,24 +77,28 @@ const adSlotOptions = [
 ];
 
 export const CampaignConfigTab = ({ campaign, onUpdate, onClose, tab = 'settings' }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: campaign.name || '',
     status: campaign.status || 'draft',
     mail_date: campaign.mail_date || '',
     city: campaign.city?.name || campaign.city || '',
+    state: campaign.city?.state || '',
     slot_1_price: campaign.slot_1_price || 0,
     slot_2_price: campaign.slot_2_price || 0,
     slot_4_price: campaign.slot_4_price || 0,
     slot_8_price: campaign.slot_8_price || 0,
     slot_12_price: campaign.slot_12_price || 0,
     slot_16_price: campaign.slot_16_price || 0,
-    notes: campaign.notes || '',
+    notes: campaign.notes ?? '', // Use nullish coalescing to handle null explicitly
   });
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [editingRates, setEditingRates] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const statusDropdownRef = useRef(null);
 
   // Update formData when campaign prop changes (after parent refreshes data)
   useEffect(() => {
@@ -50,15 +107,33 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose, tab = 'settings
       status: campaign.status || 'draft',
       mail_date: campaign.mail_date || '',
       city: campaign.city?.name || campaign.city || '',
+      state: campaign.city?.state || '',
       slot_1_price: campaign.slot_1_price || 0,
       slot_2_price: campaign.slot_2_price || 0,
       slot_4_price: campaign.slot_4_price || 0,
       slot_8_price: campaign.slot_8_price || 0,
       slot_12_price: campaign.slot_12_price || 0,
       slot_16_price: campaign.slot_16_price || 0,
-      notes: campaign.notes || '',
+      notes: campaign.notes ?? '', // Use nullish coalescing to handle null explicitly
     });
   }, [campaign]);
+
+  // Close status dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
+        setShowStatusDropdown(false);
+      }
+    };
+
+    if (showStatusDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showStatusDropdown]);
 
   // Calculate analytics
   const totalSlots = campaign.total_ad_slots || 0;
@@ -75,15 +150,68 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose, tab = 'settings
     setHasChanges(true);
   };
 
+  // Helper function to find or create a city
+  const findOrCreateCity = async (cityName, stateName) => {
+    if (!cityName || !cityName.trim() || !user?.id) {
+      return null;
+    }
+
+    const trimmedCityName = cityName.trim();
+    const trimmedState = stateName?.trim() || '';
+    
+    // First, try to find existing city (match by name and state if provided)
+    const { data: existingCities } = await citiesAPI.getAll(user.id);
+    const existingCity = existingCities?.find(
+      c => c.name?.toLowerCase() === trimmedCityName.toLowerCase() &&
+           (!trimmedState || c.state?.toLowerCase() === trimmedState.toLowerCase())
+    );
+    
+    if (existingCity) {
+      return existingCity.id;
+    }
+    
+    // If not found, create a new city
+    // State is required by the database, so we must provide it
+    if (!trimmedState) {
+      console.warn('State is required for city creation. Using empty string as default.');
+    }
+    
+    const { data: newCity, error } = await citiesAPI.create({
+      name: trimmedCityName,
+      state: trimmedState || '', // Provide state (required field)
+      created_by: user.id
+    });
+    
+    if (error || !newCity) {
+      console.error('Error creating city:', error);
+      return null;
+    }
+    
+    return newCity.id;
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
       // Only send valid database fields with proper types
+      // mail_date should be null if empty string, or a proper date string
+      let mailDate = null;
+      if (formData.mail_date && formData.mail_date.trim() !== '') {
+        // Convert date string to ISO format for database
+        const date = new Date(formData.mail_date);
+        if (!isNaN(date.getTime())) {
+          mailDate = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+        }
+      }
+      
+      // Find or create city and get city_id
+      const cityId = await findOrCreateCity(formData.city, formData.state);
+      
       const cleanData = {
         name: formData.name || '',
         status: formData.status || 'draft',
-        mail_date: formData.mail_date || null,
-        city: formData.city || null,
+        mail_date: mailDate,
+        city_id: cityId, // Save city_id instead of city text
         slot_1_price: Number(formData.slot_1_price) || 0,
         slot_2_price: Number(formData.slot_2_price) || 0,
         slot_4_price: Number(formData.slot_4_price) || 0,
@@ -99,9 +227,13 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose, tab = 'settings
         console.log('Campaign saved successfully:', data);
         
         // Update formData with the saved values to reflect in the UI
+        // Convert null notes to empty string for textarea (React doesn't allow null value)
+        // Exclude city_id from formData (it's only for database, formData uses city text)
+        const { city_id, ...formDataUpdates } = cleanData;
         setFormData(prev => ({
           ...prev,
-          ...cleanData
+          ...formDataUpdates,
+          notes: cleanData.notes || ''
         }));
         
         setHasChanges(false);
@@ -329,16 +461,114 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose, tab = 'settings
     );
   }
 
+  const currentStatus = statusOptions.find(s => s.value === formData.status) || statusOptions[0];
+
   // Settings Tab
   return (
     <div className="campaign-config-tab">
       {/* Settings Section */}
       <div className="config-section settings-section-sleek">
-        <h3 className="config-section-title-sleek">Campaign Settings</h3>
-        <div className="config-form-sleek">
-          {/* Row 1: Name and Status */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h3 className="config-section-title-sleek" style={{ margin: 0 }}>Campaign Settings</h3>
+          {/* Status Pill with Dropdown */}
+          <div style={{ position: 'relative' }} ref={statusDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 1rem',
+                borderRadius: '9999px',
+                border: 'none',
+                backgroundColor: currentStatus.color,
+                color: 'white',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'opacity 0.2s',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+            >
+              {currentStatus.label}
+              <ChevronDown size={16} />
+            </button>
+            {showStatusDropdown && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: '0.5rem',
+                  backgroundColor: 'white',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.5rem',
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                  zIndex: 1000,
+                  minWidth: '180px',
+                  overflow: 'hidden',
+                }}
+              >
+                {statusOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      handleChange('status', option.value);
+                      setShowStatusDropdown(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      textAlign: 'left',
+                      border: 'none',
+                      backgroundColor: formData.status === option.value ? '#f3f4f6' : 'white',
+                      color: '#111827',
+                      fontSize: '0.875rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      transition: 'background-color 0.15s',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (formData.status !== option.value) {
+                        e.currentTarget.style.backgroundColor = '#f9fafb';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (formData.status !== option.value) {
+                        e.currentTarget.style.backgroundColor = 'white';
+                      }
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        backgroundColor: option.color,
+                        flexShrink: 0,
+                      }}
+                    />
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="config-form-sleek" style={{ 
+          backgroundColor: '#f8fafc', 
+          padding: '1.5rem', 
+          borderRadius: '0.5rem',
+          border: '1px solid #e2e8f0'
+        }}>
+          {/* Row 1: Name, City, and State */}
           <div className="form-row-sleek">
-            <div className="form-group-sleek form-group-sleek--flex-2">
+            <div className="form-group-sleek" style={{ flex: '1 1 50%', marginRight: '1rem' }}>
               <label htmlFor="campaign-name" className="form-label-sleek">
                 <Edit3 size={16} className="form-label-icon" />
                 Campaign Name
@@ -353,30 +583,45 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose, tab = 'settings
               />
             </div>
 
-            <div className="form-group-sleek">
-              <label htmlFor="campaign-status" className="form-label-sleek">
-                <TrendingUp size={16} className="form-label-icon" />
-                Status
-              </label>
-              <select
-                id="campaign-status"
-                value={formData.status}
-                onChange={(e) => handleChange('status', e.target.value)}
-                className="form-input-sleek form-select-sleek"
-                style={{ 
-                  borderLeft: `4px solid ${statusOptions.find(s => s.value === formData.status)?.color || '#6b7280'}`
-                }}
-              >
-                {statusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+            <div style={{ display: 'flex', gap: '0.75rem', flex: '1 1 50%' }}>
+              <div className="form-group-sleek" style={{ flex: '2 1 0' }}>
+                <label htmlFor="campaign-city" className="form-label-sleek">
+                  <MapPin size={16} className="form-label-icon" />
+                  City
+                </label>
+                <input
+                  id="campaign-city"
+                  type="text"
+                  value={formData.city || ''}
+                  onChange={(e) => handleChange('city', e.target.value)}
+                  className="form-input-sleek"
+                  placeholder="Enter city..."
+                />
+              </div>
+
+              <div className="form-group-sleek" style={{ flex: '1 1 0' }}>
+                <label htmlFor="campaign-state" className="form-label-sleek">
+                  <MapPin size={16} className="form-label-icon" />
+                  State
+                </label>
+                <select
+                  id="campaign-state"
+                  value={formData.state || ''}
+                  onChange={(e) => handleChange('state', e.target.value)}
+                  className="form-input-sleek form-select-sleek"
+                >
+                  <option value="">Select...</option>
+                  {US_STATES.map((state) => (
+                    <option key={state.value} value={state.value}>
+                      {state.value}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* Row 2: Mail Date and Location */}
+          {/* Row 2: Mail Date */}
           <div className="form-row-sleek">
             <div className="form-group-sleek">
               <label htmlFor="mail-date" className="form-label-sleek">
@@ -389,21 +634,6 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose, tab = 'settings
                 value={formData.mail_date ? new Date(formData.mail_date).toISOString().split('T')[0] : ''}
                 onChange={(e) => handleChange('mail_date', e.target.value)}
                 className="form-input-sleek"
-              />
-            </div>
-
-            <div className="form-group-sleek">
-              <label htmlFor="campaign-city" className="form-label-sleek">
-                <MapPin size={16} className="form-label-icon" />
-                Location / City
-              </label>
-              <input
-                id="campaign-city"
-                type="text"
-                value={formData.city || ''}
-                onChange={(e) => handleChange('city', e.target.value)}
-                className="form-input-sleek"
-                placeholder="Enter city or location..."
               />
             </div>
           </div>

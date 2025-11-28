@@ -6,35 +6,30 @@ const statusConfig = {
     text: 'text-gray-700',
     label: 'Draft',
   },
-  working: {
-    bg: 'bg-yellow-100',
-    text: 'text-yellow-700',
-    label: 'Working',
+  active: {
+    bg: 'bg-green-100',
+    text: 'text-green-700',
+    label: 'Active',
   },
-  filled: {
-    bg: 'bg-orange-100',
-    text: 'text-orange-700',
-    label: 'Filled',
-  },
-  printing: {
+  in_production: {
     bg: 'bg-cyan-100',
     text: 'text-cyan-700',
-    label: 'Printing',
+    label: 'In Production',
   },
-  bundling: {
+  printed: {
     bg: 'bg-blue-100',
     text: 'text-blue-700',
-    label: 'Bundling',
-  },
-  delivered: {
-    bg: 'bg-lime-100',
-    text: 'text-lime-700',
-    label: 'Delivered',
+    label: 'Printed',
   },
   mailed: {
     bg: 'bg-green-100',
     text: 'text-green-700',
     label: 'Mailed',
+  },
+  completed: {
+    bg: 'bg-lime-100',
+    text: 'text-lime-700',
+    label: 'Completed',
   },
   cancelled: {
     bg: 'bg-red-100',
