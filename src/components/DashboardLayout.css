@@ -72,6 +72,16 @@
   background: #334155;
   border-radius: 8px;
   margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.user-info:hover {
+  background: #475569;
+}
+
+.user-info.active {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
 }
 
 .user-avatar {

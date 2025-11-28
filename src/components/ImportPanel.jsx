@@ -23,6 +23,17 @@ function ImportPanel({ onProcessData }) {
     const incomeIdx = headers.findIndex(h => h.toLowerCase().includes('income'))
     const costIdx = headers.findIndex(h => h.toLowerCase().includes('cost'))
 
+    // Extract age range from the age column header (e.g., "Age: 35-65" -> "35-65")
+    let ageRange = null
+    if (ageIdx !== -1 && headers[ageIdx]) {
+      const ageHeader = headers[ageIdx]
+      // Try to match patterns like "Age: 35-65", "Age 35-65", "Age 35-65%", etc.
+      const rangeMatch = ageHeader.match(/(\d+)\s*[-–]\s*(\d+)/)
+      if (rangeMatch) {
+        ageRange = `${rangeMatch[1]}-${rangeMatch[2]}`
+      }
+    }
+
     // Helper function to parse income (removes $ and commas)
     const parseIncome = (value) => {
       if (!value || value.trim() === '' || value.trim() === '—') return 0
@@ -61,6 +72,7 @@ function ImportPanel({ onProcessData }) {
         business: business,
         total: total || (residential + business), // Use total or calculate
         age: parsePercentage(values[ageIdx]),
+        ageRange: ageRange, // Store the age range from header
         size: parseFloat(values[sizeIdx] || '0') || 0,
         income: parseIncome(values[incomeIdx]),
         cost: parseCost(values[costIdx])

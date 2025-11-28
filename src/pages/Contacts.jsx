@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import './Contacts.css';
-import { contacts as contactsAPI, niches as nichesAPI, clientAds, contactNotes as contactNotesAPI, pipelineStages } from '../lib/api';
+import { contacts as contactsAPI, niches as nichesAPI, clientAds, contactNotes as contactNotesAPI, pipelineStages as pipelineStagesAPI } from '../lib/api';
 import { storage } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import ImageUploader from '../components/ImageUploader';
@@ -133,7 +133,7 @@ function Contacts() {
   }, [user]);
 
   const loadPipelineStages = async () => {
-    const { data, error } = await pipelineStages.getAll(user.id);
+    const { data, error } = await pipelineStagesAPI.getAll(user.id);
     
     if (error) {
       console.error('Failed to load pipeline stages:', error);
@@ -160,7 +160,7 @@ function Contacts() {
   const initializeDefaultStages = async () => {
     // Save default stages to database for this user
     const stagePromises = DEFAULT_PIPELINE_STAGES.map((stage, index) => 
-      pipelineStages.create({
+      pipelineStagesAPI.create({
         user_id: user.id,
         stage_id: stage.id,
         label: stage.label,
@@ -179,7 +179,7 @@ function Contacts() {
       // For new stages, create them
       if (DEFAULT_PIPELINE_STAGES.find(ds => ds.id === stage.id)) {
         // Existing stage - update
-        return pipelineStages.updateMany([{
+        return pipelineStagesAPI.updateMany([{
           user_id: user.id,
           stage_id: stage.id,
           label: stage.label,
@@ -188,7 +188,7 @@ function Contacts() {
         }]);
       } else {
         // New custom stage - create
-        return pipelineStages.create({
+        return pipelineStagesAPI.create({
           user_id: user.id,
           stage_id: stage.id,
           label: stage.label,
@@ -2285,7 +2285,7 @@ function StageEditorModal({ stages, onSave, onClose, user, contacts }) {
 
     if (confirm(`Are you sure you want to delete the "${stageToDelete.label}" stage?`)) {
       // Delete from database
-      const { error } = await pipelineStages.delete(user.id, stageToDelete.id);
+      const { error } = await pipelineStagesAPI.delete(user.id, stageToDelete.id);
       
       if (error) {
         console.error('Failed to delete stage:', error);

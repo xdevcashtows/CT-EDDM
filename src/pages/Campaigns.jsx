@@ -28,8 +28,30 @@ const cloneLayout = (layout = getDefaultMockLayout('9x12')) => ({
   back: { ...layout.back }
 });
 
+const US_STATES = [
+  { value: 'AL', label: 'Alabama' }, { value: 'AK', label: 'Alaska' }, { value: 'AZ', label: 'Arizona' },
+  { value: 'AR', label: 'Arkansas' }, { value: 'CA', label: 'California' }, { value: 'CO', label: 'Colorado' },
+  { value: 'CT', label: 'Connecticut' }, { value: 'DE', label: 'Delaware' }, { value: 'FL', label: 'Florida' },
+  { value: 'GA', label: 'Georgia' }, { value: 'HI', label: 'Hawaii' }, { value: 'ID', label: 'Idaho' },
+  { value: 'IL', label: 'Illinois' }, { value: 'IN', label: 'Indiana' }, { value: 'IA', label: 'Iowa' },
+  { value: 'KS', label: 'Kansas' }, { value: 'KY', label: 'Kentucky' }, { value: 'LA', label: 'Louisiana' },
+  { value: 'ME', label: 'Maine' }, { value: 'MD', label: 'Maryland' }, { value: 'MA', label: 'Massachusetts' },
+  { value: 'MI', label: 'Michigan' }, { value: 'MN', label: 'Minnesota' }, { value: 'MS', label: 'Mississippi' },
+  { value: 'MO', label: 'Missouri' }, { value: 'MT', label: 'Montana' }, { value: 'NE', label: 'Nebraska' },
+  { value: 'NV', label: 'Nevada' }, { value: 'NH', label: 'New Hampshire' }, { value: 'NJ', label: 'New Jersey' },
+  { value: 'NM', label: 'New Mexico' }, { value: 'NY', label: 'New York' }, { value: 'NC', label: 'North Carolina' },
+  { value: 'ND', label: 'North Dakota' }, { value: 'OH', label: 'Ohio' }, { value: 'OK', label: 'Oklahoma' },
+  { value: 'OR', label: 'Oregon' }, { value: 'PA', label: 'Pennsylvania' }, { value: 'RI', label: 'Rhode Island' },
+  { value: 'SC', label: 'South Carolina' }, { value: 'SD', label: 'South Dakota' }, { value: 'TN', label: 'Tennessee' },
+  { value: 'TX', label: 'Texas' }, { value: 'UT', label: 'Utah' }, { value: 'VT', label: 'Vermont' },
+  { value: 'VA', label: 'Virginia' }, { value: 'WA', label: 'Washington' }, { value: 'WV', label: 'West Virginia' },
+  { value: 'WI', label: 'Wisconsin' }, { value: 'WY', label: 'Wyoming' }
+];
+
 const getEmptyCampaignFormData = () => ({
   name: '',
+  city: '',
+  state: '',
   saved_route_id: null,
   design_id: null,
   front_design_id: null,
@@ -1439,44 +1461,68 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
 
   const templateStepContent = (
     <div className="form-section">
-      {/* Campaign Name and Mail Date Inputs - Always visible at top */}
-      <div className="campaign-modal__form-grid" style={{ marginBottom: '32px', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-        <div className="form-group">
-          <label>Campaign Name *</label>
-          <input
-            type="text"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="e.g., Minneapolis Fall 2025"
-            required
-            autoFocus={!campaign?.id}
-          />
-          {!formData.name?.trim() && (
-            <p className="form-hint" style={{ color: '#f59e0b', marginTop: '8px' }}>
-              Please enter a campaign name to select templates
-            </p>
-          )}
+      {/* Campaign Config Grid - Compact 2x2 Layout */}
+      <div className="campaign-modal__form-grid" style={{ marginBottom: '0', display: 'flex', flexDirection: 'column', gap: '0px' }}>
+        
+        {/* Row 1: Name (Approx 65%) & Mail Date (Approx 35%) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '12px' }}>
+          <div className="form-group">
+            <label>Campaign Name *</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g., Minneapolis Fall 2025"
+              required
+              autoFocus={!campaign?.id}
+            />
+            {!formData.name?.trim()}
+          </div>
+          <div className="form-group">
+            <label>Mail Date <span style={{fontWeight: 'normal', color: '#94a3b8'}}>(Optional)</span></label>
+            <input
+              type="date"
+              value={formData.mail_date 
+                ? (typeof formData.mail_date === 'string' && formData.mail_date.includes('T')
+                    ? formData.mail_date.split('T')[0]
+                    : formData.mail_date)
+                : ''}
+              onChange={(e) => setFormData({ ...formData, mail_date: e.target.value })}
+            />
+          </div>
         </div>
-        <div className="form-group">
-          <label>Mail Date</label>
-          <input
-            type="date"
-            value={formData.mail_date 
-              ? (typeof formData.mail_date === 'string' && formData.mail_date.includes('T')
-                  ? formData.mail_date.split('T')[0]
-                  : formData.mail_date)
-              : ''}
-            onChange={(e) => setFormData({ ...formData, mail_date: e.target.value })}
-          />
-          <p className="form-hint" style={{ marginTop: '8px', fontSize: '12px' }}>
-            Optional: When do you plan to mail this campaign?
-          </p>
+
+        {/* Row 2: City (Grow) & State (Fixed) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '12px' }}>
+          <div className="form-group">
+            <label>Target City</label>
+            <input
+              type="text"
+              value={formData.city || ''}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              placeholder="Enter city..."
+            />
+          </div>
+          <div className="form-group">
+            <label>State</label>
+            <select
+              value={formData.state || ''}
+              onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+            >
+              <option value="">Select State...</option>
+              {US_STATES.map((state) => (
+                <option key={state.value} value={state.value}>
+                  {state.value} - {state.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       {templateSubStep === 'front' && (
         <>
-          <div className="section-heading" style={{ marginBottom: '1px' }}>
+          <div className="section-heading" style={{ marginBottom: '12px' }}>
             <div>
               <h3>Select Front Template</h3>
               <p>Choose a template for the front of your campaign mailer.</p>
@@ -1488,7 +1534,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
       
       {templateSubStep === 'back' && (
         <>
-          <div className="section-heading">
+          <div className="section-heading" style={{ marginBottom: '12px' }}>
             <div>
               <h3>Select Back Template</h3>
               <p>Choose a template for the back of your campaign mailer.</p>

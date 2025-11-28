@@ -18,6 +18,11 @@ function RouteAnalysisSummary({
   const safeData = Array.isArray(data) ? data : []
   const safeSelectedData = Array.isArray(selectedData) ? selectedData : []
 
+  // Extract age range from selected data (should be same across all routes)
+  const ageRange = safeSelectedData.length > 0 
+    ? safeSelectedData.find(r => r?.ageRange)?.ageRange || '30-65'
+    : '30-65'
+
   // Calculate metrics from selected routes only
   const metrics = {
     residential: safeSelectedData.reduce((sum, r) => sum + (r?.residential || 0), 0),
@@ -77,7 +82,7 @@ function RouteAnalysisSummary({
         <MetricCard icon="🏢" label="Business" value={metrics.business.toLocaleString()} />
         <MetricCard icon="⚖️" label="Residential share" value={ratioPercent === '—' ? '—' : `${ratioPercent}%`} />
         <MetricCard icon="📍" label="Total" value={metrics.total.toLocaleString()} />
-        <MetricCard icon="👥" label="Age 30-65%" value={`${metrics.ageAvg}%`} />
+        <MetricCard icon="👥" label={`Age ${ageRange}`} value={`${metrics.ageAvg}%`} />
         <MetricCard icon="📊" label="Avg Size" value={metrics.sizeAvg} />
         <MetricCard icon="💰" label="Avg $ Income" value={`$${metrics.incomeAvg.toLocaleString()}`} />
         <MetricCard icon="📋" label="Total Cost" value={`$${metrics.totalCost}`} />

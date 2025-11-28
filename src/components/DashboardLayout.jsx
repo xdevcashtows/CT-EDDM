@@ -8,7 +8,6 @@ import {
   Package, 
   Mail, 
   FileText,
-  Settings,
   LogOut
 } from 'lucide-react'
 import './DashboardLayout.css'
@@ -16,13 +15,12 @@ import { useAuth } from '../hooks/useAuth'
 
 const NAV_ITEMS = [
   { path: '/home', label: 'Dashboard', icon: Home },
+  { path: '/campaigns', label: 'Campaigns', icon: Package },
+  { path: '/designs', label: 'Designs', icon: Palette },
   { path: '/routes', label: 'Routes', icon: Map },
   { path: '/contacts', label: 'Contacts', icon: Users },
-  { path: '/designs', label: 'Designs', icon: Palette },
-  { path: '/campaigns', label: 'Campaigns', icon: Package },
-  { path: '/email-marketing', label: 'Email Marketing', icon: Mail },
-  { path: '/packing-slips', label: 'Packing Slips', icon: FileText },
-  { path: '/settings', label: 'Settings', icon: Settings }
+  { path: '/email-marketing', label: 'Emails', icon: Mail },
+  { path: '/packing-slips', label: 'Packing Slips', icon: FileText }
 ]
 
 function DashboardLayout() {
@@ -79,7 +77,10 @@ function DashboardLayout() {
 
         <div className="sidebar-footer">
           {user && (
-            <div className="user-info">
+            <div 
+              className={`user-info ${location.pathname.startsWith('/settings') ? 'active' : ''}`}
+              onClick={() => navigate('/settings')}
+            >
               <div className="user-avatar">
                 {user.email?.charAt(0).toUpperCase() || 'U'}
               </div>
