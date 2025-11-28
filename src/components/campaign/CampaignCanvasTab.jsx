@@ -146,27 +146,7 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
     }
   };
 
-  // Group slots by side (front/back) and sort by position
-  const frontSlots = slots
-    .filter(slot => slot.slot_position?.startsWith('Front'))
-    .sort((a, b) => {
-      const aNum = parseInt(a.slot_position?.split('-')[1] || '0');
-      const bNum = parseInt(b.slot_position?.split('-')[1] || '0');
-      return aNum - bNum;
-    });
-  const backSlots = slots
-    .filter(slot => slot.slot_position?.startsWith('Back'))
-    .sort((a, b) => {
-      const aNum = parseInt(a.slot_position?.split('-')[1] || '0');
-      const bNum = parseInt(b.slot_position?.split('-')[1] || '0');
-      return aNum - bNum;
-    });
-
-  // Calculate progress
-  const totalSlots = slots.length;
-  const bookedSlots = slots.filter(slot => slot.contact_id || slot.client_ad).length;
-  const fillPercentage = totalSlots > 0 ? ((bookedSlots / totalSlots) * 100).toFixed(1) : 0;
-
+  // Helper functions - defined before usage
   const getSlotBasePrice = (slot) => {
     // Calculate slot count from width * height
     const slotCount = (slot.width || 1) * (slot.height || 1);
@@ -222,6 +202,37 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
     return '#f3f4f6'; // Default gray
   };
 
+  // Group slots by side (front/back) and sort by position
+  const frontSlots = slots
+    .filter(slot => slot.slot_position?.startsWith('Front'))
+    .sort((a, b) => {
+      const aNum = parseInt(a.slot_position?.split('-')[1] || '0');
+      const bNum = parseInt(b.slot_position?.split('-')[1] || '0');
+      return aNum - bNum;
+    });
+  const backSlots = slots
+    .filter(slot => slot.slot_position?.startsWith('Back'))
+    .sort((a, b) => {
+      const aNum = parseInt(a.slot_position?.split('-')[1] || '0');
+      const bNum = parseInt(b.slot_position?.split('-')[1] || '0');
+      return aNum - bNum;
+    });
+
+  // Calculate progress based on revenue/price
+  const totalSlots = slots.length;
+  const bookedSlots = slots.filter(slot => slot.contact_id || slot.client_ad).length;
+  
+  // Calculate total value of all slots (front + back)
+  const totalValue = slots.reduce((sum, slot) => sum + getSlotBasePrice(slot), 0);
+  
+  // Calculate filled value (sum of prices for booked slots)
+  const filledValue = slots
+    .filter(slot => slot.contact_id || slot.client_ad)
+    .reduce((sum, slot) => sum + getSlotFinalPrice(slot), 0);
+  
+  // Progress percentage based on value, not count
+  const fillPercentage = totalValue > 0 ? ((filledValue / totalValue) * 100).toFixed(1) : 0;
+
   // Get current design and slots based on active side
   const currentDesign = activeSide === 'front' ? frontDesign : backDesign;
   const currentSlots = activeSide === 'front' ? frontSlots : backSlots;
@@ -232,21 +243,21 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
       <div className="canvas-progress-header">
         <div className="progress-stats">
           <div className="progress-stat">
-            <span className="progress-stat-label">Total Slots</span>
-            <span className="progress-stat-value">{totalSlots}</span>
+            <span className="progress-stat-label">Total Value</span>
+            <span className="progress-stat-value">${totalValue.toFixed(2)}</span>
           </div>
           <div className="progress-stat">
-            <span className="progress-stat-label">Booked</span>
-            <span className="progress-stat-value">{bookedSlots}</span>
+            <span className="progress-stat-label">Filled Value</span>
+            <span className="progress-stat-value">${filledValue.toFixed(2)}</span>
           </div>
           <div className="progress-stat">
-            <span className="progress-stat-label">Available</span>
-            <span className="progress-stat-value">{totalSlots - bookedSlots}</span>
+            <span className="progress-stat-label">Slots Filled</span>
+            <span className="progress-stat-value">{bookedSlots} / {totalSlots}</span>
           </div>
         </div>
         <div className="progress-bar-container">
           <div className="progress-bar-label">
-            <span>Fill Progress</span>
+            <span>Revenue Progress</span>
             <span className="progress-percentage">{fillPercentage}%</span>
           </div>
           <div className="progress-bar-track">
@@ -346,6 +357,7 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
       {showAssignModal && selectedSlot && (
         <AssignSlotModal
           slot={selectedSlot}
+          campaign={campaign}
           contacts={contacts}
           onClose={() => {
             setShowAssignModal(false);
@@ -549,13 +561,14 @@ const CanvasLayout = ({ design, slots, onSlotClick, getSlotColor, getSlotFinalPr
 };
 
 // Assign Slot Modal Component
-const AssignSlotModal = ({ slot, contacts, onClose, onAssign }) => {
+const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
   const { user } = useAuth();
   const [selectedContact, setSelectedContact] = useState(null);
   const [contactAds, setContactAds] = useState([]);
   const [selectedAd, setSelectedAd] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showAdUploader, setShowAdUploader] = useState(false);
+  const [customPrice, setCustomPrice] = useState(slot.custom_price || null);
 
   useEffect(() => {
     if (slot.contact_id) {
@@ -591,6 +604,36 @@ const AssignSlotModal = ({ slot, contacts, onClose, onAssign }) => {
       await loadContactAds(contact.id);
     }
   };
+  
+  // Get base price for this slot from campaign pricing
+  const getSlotBasePrice = () => {
+    const slotCount = (slot.width || 1) * (slot.height || 1);
+    let basePrice = 0;
+    
+    if (slotCount === 1) basePrice = Number(campaign.slot_1_price) || 0;
+    else if (slotCount === 2) basePrice = Number(campaign.slot_2_price) || 0;
+    else if (slotCount === 4) basePrice = Number(campaign.slot_4_price) || 0;
+    else if (slotCount === 8) basePrice = Number(campaign.slot_8_price) || 0;
+    else if (slotCount === 12) basePrice = Number(campaign.slot_12_price) || 0;
+    else if (slotCount === 16) basePrice = Number(campaign.slot_16_price) || 0;
+    
+    // Fallback to old pricing system
+    if (basePrice === 0) {
+      const size = slot.slot_size?.toString().toLowerCase();
+      if (size === 'small' || slotCount === 1) basePrice = Number(campaign.price_small) || 0;
+      else if (size === 'medium' || slotCount === 2) basePrice = Number(campaign.price_medium) || 0;
+      else if (size === 'large' || slotCount >= 4) basePrice = Number(campaign.price_large) || 0;
+    }
+    
+    return basePrice;
+  };
+  
+  // Initialize customPrice with base price if not already set
+  useEffect(() => {
+    if (customPrice === null) {
+      setCustomPrice(getSlotBasePrice());
+    }
+  }, []);
 
   const handleAdUpload = async (file) => {
     if (!selectedContact?.id || !user?.id) return;
@@ -634,11 +677,18 @@ const AssignSlotModal = ({ slot, contacts, onClose, onAssign }) => {
     }
 
     setLoading(true);
-    const { error } = await adSlotsAPI.update(slot.id, {
+    const updateData = {
       contact_id: selectedContact.id,
       client_ad_id: selectedAd.id,
       status: 'booked'
-    });
+    };
+    
+    // Include custom_price if it's been set (either custom or left as base price)
+    if (customPrice !== null && customPrice !== undefined) {
+      updateData.custom_price = Number(customPrice);
+    }
+    
+    const { error } = await adSlotsAPI.update(slot.id, updateData);
 
     if (!error) {
       onAssign();
@@ -753,6 +803,57 @@ const AssignSlotModal = ({ slot, contacts, onClose, onAssign }) => {
               )}
             </div>
           )}
+          
+          {/* Price Field */}
+          <div className="assign-form-group">
+            <label>Price</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <DollarSign 
+                  size={18} 
+                  style={{ 
+                    position: 'absolute', 
+                    left: '0.75rem', 
+                    top: '50%', 
+                    transform: 'translateY(-50%)',
+                    color: '#6b7280'
+                  }} 
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={customPrice || ''}
+                  onChange={(e) => setCustomPrice(parseFloat(e.target.value) || 0)}
+                  className="assign-select"
+                  style={{ paddingLeft: '2.5rem' }}
+                  placeholder="0.00"
+                />
+              </div>
+              {customPrice !== getSlotBasePrice() && (
+                <button
+                  type="button"
+                  onClick={() => setCustomPrice(getSlotBasePrice())}
+                  className="btn-primary"
+                  style={{
+                    padding: '0.5rem',
+                    fontSize: '0.75rem',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title="Reset to base price"
+                >
+                  <RotateCw size={14} />
+                </button>
+              )}
+            </div>
+            <p style={{ 
+              fontSize: '0.875rem', 
+              color: '#6b7280', 
+              marginTop: '0.5rem' 
+            }}>
+              Base price: ${getSlotBasePrice().toFixed(2)} • Edit if negotiated rate differs
+            </p>
+          </div>
         </div>
 
         <div className="assign-modal-footer">

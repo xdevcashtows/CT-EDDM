@@ -39,7 +39,7 @@ const getEmptyCampaignFormData = () => ({
   price_large: 0,
   unique_niche_per_slot: true,
   niche_restriction_type: 'any', // 'any' or 'one_per_campaign'
-  allowed_niches: [], // array of niche IDs when restriction type is 'one_per_campaign'
+  allowed_niches: [], // array of niche IDs for selected niches (only used for 'one_per_campaign' mode)
   mail_date: null,
   notes: ''
 });
@@ -514,6 +514,9 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   const selectedFrontDesign = designs.find(d => d.id === formData.front_design_id);
   const selectedBackDesign = designs.find(d => d.id === formData.back_design_id);
   const selectedDesign = selectedFrontDesign || selectedBackDesign;
+  
+  // Calculate total slots from both front and back templates
+  const totalCampaignSlots = (selectedFrontDesign?.num_slots || 0) + (selectedBackDesign?.num_slots || 0);
 
   const layoutCaps = useMemo(() => ({
     front: resolveDesignSideLayout(selectedFrontDesign, 'front'),
@@ -990,6 +993,35 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           <p>Choose how niches will be managed for this campaign.</p>
         </div>
       </div>
+      
+      {/* Display total slots from templates */}
+      {totalCampaignSlots > 0 && (
+        <div style={{
+          padding: '16px',
+          backgroundColor: '#f0f9ff',
+          border: '2px solid #3b82f6',
+          borderRadius: '8px',
+          marginBottom: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2">
+            <rect x="3" y="3" width="7" height="7"/>
+            <rect x="14" y="3" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/>
+          </svg>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e40af' }}>
+              Total Ad Slots: {totalCampaignSlots}
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>
+              Front: {selectedFrontDesign?.num_slots || 0} slots • Back: {selectedBackDesign?.num_slots || 0} slots
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="contacts-card" style={{ borderLeft: '4px solid #8b5cf6', marginBottom: '24px' }}>
         <div className="contacts-card-header">
@@ -1009,7 +1041,10 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           <button
             type="button"
             className={`selection-method-btn ${formData.niche_restriction_type === 'any' ? 'active' : ''}`}
-            onClick={() => setFormData(prev => ({ ...prev, niche_restriction_type: 'any', allowed_niches: [] }))}
+            onClick={() => setFormData(prev => ({ 
+              ...prev, 
+              niche_restriction_type: 'any'
+            }))}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="20 6 9 17 4 12"/>
@@ -1019,7 +1054,10 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           <button
             type="button"
             className={`selection-method-btn ${formData.niche_restriction_type === 'one_per_campaign' ? 'active' : ''}`}
-            onClick={() => setFormData(prev => ({ ...prev, niche_restriction_type: 'one_per_campaign' }))}
+            onClick={() => setFormData(prev => ({ 
+              ...prev, 
+              niche_restriction_type: 'one_per_campaign'
+            }))}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 11l3 3L22 4"/>
@@ -1032,13 +1070,14 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         <div className="contacts-input-section">
           <p className="form-hint" style={{ marginBottom: '12px' }}>
             {formData.niche_restriction_type === 'any' 
-              ? '✓ All niches are allowed. Clients from any niche can participate in this campaign.'
-              : '⚠ Only ONE niche can be assigned per canvas (combining front and back ad slots). Select which niches are allowed below.'
+              ? '✓ All niches are allowed. Clients from any niche can be assigned to any slot.'
+              : `⚠ One niche per slot. Select exactly ${totalCampaignSlots} niches for the ${totalCampaignSlots} ad slots in this campaign.`
             }
           </p>
         </div>
       </div>
-
+      
+      {/* Niche Selection List - Only show for "one_per_campaign" mode */}
       {formData.niche_restriction_type === 'one_per_campaign' && (
         <div className="contacts-card" style={{ borderLeft: '4px solid #3b82f6' }}>
           <div className="contacts-card-header">
@@ -1049,14 +1088,32 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
               </svg>
             </div>
             <div>
-              <h4>Select Allowed Niches</h4>
-              <p>Check each niche that can participate in this campaign</p>
+              <h4>Select Niches</h4>
+              <p>Select exactly {totalCampaignSlots} niches - one for each ad slot</p>
             </div>
           </div>
 
           <div className="contacts-input-section">
             {niches.length > 0 ? (
               <>
+                {/* Selection counter at the top */}
+                <div className={`contacts-selected-count ${
+                  (formData.allowed_niches || []).length === totalCampaignSlots ? 'success' : 'warning'
+                }`} style={{ marginBottom: '16px' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={
+                    (formData.allowed_niches || []).length === totalCampaignSlots ? '#16a34a' : '#f59e0b'
+                  } strokeWidth="2">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  <span>
+                    {(formData.allowed_niches || []).length} of {totalCampaignSlots} niches selected
+                    {(formData.allowed_niches || []).length === totalCampaignSlots 
+                      ? ' • ✓ Ready to continue' 
+                      : ` • ${totalCampaignSlots - (formData.allowed_niches || []).length} more needed`
+                    }
+                  </span>
+                </div>
+                
                 <div className="contacts-list-redesign">
                   {niches.map(niche => (
                     <label key={niche.id} className="contact-card-item">
@@ -1079,17 +1136,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
                     </label>
                   ))}
                 </div>
-                {(formData.allowed_niches || []).length > 0 && (
-                  <div className="contacts-selected-count">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                    <span>
-                      {(formData.allowed_niches || []).length} niche{(formData.allowed_niches || []).length === 1 ? '' : 's'} selected
-                      {' • '}Remember: Only ONE niche per canvas
-                    </span>
-                  </div>
-                )}
               </>
             ) : (
               <div className="contacts-empty-state">
@@ -1706,7 +1752,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   );
   const isNicheStepComplete = 
     formData.niche_restriction_type === 'any' || 
-    (formData.niche_restriction_type === 'one_per_campaign' && (formData.allowed_niches || []).length > 0);
+    (formData.niche_restriction_type === 'one_per_campaign' && (formData.allowed_niches || []).length === totalCampaignSlots);
   const isRouteStepComplete = Boolean(formData.saved_route_id);
 
   const canAdvanceFromStep = (stepIndex) => {

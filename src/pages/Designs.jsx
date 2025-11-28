@@ -60,6 +60,9 @@ function Designs() {
   const remainingCells = activePlacement
     ? activePlacement.totalCells - activePlacement.cellIds.length
     : 0;
+  
+  // Calculate total number of ad slots (placements) on the canvas
+  const totalSlots = placements.length;
 
   // Load saved templates from the database
   useEffect(() => {
@@ -357,7 +360,7 @@ const addCellToPlacement = (placementId, cellId) => {
       user_id: user.id,
       name: templateName.trim(),
       card_size: '9x12',
-      num_slots: completePlacements.reduce((sum, p) => sum + p.cellIds.length, 0),
+      num_slots: completePlacements.length, // Total number of ad slots (placements), not cells
       slot_config: slotConfig,
       is_locked: false
     };
@@ -566,6 +569,27 @@ const addCellToPlacement = (placementId, cellId) => {
               <p>Drop ad slots to capture how the postcard will look when it goes live.</p>
             </div>
             <div className="template-header-right">
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px',
+                padding: '8px 16px',
+                backgroundColor: '#f0f9ff',
+                border: '2px solid #3b82f6',
+                borderRadius: '8px',
+                marginRight: '12px'
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                </svg>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Slots</span>
+                  <span style={{ fontSize: '20px', fontWeight: '700', color: '#3b82f6', lineHeight: '1' }}>{totalSlots}</span>
+                </div>
+              </div>
               <label className="template-name-field">
                 <span style={{ fontSize: '13px', color: '#475569', marginBottom: '4px' }}>Template Name</span>
                 <input

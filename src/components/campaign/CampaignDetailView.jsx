@@ -21,6 +21,9 @@ export const CampaignDetailView = ({ campaign, isOpen, onClose, onUpdate }) => {
       setTimeout(() => setIsAnimating(true), 10);
     } else {
       setIsAnimating(false);
+      // Reset to config tab only when modal is fully closed
+      // This ensures the tab doesn't reset while the modal is still open
+      setTimeout(() => setActiveTab('config'), 300);
     }
   }, [isOpen]);
 
