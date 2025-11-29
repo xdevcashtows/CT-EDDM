@@ -105,15 +105,40 @@ function Routes() {
     return data;
   }, [routeData, residentialOnly]);
 
-  // Re-optimize when residential filter changes (but not on initial load)
+  // Store current values in refs to avoid stale closures
+  const filteredDataRef = useRef(filteredData);
+  const lastOptimizationTargetRef = useRef(lastOptimizationTarget);
+  
   useEffect(() => {
-    if (routeData.length > 0 && selectedRoutes.size > 0 && lastOptimizationTarget) {
-      const result = optimizeRoutes(filteredData, lastOptimizationTarget, residentialOnly);
-      setSelectedRoutes(new Set(result.routeIds));
-      updateBatchNumbers(result.batchMap);
+    filteredDataRef.current = filteredData;
+  }, [filteredData]);
+  
+  useEffect(() => {
+    lastOptimizationTargetRef.current = lastOptimizationTarget;
+  }, [lastOptimizationTarget]);
+
+  // Re-optimize when residential filter changes (but not on initial load)
+  const prevResidentialOnlyRef = useRef(residentialOnly);
+  const isInitialMount = useRef(true);
+  
+  useEffect(() => {
+    // Skip on initial mount
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      prevResidentialOnlyRef.current = residentialOnly;
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [residentialOnly]);
+    
+    // Only run when residentialOnly actually changes
+    if (prevResidentialOnlyRef.current !== residentialOnly) {
+      if (routeData.length > 0 && selectedRoutes.size > 0 && lastOptimizationTargetRef.current) {
+        const result = optimizeRoutes(filteredDataRef.current, lastOptimizationTargetRef.current, residentialOnly);
+        setSelectedRoutes(new Set(result.routeIds));
+        updateBatchNumbers(result.batchMap);
+      }
+      prevResidentialOnlyRef.current = residentialOnly;
+    }
+  }, [residentialOnly, routeData.length, selectedRoutes.size]);
 
   const handleSelectAll = (checked) => {
     if (checked) {
@@ -367,24 +392,8 @@ function Routes() {
               </p>
             </div>
             <div className="routes-optimization-controls">
-              <div className="routes-optimization-header">
-                <div className="routes-optimization-title-group">
-                  <div className="routes-optimization-icon">
-                    <Zap size={14} />
-                  </div>
-                </div>
-                <label className="routes-optimization-toggle">
-                  <input
-                    type="checkbox"
-                    checked={residentialOnly}
-                    onChange={(e) => setResidentialOnly(e.target.checked)}
-                    className="routes-optimization-toggle-input"
-                  />
-                  <div className="routes-optimization-toggle-wrapper">
-                    <div className="routes-optimization-toggle-slider"></div>
-                  </div>
-                  <span className="routes-optimization-toggle-label">Res. only</span>
-                </label>
+              <div className="routes-optimization-icon">
+                <Zap size={14} />
               </div>
               <div className="routes-optimization-segmented">
                 <div className="routes-optimization-segmented-bg">
@@ -411,6 +420,18 @@ function Routes() {
                   ))}
                 </div>
               </div>
+              <label className="routes-optimization-toggle">
+                <input
+                  type="checkbox"
+                  checked={residentialOnly}
+                  onChange={(e) => setResidentialOnly(e.target.checked)}
+                  className="routes-optimization-toggle-input"
+                />
+                <div className="routes-optimization-toggle-wrapper">
+                  <div className="routes-optimization-toggle-slider"></div>
+                </div>
+                <span className="routes-optimization-toggle-label">Res. only</span>
+              </label>
             </div>
             <div className="routes-batch-and-actions">
               {(() => {
@@ -457,9 +478,9 @@ function Routes() {
                         className="batch-detail-card-compact"
                         style={{ animationDelay: `${index * 0.05}s` }}
                       >
-                        <div className="batch-detail-compact-label">Batch {batch.number}</div>
+                        <div className="batch-detail-compact-label">{batch.number}</div>
                         <div className="batch-detail-compact-value">{batch.pieces.toLocaleString()}</div>
-                        <div className="batch-detail-compact-meta">{batch.routes} routes</div>
+                        <div className="batch-detail-compact-meta">{batch.routes} ROUTES</div>
                       </div>
                     ))}
                     {!hasBatches && (
@@ -471,6 +492,15 @@ function Routes() {
                 );
               })()}
               <div className="routes-table-actions" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={copySelectedToClipboard}
+                  disabled={selectedData.length === 0}
+                  className="saved-action-button saved-action-copy"
+                >
+                  <span role="img" aria-label="copy">📋</span>
+                  Copy
+                </button>
                 <div className="print-button-wrapper" ref={printConfigRef}>
                   <button
                     type="button"
@@ -479,7 +509,7 @@ function Routes() {
                     className={`saved-action-button saved-action-print ${showPrintConfig ? 'active' : ''}`}
                   >
                     <Printer size={14} />
-                    Print summary
+                    Print
                   </button>
                   {showPrintConfig && (
                     <div className="print-config-menu">
@@ -573,15 +603,6 @@ function Routes() {
                     </div>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={copySelectedToClipboard}
-                  disabled={selectedData.length === 0}
-                  className="saved-action-button saved-action-copy"
-                >
-                  <span role="img" aria-label="copy">📋</span>
-                  Copy selected
-                </button>
                 <button
                   type="button"
                   onClick={handleSaveRoute}
