@@ -723,6 +723,11 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
       }
     }
     rest.mail_date = mailDate;
+    
+    // Convert empty strings to null for city and state (better for database)
+    rest.city = rest.city && rest.city.trim() !== '' ? rest.city.trim() : null;
+    rest.state = rest.state && rest.state.trim() !== '' ? rest.state.trim() : null;
+    
     return rest;
   };
 
