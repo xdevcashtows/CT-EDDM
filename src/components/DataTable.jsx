@@ -20,33 +20,8 @@ function DataTable({ data = [], selectedRoutes = new Set(), onRouteToggle, onSel
     residentialPercent: route.total > 0 ? (route.residential / route.total) * 100 : 0
   }))
   
-  // Sort: selected routes first, then by batch number, then by sort config
+  // Sort by user's sort config if they've selected a column
   const sortedData = [...dataWithPercent].sort((a, b) => {
-    // First, sort by selected status (selected routes first)
-    const aSelected = selectedRoutes.has(a.id)
-    const bSelected = selectedRoutes.has(b.id)
-    if (aSelected && !bSelected) return -1
-    if (!aSelected && bSelected) return 1
-    
-    // If both are selected, sort by batch number (1, 2, 3, then undefined)
-    if (aSelected && bSelected) {
-      const aBatch = a.batchNumber ?? 999 // undefined batches go last
-      const bBatch = b.batchNumber ?? 999
-      if (aBatch !== bBatch) {
-        return aBatch - bBatch
-      }
-    }
-    
-    // If both are unselected, sort by batch number too (for consistency)
-    if (!aSelected && !bSelected) {
-      const aBatch = a.batchNumber ?? 999
-      const bBatch = b.batchNumber ?? 999
-      if (aBatch !== bBatch) {
-        return aBatch - bBatch
-      }
-    }
-    
-    // Then apply user's sort config if they've selected a column
     if (sortConfig.key) {
       const aVal = a[sortConfig.key]
       const bVal = b[sortConfig.key]
