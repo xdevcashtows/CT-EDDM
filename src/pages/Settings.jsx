@@ -8,7 +8,6 @@ const TAB_LINKS = [
   { id: 'notifications', label: 'Notifications', to: 'notifications' },
   { id: 'appearance', label: 'Appearance', to: 'appearance' },
   { id: 'data', label: 'Data', to: 'data' },
-  { id: 'pipeline-archives', label: 'Pipeline Archives', to: 'pipeline-archives' },
   { id: 'subscription', label: 'Subscription', to: 'subscription' },
   { id: 'payment-links', label: 'Payment Details', to: 'payment-links' }
 ]

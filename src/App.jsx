@@ -13,7 +13,6 @@ import AccountSettings from './pages/settings/Account'
 import NotificationsSettings from './pages/settings/Notifications'
 import AppearanceSettings from './pages/settings/Appearance'
 import DataSettings from './pages/settings/Data'
-import PipelineArchivesSettings from './pages/settings/PipelineArchives'
 import SubscriptionSettings from './pages/settings/Subscription'
 import PaymentLinksSettings from './pages/settings/PaymentLinks'
 import SignIn from './pages/SignIn'
@@ -42,7 +41,6 @@ function App() {
             <Route path="notifications" element={<NotificationsSettings />} />
             <Route path="appearance" element={<AppearanceSettings />} />
             <Route path="data" element={<DataSettings />} />
-            <Route path="pipeline-archives" element={<PipelineArchivesSettings />} />
             <Route path="subscription" element={<SubscriptionSettings />} />
             <Route path="payment-links" element={<PaymentLinksSettings />} />
           </Route>
