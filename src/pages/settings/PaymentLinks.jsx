@@ -20,10 +20,31 @@ const DEFAULT_PAYMENT_LINKS = [
   }
 ]
 
+const PAYMENT_METHODS = [
+  { id: 'cash', label: 'Cash', description: 'Accept cash payments' },
+  { id: 'manual_card', label: 'Manual Card Entry', description: 'Process card payments manually' },
+  { id: 'payment_link', label: 'Payment Link', description: 'Stripe/Square payment links' },
+  { id: 'venmo', label: 'Venmo', description: 'Venmo payment option' },
+  { id: 'cash_app', label: 'Cash App', description: 'Cash App payment option' },
+  { id: 'zelle', label: 'Zelle', description: 'Zelle payment option' }
+]
+
 function PaymentLinksSettings() {
   const [paymentLinks, setPaymentLinks] = useState(() =>
     DEFAULT_PAYMENT_LINKS.map((link) => ({ ...link }))
   )
+  const [paymentMethods, setPaymentMethods] = useState(() => {
+    // Load from localStorage or default to all enabled
+    const saved = localStorage.getItem('paymentMethods')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch (e) {
+        return PAYMENT_METHODS.reduce((acc, method) => ({ ...acc, [method.id]: true }), {})
+      }
+    }
+    return PAYMENT_METHODS.reduce((acc, method) => ({ ...acc, [method.id]: true }), {})
+  })
   const [feedback, setFeedback] = useState('')
 
   useEffect(() => {
@@ -57,20 +78,70 @@ function PaymentLinksSettings() {
     setPaymentLinks((prev) => prev.filter((link) => link.id !== id))
   }
 
+  const handlePaymentMethodToggle = (methodId) => {
+    setPaymentMethods(prev => {
+      const updated = { ...prev, [methodId]: !prev[methodId] }
+      localStorage.setItem('paymentMethods', JSON.stringify(updated))
+      return updated
+    })
+  }
+
   const handleSubmit = (event) => {
     event.preventDefault()
-    setFeedback('Payment links saved. Ready to attach to invoices.')
+    localStorage.setItem('paymentMethods', JSON.stringify(paymentMethods))
+    setFeedback('Payment settings saved successfully.')
   }
 
   return (
     <div className="settings-card">
       <header className="settings-card-header">
-        <h2>Payment links</h2>
+        <h2>Payment Details</h2>
         <p>
-          Drop Stripe, Square, or any payment link here so your invoices always come with an actionable “pay”
-          experience for your clients.
+          Configure payment methods available on invoices and manage payment links for your clients.
         </p>
       </header>
+
+      {/* Payment Methods Toggles */}
+      <div className="payment-methods-section">
+        <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>
+          Payment Methods
+        </h3>
+        <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '20px' }}>
+          Toggle payment methods on/off to control which options appear on invoices.
+        </p>
+        <div className="payment-methods-grid">
+          {PAYMENT_METHODS.map((method) => (
+            <label key={method.id} className="payment-method-toggle">
+              <div className="payment-method-info">
+                <div style={{ fontWeight: 600, color: '#0f172a', marginBottom: '4px' }}>
+                  {method.label}
+                </div>
+                <div style={{ fontSize: '13px', color: '#64748b' }}>
+                  {method.description}
+                </div>
+              </div>
+              <div className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={paymentMethods[method.id] || false}
+                  onChange={() => handlePaymentMethodToggle(method.id)}
+                />
+                <span className="toggle-slider"></span>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Payment Links Section */}
+      <div className="payment-links-section" style={{ marginTop: '32px', paddingTop: '32px', borderTop: '1px solid #e2e8f0' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
+          Payment Links
+        </h3>
+        <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '20px' }}>
+          Drop Stripe, Square, or any payment link here so your invoices always come with an actionable "pay"
+          experience for your clients.
+        </p>
 
       <form className="payment-form" onSubmit={handleSubmit}>
         <div className="payment-links-list">
@@ -142,6 +213,21 @@ function PaymentLinksSettings() {
       </form>
     </div>
   )
+}
+
+// Export payment methods for use in invoice generation
+export { PAYMENT_METHODS }
+export const getEnabledPaymentMethods = () => {
+  const saved = localStorage.getItem('paymentMethods')
+  if (saved) {
+    try {
+      const methods = JSON.parse(saved)
+      return PAYMENT_METHODS.filter(method => methods[method.id])
+    } catch (e) {
+      return PAYMENT_METHODS
+    }
+  }
+  return PAYMENT_METHODS
 }
 
 export default PaymentLinksSettings

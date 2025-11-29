@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, DollarSign, User, Image as ImageIcon, CheckCircle, RotateCw, Plus, Trash2, AlertTriangle, Search, X, Tag } from 'lucide-react';
+import { Upload, DollarSign, User, Image as ImageIcon, CheckCircle, RotateCw, Plus, Trash2, AlertTriangle, Search, X, Tag, FileText } from 'lucide-react';
 import { adSlots as adSlotsAPI, contacts as contactsAPI, clientAds, designs as designsAPI, campaigns as campaignsAPI } from '../../lib/api';
 import { storage } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import ImageUploader from '../ImageUploader';
+import InvoiceModal from './InvoiceModal';
 import './CampaignCanvasTab.css';
 
 export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
@@ -25,6 +26,8 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
   });
   const [showClearModal, setShowClearModal] = useState(false);
   const [clearMode, setClearMode] = useState('all'); // 'all' or slot size (1, 2, 4, 8, 12, 16)
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invoiceSlot, setInvoiceSlot] = useState(null);
 
   // Debug: Log campaign data
   console.log('CampaignCanvasTab mounted with campaign:', {
@@ -605,12 +608,24 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
           onAssign={() => {
             loadSlots();
             loadCampaignContacts(); // Reload campaign contacts in case they changed
-            if (onUpdate) {
-        console.log('📞 [CampaignCanvasTab] Calling onUpdate');
-        onUpdate();
-      }
+          }}
+          onInvoice={() => {
+            setInvoiceSlot(selectedSlot);
+            setShowInvoiceModal(true);
             setShowAssignModal(false);
-            setSelectedSlot(null);
+          }}
+        />
+      )}
+
+      {/* Invoice Modal */}
+      {showInvoiceModal && invoiceSlot && (
+        <InvoiceModal
+          slot={invoiceSlot}
+          campaign={campaign}
+          contacts={campaignContacts}
+          onClose={() => {
+            setShowInvoiceModal(false);
+            setInvoiceSlot(null);
           }}
         />
       )}
@@ -832,7 +847,7 @@ const CanvasLayout = ({ design, slots, onSlotClick, getSlotColor, getSlotFinalPr
 };
 
 // Assign Slot Modal Component
-const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
+const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign, onInvoice }) => {
   const { user } = useAuth();
   const [selectedContact, setSelectedContact] = useState(null);
   const [contactAds, setContactAds] = useState([]);
@@ -1571,6 +1586,31 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
             </button>
           )}
           <div className="assign-modal-actions">
+            {selectedContact && (
+              <button
+                onClick={onInvoice}
+                className="btn-invoice"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 20px',
+                  background: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.target.style.background = '#059669'}
+                onMouseLeave={(e) => e.target.style.background = '#10b981'}
+              >
+                <FileText size={18} />
+                Invoice
+              </button>
+            )}
             <button onClick={onClose} className="btn-cancel">
               Cancel
             </button>

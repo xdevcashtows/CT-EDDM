@@ -8,6 +8,7 @@ import {
   Package, 
   Mail, 
   FileText,
+  Sparkles,
   LogOut
 } from 'lucide-react'
 import './DashboardLayout.css'
@@ -20,7 +21,8 @@ const NAV_ITEMS = [
   { path: '/routes', label: 'Routes', icon: Map },
   { path: '/contacts', label: 'Contacts', icon: Users },
   { path: '/email-marketing', label: 'Emails', icon: Mail },
-  { path: '/packing-slips', label: 'Packing Slips', icon: FileText }
+  { path: '/packing-slips', label: 'Packing Slips', icon: FileText },
+  { path: '/ad-generator', label: 'Ad Generator', icon: Sparkles, comingSoon: true }
 ]
 
 function DashboardLayout() {
@@ -62,6 +64,22 @@ function DashboardLayout() {
           {NAV_ITEMS.map(item => {
             const Icon = item.icon
             const isActive = location.pathname === item.path
+            const isComingSoon = item.comingSoon
+            
+            if (isComingSoon) {
+              return (
+                <div
+                  key={item.path}
+                  className="nav-item coming-soon"
+                  onClick={(e) => e.preventDefault()}
+                >
+                  <Icon size={20} />
+                  <span>{item.label}</span>
+                  <span className="coming-soon-badge">Coming Soon</span>
+                </div>
+              )
+            }
+            
             return (
               <Link
                 key={item.path}

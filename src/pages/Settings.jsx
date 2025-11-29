@@ -10,7 +10,7 @@ const TAB_LINKS = [
   { id: 'data', label: 'Data', to: 'data' },
   { id: 'pipeline-archives', label: 'Pipeline Archives', to: 'pipeline-archives' },
   { id: 'subscription', label: 'Subscription', to: 'subscription' },
-  { id: 'payment-links', label: 'Payment Links', to: 'payment-links' }
+  { id: 'payment-links', label: 'Payment Details', to: 'payment-links' }
 ]
 
 function Settings() {

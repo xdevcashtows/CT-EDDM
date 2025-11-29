@@ -7,6 +7,7 @@ import Designs from './pages/Designs'
 import Campaigns from './pages/Campaigns'
 import EmailMarketing from './pages/EmailMarketing'
 import PackingSlips from './pages/PackingSlips'
+import AdGenerator from './pages/AdGenerator'
 import Settings from './pages/Settings'
 import AccountSettings from './pages/settings/Account'
 import NotificationsSettings from './pages/settings/Notifications'
@@ -34,6 +35,7 @@ function App() {
           <Route path="campaigns" element={<Campaigns />} />
           <Route path="email-marketing" element={<EmailMarketing />} />
           <Route path="packing-slips" element={<PackingSlips />} />
+          <Route path="ad-generator" element={<AdGenerator />} />
           <Route path="settings" element={<Settings />}>
             <Route index element={<Navigate to="account" replace />} />
             <Route path="account" element={<AccountSettings />} />
