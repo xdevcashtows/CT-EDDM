@@ -38,10 +38,52 @@
   color: #1f2a44;
 }
 
+.data-table th.sortable:hover .th-metric {
+  color: #4f46e5;
+}
+
+.th-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 42px;
+  justify-content: center;
+}
+
+.th-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4c5671;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.th-metric {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1f2a44;
+  letter-spacing: 0;
+  text-transform: none;
+  transition: color 0.2s ease;
+  line-height: 1.2;
+}
+
 .sort-icon {
   font-size: 10px;
   color: #94a3b8;
   margin-left: 4px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 8px;
+}
+
+.data-table th.sortable {
+  position: relative;
+  padding-right: 28px;
 }
 
 .data-table tbody tr {

@@ -3,8 +3,9 @@
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  flex: 1;
-  margin-right: 16px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .import-textarea-container {
@@ -12,17 +13,20 @@
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 12px;
+  flex: 1;
+  display: flex;
 }
 
 .import-textarea {
   width: 100%;
-  min-height: 150px;
+  min-height: 280px;
   padding: 12px;
   border: none;
   font-family: 'Courier New', monospace;
   font-size: 13px;
   resize: vertical;
   outline: none;
+  flex: 1;
 }
 
 .process-button {

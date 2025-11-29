@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Printer, Save, ChevronDown, ChevronUp } from 'lucide-react';
+import { Printer, Save, ChevronDown, ChevronUp, Zap } from 'lucide-react';
 import './Routes.css';
 import ImportPanel from '../components/ImportPanel';
-import RouteAnalysisSummary from '../components/RouteAnalysisSummary';
 import DataTable from '../components/DataTable';
 import SavedRoutes from '../components/SavedRoutes';
 import { optimizeRoutes } from '../utils/optimizeRoutes';
@@ -14,6 +13,13 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import PageLayout from '../components/PageLayout';
 import { enrichSavedRoutesWithLock } from '../utils/routeLocking';
+
+const QUICK_TARGETS = [
+  { value: 2500, label: '2,500' },
+  { value: 5000, label: '5,000' },
+  { value: 10000, label: '10,000' },
+  { value: 15000, label: '15,000' }
+];
 
 function Routes() {
   const { user } = useAuth();
@@ -231,10 +237,7 @@ function Routes() {
   const printTimestampRef = useRef(new Date().toLocaleString());
   const printConfigRef = useRef(null);
   const [showPrintConfig, setShowPrintConfig] = useState(false);
-  const [isImportCollapsed, setIsImportCollapsed] = useState(false);
-  const [isSavedRoutesCollapsed, setIsSavedRoutesCollapsed] = useState(false);
-  const [isAnalysisCollapsed, setIsAnalysisCollapsed] = useState(false);
-  const [isRoutesTableCollapsed, setIsRoutesTableCollapsed] = useState(false);
+  const [isDataManagementCollapsed, setIsDataManagementCollapsed] = useState(false);
   const [printColumns, setPrintColumns] = useState({
     route: true,
     residential: true,
@@ -327,74 +330,148 @@ function Routes() {
   return (
     <PageLayout {...layoutProps} className="page-shell--fullwidth">
       <div className="routes-page">
-        <div className="routes-top-row">
-          <div className="routes-import-card collapsible-section">
-            <div 
-              className="collapsible-header"
-              onClick={() => setIsImportCollapsed(!isImportCollapsed)}
-            >
-              <h3>Import Data</h3>
-              {isImportCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
-            </div>
-            <div className={`collapsible-content ${isImportCollapsed ? 'collapsed' : ''}`}>
-              <ImportPanel onProcessData={handleProcessData} />
-            </div>
-          </div>
-
-          <div className="routes-top-card collapsible-section">
-            <div 
-              className="collapsible-header"
-              onClick={() => setIsSavedRoutesCollapsed(!isSavedRoutesCollapsed)}
-            >
-              <h3>Saved Routes</h3>
-              {isSavedRoutesCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
-            </div>
-            <div className={`collapsible-content ${isSavedRoutesCollapsed ? 'collapsed' : ''}`}>
-              <SavedRoutes 
-                routes={savedRoutes}
-                onLoad={handleLoadSavedRoute}
-                onDelete={handleDeleteSavedRoute}
-                onRename={handleRenameSavedRoute}
-                loading={loading}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="route-analysis-row collapsible-section">
+        <div className="routes-data-management collapsible-section">
           <div 
             className="collapsible-header"
-            onClick={() => setIsAnalysisCollapsed(!isAnalysisCollapsed)}
+            onClick={() => setIsDataManagementCollapsed(!isDataManagementCollapsed)}
           >
-            <h3>Route Analysis</h3>
-            {isAnalysisCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+            <h3>Data Management</h3>
+            {isDataManagementCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
           </div>
-          <div className={`collapsible-content ${isAnalysisCollapsed ? 'collapsed' : ''}`}>
-            <RouteAnalysisSummary 
-              data={filteredData}
-              residentialOnly={residentialOnly}
-              onResidentialOnlyChange={setResidentialOnly}
-              selectedData={selectedData}
-              onOptimize={handleOptimize}
-              activeTarget={lastOptimizationTarget}
-            />
+          <div className={`collapsible-content ${isDataManagementCollapsed ? 'collapsed' : ''}`}>
+            <div className="data-management-grid">
+              <div className="data-management-section">
+                <h4 className="data-management-section-title">Import Data</h4>
+                <ImportPanel onProcessData={handleProcessData} />
+              </div>
+              <div className="data-management-section">
+                <h4 className="data-management-section-title">Saved Routes</h4>
+                <SavedRoutes 
+                  routes={savedRoutes}
+                  onLoad={handleLoadSavedRoute}
+                  onDelete={handleDeleteSavedRoute}
+                  onRename={handleRenameSavedRoute}
+                  loading={loading}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        <section className="routes-table-card collapsible-section">
-          <div 
-            className="collapsible-header routes-table-header"
-            onClick={() => setIsRoutesTableCollapsed(!isRoutesTableCollapsed)}
-          >
+        <section className="routes-table-card">
+          <div className="routes-table-header">
             <div>
               <h2>Routes</h2>
               <p className="routes-table-subtitle">
                 {filteredData.length.toLocaleString()} routes imported · {selectedData.length.toLocaleString()} selected
               </p>
             </div>
-            <div className="routes-table-actions-wrapper">
-              {!isRoutesTableCollapsed && (
-                <div className="routes-table-actions" onClick={(e) => e.stopPropagation()}>
+            <div className="routes-optimization-controls">
+              <div className="routes-optimization-header">
+                <div className="routes-optimization-title-group">
+                  <div className="routes-optimization-icon">
+                    <Zap size={14} />
+                  </div>
+                  <h3 className="routes-optimization-title">Quick Optimization</h3>
+                </div>
+                <label className="routes-optimization-toggle">
+                  <input
+                    type="checkbox"
+                    checked={residentialOnly}
+                    onChange={(e) => setResidentialOnly(e.target.checked)}
+                    className="routes-optimization-toggle-input"
+                  />
+                  <div className="routes-optimization-toggle-wrapper">
+                    <div className="routes-optimization-toggle-slider"></div>
+                  </div>
+                  <span className="routes-optimization-toggle-label">Res. only</span>
+                </label>
+              </div>
+              <div className="routes-optimization-segmented">
+                <div className="routes-optimization-segmented-bg">
+                  <div 
+                    className="routes-optimization-segmented-indicator"
+                    style={{
+                      left: QUICK_TARGETS.findIndex(opt => opt.value === lastOptimizationTarget) >= 0 
+                        ? `${QUICK_TARGETS.findIndex(opt => opt.value === lastOptimizationTarget) * 25 + 0.5}%` 
+                        : '0.5%',
+                      width: 'calc(25% - 4px)'
+                    }}
+                  />
+                </div>
+                <div className="routes-optimization-segmented-buttons">
+                  {QUICK_TARGETS.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => handleOptimize(option.value)}
+                      className={`routes-optimization-segmented-btn ${lastOptimizationTarget === option.value ? 'active' : ''}`}
+                    >
+                      <div className="routes-optimization-segmented-value">{option.label}</div>
+                      <div className="routes-optimization-segmented-unit">pcs</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="routes-batch-and-actions">
+              {(() => {
+                const safeSelectedData = Array.isArray(selectedData) ? selectedData : [];
+                
+                // Calculate batch totals (same logic as RouteAnalysisSummary)
+                const batch1Data = safeSelectedData.filter(r => r.batchNumber === 1);
+                const batch1 = batch1Data.reduce((sum, r) => {
+                  const isPBOX = r.route?.includes("PBOX");
+                  if (isPBOX) return sum + (r.total || 0);
+                  return sum + (residentialOnly ? (r.residential || 0) : (r.total || 0));
+                }, 0);
+                const batch1Routes = batch1Data.length;
+                
+                const batch2Data = safeSelectedData.filter(r => r.batchNumber === 2);
+                const batch2 = batch2Data.reduce((sum, r) => {
+                  const isPBOX = r.route?.includes("PBOX");
+                  if (isPBOX) return sum + (r.total || 0);
+                  return sum + (residentialOnly ? (r.residential || 0) : (r.total || 0));
+                }, 0);
+                const batch2Routes = batch2Data.length;
+                
+                const batch3Data = safeSelectedData.filter(r => r.batchNumber === 3);
+                const batch3 = batch3Data.reduce((sum, r) => {
+                  const isPBOX = r.route?.includes("PBOX");
+                  if (isPBOX) return sum + (r.total || 0);
+                  return sum + (residentialOnly ? (r.residential || 0) : (r.total || 0));
+                }, 0);
+                const batch3Routes = batch3Data.length;
+
+                const batches = [
+                  { number: 1, pieces: batch1, routes: batch1Routes },
+                  { number: 2, pieces: batch2, routes: batch2Routes },
+                  { number: 3, pieces: batch3, routes: batch3Routes }
+                ].filter(b => b.pieces > 0);
+
+                const hasBatches = batches.length > 0;
+
+                return (
+                  <div className="routes-batch-details">
+                    {hasBatches && batches.map((batch, index) => (
+                      <div 
+                        key={batch.number}
+                        className="batch-detail-card-compact"
+                        style={{ animationDelay: `${index * 0.05}s` }}
+                      >
+                        <div className="batch-detail-compact-label">Batch {batch.number}</div>
+                        <div className="batch-detail-compact-value">{batch.pieces.toLocaleString()}</div>
+                        <div className="batch-detail-compact-meta">{batch.routes} routes</div>
+                      </div>
+                    ))}
+                    {!hasBatches && (
+                      <div className="batch-detail-card-compact batch-empty-compact">
+                        <div className="batch-empty-compact-text">No batches assigned</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+              <div className="routes-table-actions" onClick={(e) => e.stopPropagation()}>
                 <div className="print-button-wrapper" ref={printConfigRef}>
                   <button
                     type="button"
@@ -515,21 +592,17 @@ function Routes() {
                   <Save size={14} />
                   Save route
                 </button>
-                </div>
-              )}
-              {isRoutesTableCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+              </div>
             </div>
           </div>
-          <div className={`collapsible-content ${isRoutesTableCollapsed ? 'collapsed' : ''}`}>
-            <div className="routes-table-body">
-              <DataTable 
-                data={filteredData}
-                selectedRoutes={selectedRoutes}
-                onRouteToggle={handleRouteToggle}
-                onSelectAll={handleSelectAll}
-                onBatchChange={handleBatchChange}
-              />
-            </div>
+          <div className="routes-table-body">
+            <DataTable 
+              data={filteredData}
+              selectedRoutes={selectedRoutes}
+              onRouteToggle={handleRouteToggle}
+              onSelectAll={handleSelectAll}
+              onBatchChange={handleBatchChange}
+            />
           </div>
         </section>
       <div className="routes-print-summary" aria-hidden="true">

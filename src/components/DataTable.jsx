@@ -19,6 +19,26 @@ function DataTable({ data = [], selectedRoutes = new Set(), onRouteToggle, onSel
     ...route,
     residentialPercent: route.total > 0 ? (route.residential / route.total) * 100 : 0
   }))
+
+  // Calculate metrics from selected routes only
+  const selectedData = dataWithPercent.filter(route => selectedRoutes.has(route.id))
+  const metrics = {
+    residential: selectedData.reduce((sum, r) => sum + (r?.residential || 0), 0),
+    business: selectedData.reduce((sum, r) => sum + (r?.business || 0), 0),
+    total: selectedData.reduce((sum, r) => sum + (r?.total || 0), 0),
+    ageAvg: selectedData.length > 0 
+      ? (selectedData.reduce((sum, r) => sum + (r?.age || 0), 0) / selectedData.length).toFixed(1)
+      : '0.0',
+    sizeAvg: selectedData.length > 0
+      ? (selectedData.reduce((sum, r) => sum + (r?.size || 0), 0) / selectedData.length).toFixed(2)
+      : '0.00',
+    incomeAvg: selectedData.length > 0
+      ? Math.round(selectedData.reduce((sum, r) => sum + (r?.income || 0), 0) / selectedData.length)
+      : 0,
+    totalCost: selectedData.reduce((sum, r) => sum + (parseFloat(r?.cost) || 0), 0).toFixed(2)
+  }
+  const mixRatio = metrics.residential + metrics.business
+  const residentialSharePercent = mixRatio > 0 ? ((metrics.residential / mixRatio) * 100).toFixed(1) : '0.0'
   
   // Sort by user's sort config if they've selected a column
   const sortedData = [...dataWithPercent].sort((a, b) => {
@@ -69,34 +89,68 @@ function DataTable({ data = [], selectedRoutes = new Set(), onRouteToggle, onSel
               />
             </th>
             <th onClick={() => handleSort('batchNumber')} className="sortable">
-              BATCH <SortIcon columnKey="batchNumber" />
+              <span className="th-label">BATCH</span>
+              <SortIcon columnKey="batchNumber" />
             </th>
             <th onClick={() => handleSort('route')} className="sortable">
-              ROUTE <SortIcon columnKey="route" />
+              <span className="th-label">ROUTE</span>
+              <SortIcon columnKey="route" />
             </th>
             <th onClick={() => handleSort('residential')} className="sortable">
-              RES. <SortIcon columnKey="residential" />
+              <div className="th-content">
+                <span className="th-label">RES.</span>
+                <span className="th-metric">{metrics.residential.toLocaleString()}</span>
+              </div>
+              <SortIcon columnKey="residential" />
             </th>
             <th onClick={() => handleSort('business')} className="sortable">
-              BUS. <SortIcon columnKey="business" />
+              <div className="th-content">
+                <span className="th-label">BUS.</span>
+                <span className="th-metric">{metrics.business.toLocaleString()}</span>
+              </div>
+              <SortIcon columnKey="business" />
             </th>
             <th onClick={() => handleSort('total')} className="sortable">
-              TOTAL <SortIcon columnKey="total" />
+              <div className="th-content">
+                <span className="th-label">TOTAL</span>
+                <span className="th-metric">{metrics.total.toLocaleString()}</span>
+              </div>
+              <SortIcon columnKey="total" />
             </th>
             <th onClick={() => handleSort('residentialPercent')} className="sortable">
-              RES. % <SortIcon columnKey="residentialPercent" />
+              <div className="th-content">
+                <span className="th-label">RES. %</span>
+                <span className="th-metric">{residentialSharePercent}%</span>
+              </div>
+              <SortIcon columnKey="residentialPercent" />
             </th>
             <th onClick={() => handleSort('age')} className="sortable">
-              AGE % <SortIcon columnKey="age" />
+              <div className="th-content">
+                <span className="th-label">AGE %</span>
+                <span className="th-metric">{metrics.ageAvg}%</span>
+              </div>
+              <SortIcon columnKey="age" />
             </th>
             <th onClick={() => handleSort('size')} className="sortable">
-              SIZE <SortIcon columnKey="size" />
+              <div className="th-content">
+                <span className="th-label">SIZE</span>
+                <span className="th-metric">{metrics.sizeAvg}</span>
+              </div>
+              <SortIcon columnKey="size" />
             </th>
             <th onClick={() => handleSort('income')} className="sortable">
-              INCOME <SortIcon columnKey="income" />
+              <div className="th-content">
+                <span className="th-label">INCOME</span>
+                <span className="th-metric">${metrics.incomeAvg.toLocaleString()}</span>
+              </div>
+              <SortIcon columnKey="income" />
             </th>
             <th onClick={() => handleSort('cost')} className="sortable">
-              COST <SortIcon columnKey="cost" />
+              <div className="th-content">
+                <span className="th-label">COST</span>
+                <span className="th-metric">${metrics.totalCost}</span>
+              </div>
+              <SortIcon columnKey="cost" />
             </th>
           </tr>
         </thead>
