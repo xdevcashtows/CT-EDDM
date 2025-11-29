@@ -144,6 +144,25 @@ export const storage = {
       .remove([path]);
     
     return { error };
+  },
+
+  uploadLogo: async (userId, file) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}/logo/${Date.now()}.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from('logos')
+      .upload(fileName, file, {
+        upsert: true
+      });
+    
+    if (error) return { data: null, error };
+    
+    const { data: urlData } = supabase.storage
+      .from('logos')
+      .getPublicUrl(fileName);
+    
+    return { data: { path: fileName, url: urlData.publicUrl }, error: null };
   }
 };
 

@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, Check, AlertCircle } from 'lucide-react';
 import './ImageUploader.css';
 
 export default function ImageUploader({ 
   onUpload, 
+  onRemove,
   currentImage = null,
   maxSizeMB = 10,
   acceptedFormats = ['image/jpeg', 'image/jpg', 'image/png'],
@@ -15,6 +16,10 @@ export default function ImageUploader({
   const [error, setError] = useState(null);
   const [preview, setPreview] = useState(currentImage);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    setPreview(currentImage);
+  }, [currentImage]);
 
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -59,6 +64,9 @@ export default function ImageUploader({
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+    if (onRemove) {
+      onRemove();
     }
   };
 

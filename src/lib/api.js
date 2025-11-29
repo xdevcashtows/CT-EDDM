@@ -25,6 +25,31 @@ export const profiles = {
       .single();
 
     return { data, error };
+  },
+
+  getById: async (userId) => {
+    if (isMockMode) {
+      return { data: null, error: null };
+    }
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    return { data, error };
+  },
+
+  update: async (userId, updates) => {
+    if (isMockMode) {
+      return { data: null, error: null };
+    }
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', userId)
+      .select()
+      .single();
+    return { data, error };
   }
 };
 
