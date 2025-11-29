@@ -8,6 +8,7 @@ const TAB_LINKS = [
   { id: 'account', label: 'Account', to: 'account', icon: '👤' },
   { id: 'notifications', label: 'Notifications', to: 'notifications', icon: '🔔' },
   { id: 'appearance', label: 'Appearance', to: 'appearance', icon: '🎨' },
+  // { id: 'eddm-tools', label: 'EDDM Tools', to: 'eddm-tools', icon: '📮' },
   { id: 'subscription', label: 'Subscription', to: 'subscription', icon: '💳' },
   { id: 'payment-links', label: 'Payment Details', to: 'payment-links', icon: '💵' }
 ]
@@ -21,6 +22,7 @@ function Settings() {
       title="Settings"
       subtitle="Configure your CRM preferences and account settings."
       tip="Customize your experience"
+      className="page-shell--fullwidth"
     >
       <div className="settings-container">
         <div className="settings-sidebar">

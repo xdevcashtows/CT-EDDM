@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Cash Tows EDDM - EDDM Table Copier",
+  "version": "1.0.0",
+  "description": "Automatically copies EDDM route table data to clipboard for easy pasting into spreadsheets",
+  "permissions": [
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "https://eddm.usps.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://eddm.usps.com/eddm/select-routes.htm*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
+

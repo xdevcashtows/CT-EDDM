@@ -73,6 +73,10 @@
     padding: 24px 16px 40px;
   }
 
+  .page-shell.page-shell--fullwidth {
+    padding: 24px 16px 40px;
+  }
+
   .page-shell-header {
     flex-direction: column;
     align-items: flex-start;

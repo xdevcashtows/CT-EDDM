@@ -4,6 +4,8 @@
   grid-template-columns: 240px 1fr;
   gap: 32px;
   align-items: start;
+  width: 100%;
+  max-width: 100%;
 }
 
 .settings-sidebar {
@@ -541,6 +543,7 @@
     flex-direction: row;
     overflow-x: auto;
     padding: 8px;
+    -webkit-overflow-scrolling: touch;
   }
 
   .settings-nav-item {
@@ -562,6 +565,16 @@
 
   .payment-methods-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .settings-container {
+    gap: 20px;
+  }
+
+  .settings-nav {
+    gap: 4px;
   }
 }
 
