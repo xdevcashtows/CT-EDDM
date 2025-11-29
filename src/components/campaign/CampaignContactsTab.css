@@ -2168,6 +2168,13 @@
   color: #111827;
 }
 
+.niche-checklist-total {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+  font-weight: 500;
+}
+
 .niche-checklist-column-content {
   flex: 1;
   overflow-y: auto;
@@ -2424,6 +2431,7 @@
   position: relative;
   cursor: grab;
   user-select: none;
+  touch-action: none;
 }
 
 .kanban-card::before {
@@ -2447,9 +2455,10 @@
 }
 
 .kanban-card.dragging {
-  opacity: 0.5;
-  transform: rotate(2deg);
+  opacity: 0.8;
   cursor: grabbing;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
 }
 
 .kanban-card-content {
@@ -2457,6 +2466,11 @@
   padding-left: 1rem;
   cursor: pointer;
   position: relative;
+  pointer-events: auto;
+}
+
+.kanban-card.dragging .kanban-card-content {
+  pointer-events: none;
 }
 
 .kanban-card-header {

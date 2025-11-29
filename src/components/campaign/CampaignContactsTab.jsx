@@ -738,87 +738,18 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
 
   return (
     <div className="campaign-contacts-tab">
-      {/* Summary Header - Full Width */}
-      <div className="contacts-summary-header">
-        <div className="summary-stats">
-          <div className="summary-stat">
-            <div className="summary-stat-icon" style={{ backgroundColor: '#dbeafe' }}>
-              <User size={20} style={{ color: '#3b82f6' }} />
-            </div>
-            <div>
-              <div className="summary-stat-label">Total Advertisers</div>
-              <div className="summary-stat-value">{totalContacts}</div>
-            </div>
-          </div>
-
-          <div className="summary-stat">
-            <div className="summary-stat-icon" style={{ backgroundColor: '#dcfce7' }}>
-              <Building size={20} style={{ color: '#22c55e' }} />
-            </div>
-            <div>
-              <div className="summary-stat-label">Total Slots Sold</div>
-              <div className="summary-stat-value">{totalSlots}</div>
-            </div>
-          </div>
-
-          <div className="summary-stat">
-            <div className="summary-stat-icon" style={{ backgroundColor: '#fef3c7' }}>
-              <Mail size={20} style={{ color: '#eab308' }} />
-            </div>
-            <div>
-              <div className="summary-stat-label">Total Revenue</div>
-              <div className="summary-stat-value">${Math.round(totalRevenue).toLocaleString()}</div>
-            </div>
-          </div>
-
-          <div className="summary-stat">
-            <div className="summary-stat-icon" style={{ backgroundColor: '#e0e7ff' }}>
-              <Send size={20} style={{ color: '#6366f1' }} />
-            </div>
-            <div>
-              <div className="summary-stat-label">Emails Sent</div>
-              <div className="summary-stat-value">{emailStats.totalSent}</div>
-            </div>
-          </div>
-
-          <div className="summary-stat">
-            <div className="summary-stat-icon" style={{ backgroundColor: '#fef3c7' }}>
-              <Clock size={20} style={{ color: '#f59e0b' }} />
-            </div>
-            <div>
-              <div className="summary-stat-label">Emails Waiting</div>
-              <div className="summary-stat-value">{emailStats.totalWaiting}</div>
-            </div>
-          </div>
-
-          {campaign.niche_restriction_type === 'one_per_campaign' && (
-            <div className="summary-stat">
-              <div className="summary-stat-icon" style={{ backgroundColor: '#fef3f2' }}>
-                <Tag size={20} style={{ color: '#ef4444' }} />
-              </div>
-              <div>
-                <div className="summary-stat-label">Niche Slots</div>
-                <div className="summary-stat-value">
-                  {filledNicheSlots} / {totalNicheSlots}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Action Bar */}
-        <div className="contacts-action-bar">
-          {/* Add Advertiser button moved to view controls */}
-        </div>
-      </div>
-
       {/* Two Column Layout */}
       <div className="contacts-tab-layout">
         {/* Left Column - Niche Checklist */}
         <div className="niche-checklist-column">
           <div className="niche-checklist-column-header">
             <Tag size={18} />
-            <h3>Business Niches on Card</h3>
+            <div style={{ flex: 1 }}>
+              <h3>Business Niches on Card</h3>
+              <div className="niche-checklist-total">
+                Total: {nicheChecklist.length}
+              </div>
+            </div>
           </div>
           <div className="niche-checklist-column-content">
             {nicheChecklist.length === 0 ? (
@@ -1246,8 +1177,8 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
                                     {...provided.dragHandleProps}
                                     className={`kanban-card ${snapshot.isDragging ? 'dragging' : ''}`}
                                     style={{
-                                      cursor: 'grab',
-                                      ...provided.draggableProps.style
+                                      ...provided.draggableProps.style,
+                                      cursor: snapshot.isDragging ? 'grabbing' : 'grab',
                                     }}
                                   >
                                     <ContactKanbanCard
