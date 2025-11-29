@@ -5,7 +5,7 @@ import {
   CheckCircle2, Circle, Filter, ChevronDown, 
   ChevronRight, DollarSign, LayoutGrid, Star, Trash2, 
   Flame, Thermometer, Snowflake, Image as ImageIcon, 
-  ImageOff
+  ImageOff, Download
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
@@ -614,6 +614,122 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
     }
   };
 
+  // Export campaign contacts to CSV
+  const handleExportCSV = () => {
+    if (campaignContacts.length === 0) {
+      alert('No contacts to export');
+      return;
+    }
+
+    // Prepare CSV headers - include all contact information
+    const headers = [
+      'business_name',
+      'owner_name',
+      'email',
+      'phone',
+      'website',
+      'address',
+      'city',
+      'state',
+      'zip',
+      'mailing_location',
+      'niche',
+      'stage',
+      'temperature',
+      'tags',
+      'notes',
+      'is_favorite',
+      'first_contact_date',
+      'last_contact_date',
+      'next_follow_up_date',
+      'slots_assigned',
+      'total_revenue',
+      'created_at'
+    ];
+
+    // Escape CSV values
+    const escapeCSV = (value) => {
+      if (value === null || value === undefined) return '';
+      const stringValue = String(value);
+      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    // Format date helper
+    const formatDate = (dateString) => {
+      if (!dateString) return '';
+      try {
+        return new Date(dateString).toLocaleDateString();
+      } catch {
+        return dateString;
+      }
+    };
+
+    // Prepare CSV rows
+    const rows = campaignContacts.map(contact => {
+      const tags = Array.isArray(contact.tags) 
+        ? contact.tags.join(', ') 
+        : typeof contact.tags === 'string' 
+        ? contact.tags 
+        : '';
+
+      const stage = pipelineStages.find(s => s.id === contact.stage)?.label || contact.stage || '';
+      const niche = contact.niche || niches.find(n => n.id === contact.niche_id);
+      const contactSlots = getContactSlots(contact.id);
+      const revenue = getContactRevenue(contact.id);
+
+      return [
+        contact.business_name || '',
+        contact.owner_name || '',
+        contact.email || '',
+        contact.phone || '',
+        contact.website || '',
+        contact.address || '',
+        contact.city || '',
+        contact.state || '',
+        contact.zip || '',
+        contact.mailing_location || '',
+        niche?.name || '',
+        stage,
+        contact.temperature || 'warm',
+        tags,
+        contact.notes || '',
+        contact.is_favorite ? 'Yes' : 'No',
+        formatDate(contact.first_contact_date),
+        formatDate(contact.last_contact_date),
+        formatDate(contact.next_follow_up_date),
+        contactSlots.length.toString(),
+        Math.round(revenue).toLocaleString(),
+        formatDate(contact.created_at)
+      ];
+    });
+
+    // Build CSV content
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(escapeCSV).join(','))
+    ].join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    const campaignName = campaign?.name || 'campaign';
+    const sanitizedCampaignName = campaignName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const fileName = `${sanitizedCampaignName}_contacts_${new Date().toISOString().split('T')[0]}.csv`;
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', fileName);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Group contacts by stage for kanban
   const contactsByStage = pipelineStages.reduce((acc, stage) => {
     acc[stage.id] = filteredContacts.filter(c => c.stage === stage.id);
@@ -651,7 +767,7 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
             </div>
             <div>
               <div className="summary-stat-label">Total Revenue</div>
-              <div className="summary-stat-value">${totalRevenue.toLocaleString()}</div>
+              <div className="summary-stat-value">${Math.round(totalRevenue).toLocaleString()}</div>
             </div>
           </div>
 
@@ -778,6 +894,15 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
                 <UserPlus size={18} />
                 Add Advertiser
               </button>
+              <button 
+                className="add-contact-btn"
+                onClick={handleExportCSV}
+                disabled={campaignContacts.length === 0}
+                title="Export all campaign contacts to CSV"
+              >
+                <Download size={18} />
+                Export Contacts
+              </button>
             </div>
           </div>
 
@@ -894,7 +1019,7 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
                       </span>
                       <span className="niche-stat-item">
                         <DollarSign size={14} />
-                        ${nicheRevenue.toLocaleString()}
+                        ${Math.round(nicheRevenue).toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -1028,7 +1153,7 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
                                 <td>
                                   <div className="table-revenue-info">
                                     <DollarSign size={14} />
-                                    <span>${revenue.toLocaleString()}</span>
+                                    <span>${Math.round(revenue).toLocaleString()}</span>
                                   </div>
                                 </td>
                                 <td>
@@ -1321,7 +1446,7 @@ const ContactCard = ({ contact, campaign, slots, revenue, emailStatus, pipelineS
         <DollarSign size={18} />
         <div className="revenue-content">
           <span className="revenue-label">Revenue</span>
-          <span className="revenue-value">${revenue.toLocaleString()}</span>
+          <span className="revenue-value">${Math.round(revenue).toLocaleString()}</span>
         </div>
       </div>
 
@@ -1375,7 +1500,7 @@ const ContactKanbanCard = ({ contact, slots, revenue, emailStatus, onView, onRem
       <div className="kanban-card-footer">
         <div className="kanban-card-stat">
           <span>{slots.length} slot{slots.length !== 1 ? 's' : ''}</span>
-          <span>${revenue.toFixed(2)}</span>
+          <span>${Math.round(revenue).toLocaleString()}</span>
         </div>
         {(emailStatus.sent > 0 || emailStatus.waiting > 0) && (
           <div className="kanban-card-email-status">
@@ -1524,7 +1649,7 @@ const ContactDetailsModal = ({ contact, slots, campaign, emailStatus, onClose })
             <div className="slots-section-header">
               <h4>Assigned Slots ({slots.length})</h4>
               <div className="slots-total-revenue">
-                Total Revenue: <strong>${totalRevenue.toFixed(2)}</strong>
+                Total Revenue: <strong>${Math.round(totalRevenue).toLocaleString()}</strong>
               </div>
             </div>
 
@@ -1543,7 +1668,7 @@ const ContactDetailsModal = ({ contact, slots, campaign, emailStatus, onClose })
                     )}
                   </div>
                   <div className="slot-item-price">
-                    ${getSlotFinalPrice(slot).toFixed(2)}
+                    ${Math.round(getSlotFinalPrice(slot)).toLocaleString()}
                   </div>
                 </div>
               ))}

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Upload, DollarSign, User, Image as ImageIcon, CheckCircle, RotateCw, Plus, Trash2, AlertTriangle } from 'lucide-react';
-import { adSlots as adSlotsAPI, contacts as contactsAPI, clientAds, designs as designsAPI } from '../../lib/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { Upload, DollarSign, User, Image as ImageIcon, CheckCircle, RotateCw, Plus, Trash2, AlertTriangle, Search, X, Tag } from 'lucide-react';
+import { adSlots as adSlotsAPI, contacts as contactsAPI, clientAds, designs as designsAPI, campaigns as campaignsAPI } from '../../lib/api';
 import { storage } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import ImageUploader from '../ImageUploader';
@@ -10,6 +10,7 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
   const { user } = useAuth();
   const [slots, setSlots] = useState([]);
   const [contacts, setContacts] = useState([]);
+  const [campaignContacts, setCampaignContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -47,6 +48,7 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
     if (campaign.id) {
       loadSlots();
       loadDesigns();
+      loadCampaignContacts();
     }
     if (user?.id) {
       loadContacts();
@@ -83,6 +85,26 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
       }
     } catch (err) {
       console.error('Exception loading contacts:', err);
+    }
+  };
+
+  const loadCampaignContacts = async () => {
+    if (!campaign?.id || !user?.id) return;
+    try {
+      // Get the latest campaign data to include campaign_contacts
+      const { data: campaignData, error: campaignError } = await campaignsAPI.getById(campaign.id);
+      if (campaignError || !campaignData) return;
+
+      // Get all contacts
+      const { data: allContacts, error: contactsError } = await contactsAPI.getAll(user.id);
+      if (contactsError || !allContacts) return;
+
+      // Filter to only campaign contacts
+      const campaignContactIds = campaignData.campaign_contacts || [];
+      const filteredContacts = allContacts.filter(c => campaignContactIds.includes(c.id));
+      setCampaignContacts(filteredContacts);
+    } catch (err) {
+      console.error('Exception loading campaign contacts:', err);
     }
   };
 
@@ -299,10 +321,12 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
     .reduce((sum, slot) => sum + getSlotFinalPrice(slot), 0);
   
   // Progress percentages
-  // Green bar: Actual negotiated revenue as % of total potential
+  // Full bar = 100% of total potential revenue
+  // Green bar: Actual revenue collected as % of total potential
   const actualPercentage = totalPotentialValue > 0 ? ((bookedActualValue / totalPotentialValue) * 100) : 0;
-  // Yellow bar: Shows the "discount gap" - what we hoped for but didn't get due to negotiations
-  const discountGapPercentage = totalPotentialValue > 0 ? ((bookedBasePriceValue - bookedActualValue) / totalPotentialValue * 100) : 0;
+  // Yellow bar: Discounts given as % of total potential
+  const discountPercentage = totalPotentialValue > 0 ? ((bookedBasePriceValue - bookedActualValue) / totalPotentialValue * 100) : 0;
+  // Grey: Unfilled potential (remaining portion shown by track background)
 
   // Get designs and slots for both sides
   const frontDesignData = frontDesign;
@@ -321,19 +345,19 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
         <div className="progress-stats">
           <div className="progress-stat">
             <span className="progress-stat-label">Potential Revenue</span>
-            <span className="progress-stat-value">${totalPotentialValue.toFixed(2)}</span>
+            <span className="progress-stat-value">${Math.round(totalPotentialValue).toLocaleString()}</span>
           </div>
           <div className="progress-stat">
             <span className="progress-stat-label">Actual Revenue</span>
             <span className="progress-stat-value" style={{ color: '#22c55e' }}>
-              ${bookedActualValue.toFixed(2)}
+              ${Math.round(bookedActualValue).toLocaleString()}
             </span>
           </div>
           {bookedBasePriceValue > bookedActualValue && (
             <div className="progress-stat">
               <span className="progress-stat-label">Discounts Given</span>
               <span className="progress-stat-value" style={{ color: '#f59e0b' }}>
-                -${(bookedBasePriceValue - bookedActualValue).toFixed(2)}
+                -${Math.round(bookedBasePriceValue - bookedActualValue).toLocaleString()}
               </span>
             </div>
           )}
@@ -344,71 +368,79 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
         </div>
         <div className="progress-bar-container">
           <div className="progress-bar-label">
-            <span>Revenue Progress</span>
-            <span className="progress-percentage">
+            <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>Revenue Progress</span>
+            <span className="progress-percentage" style={{ fontSize: '0.875rem' }}>
               {actualPercentage.toFixed(1)}%
-              {discountGapPercentage > 0 && (
-                <span style={{ color: '#f59e0b', marginLeft: '0.5rem', fontSize: '0.625rem' }}>
-                  (-{discountGapPercentage.toFixed(1)}% discounts)
+              {discountPercentage > 0 && (
+                <span style={{ color: '#f59e0b', marginLeft: '0.5rem' }}>
+                  (-{discountPercentage.toFixed(1)}% discounts)
                 </span>
               )}
             </span>
           </div>
-          <div className="progress-bar-track">
+          <div className="progress-bar-track" style={{ 
+            display: 'flex',
+            height: '1rem',
+            backgroundColor: '#e5e7eb',
+            borderRadius: '0.5rem',
+            overflow: 'hidden'
+          }}>
             {/* Green bar: Actual revenue collected */}
-            <div
-              className="progress-bar-fill"
-              style={{ 
-                width: `${actualPercentage}%`,
-                backgroundColor: '#22c55e'
-              }}
-            />
-            {/* Yellow bar: Discount gap (stacked on top of green) */}
-            {discountGapPercentage > 0 && (
+            {actualPercentage > 0 && (
               <div
-                className="progress-bar-fill"
                 style={{ 
-                  width: `${discountGapPercentage}%`,
-                  backgroundColor: '#f59e0b',
-                  opacity: 0.6,
-                  marginLeft: `${actualPercentage}%`
+                  width: `${actualPercentage}%`,
+                  backgroundColor: '#22c55e',
+                  flexShrink: 0,
+                  transition: 'width 0.3s ease'
                 }}
               />
             )}
+            {/* Yellow bar: Discounts given */}
+            {discountPercentage > 0 && (
+              <div
+                style={{ 
+                  width: `${discountPercentage}%`,
+                  backgroundColor: '#f59e0b',
+                  flexShrink: 0,
+                  transition: 'width 0.3s ease'
+                }}
+              />
+            )}
+            {/* Grey portion is automatically shown by track background for remaining space */}
           </div>
           {/* Legend */}
           <div style={{ 
             display: 'flex', 
-            gap: '0.625rem', 
-            marginTop: '0.25rem', 
-            fontSize: '0.5625rem',
+            gap: '1rem', 
+            marginTop: '0.5rem', 
+            fontSize: '0.75rem',
             color: '#6b7280'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
               <div style={{ 
-                width: '8px', 
-                height: '8px', 
+                width: '10px', 
+                height: '10px', 
                 backgroundColor: '#22c55e', 
                 borderRadius: '2px' 
               }} />
               <span>Actual Revenue</span>
             </div>
-            {discountGapPercentage > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            {discountPercentage > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                 <div style={{ 
-                  width: '8px', 
-                  height: '8px', 
+                  width: '10px', 
+                  height: '10px', 
                   backgroundColor: '#f59e0b', 
-                  opacity: 0.6,
                   borderRadius: '2px' 
                 }} />
                 <span>Negotiated Discounts</span>
               </div>
             )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
               <div style={{ 
-                width: '8px', 
-                height: '8px', 
+                width: '10px', 
+                height: '10px', 
                 backgroundColor: '#e5e7eb', 
                 borderRadius: '2px' 
               }} />
@@ -565,13 +597,14 @@ export const CampaignCanvasTab = ({ campaign, onUpdate }) => {
         <AssignSlotModal
           slot={selectedSlot}
           campaign={campaign}
-          contacts={contacts}
+          contacts={campaignContacts}
           onClose={() => {
             setShowAssignModal(false);
             setSelectedSlot(null);
           }}
           onAssign={() => {
             loadSlots();
+            loadCampaignContacts(); // Reload campaign contacts in case they changed
             if (onUpdate) {
         console.log('📞 [CampaignCanvasTab] Calling onUpdate');
         onUpdate();
@@ -754,22 +787,36 @@ const CanvasLayout = ({ design, slots, onSlotClick, getSlotColor, getSlotFinalPr
                     </div>
                   )}
 
-                  {/* Slot Info Overlay - only show if slot exists */}
-                  {slot && (
+                  {/* Slot Info Overlay - only show if slot exists and has contact assigned */}
+                  {slot && slot.contact_id && slot.contact && (
                     <div className="canvas-slot-info-overlay">
                       <div className="canvas-slot-info-top">
                         <span className="canvas-slot-position">{slot.slot_position}</span>
                       </div>
                       <div className="canvas-slot-info-bottom">
-                        {slot.contact?.business_name && (
-                          <span className="canvas-slot-advertiser">
-                            <User size={12} />
-                            {slot.contact.business_name}
-                          </span>
-                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1 }}>
+                          {slot.contact.business_name && (
+                            <span className="canvas-slot-advertiser" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <User size={12} />
+                              {slot.contact.business_name}
+                            </span>
+                          )}
+                          {slot.contact.niche?.name && (
+                            <span style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '0.25rem',
+                              fontSize: '0.75rem',
+                              color: '#9ca3af'
+                            }}>
+                              <Tag size={10} style={{ color: '#9ca3af' }} />
+                              {slot.contact.niche.name}
+                            </span>
+                          )}
+                        </div>
                         <span className="canvas-slot-price">
                           <DollarSign size={12} />
-                          {finalPrice.toFixed(2)}
+                          {Math.round(finalPrice).toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -794,18 +841,49 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
   const [showAdUploader, setShowAdUploader] = useState(false);
   const [customPrice, setCustomPrice] = useState(slot.custom_price || null);
   const [allSlots, setAllSlots] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchInputRef = useRef(null);
+  const suggestionsRef = useRef(null);
 
   useEffect(() => {
     if (slot.contact_id) {
       const contact = contacts.find(c => c.id === slot.contact_id);
       if (contact) {
         setSelectedContact(contact);
+        setSearchTerm(contact.business_name || '');
         loadContactAds(contact.id);
+      } else {
+        setSelectedContact(null);
+        setSearchTerm('');
       }
+    } else {
+      setSelectedContact(null);
+      setSearchTerm('');
     }
     // Load all campaign slots for niche filtering
     loadAllSlots();
+    // Note: contacts prop now contains only campaign contacts (contacts added to the campaign)
   }, [slot, contacts]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(event.target) &&
+        searchInputRef.current &&
+        !searchInputRef.current.contains(event.target)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const loadAllSlots = async () => {
     const { data, error } = await adSlotsAPI.getByCampaign(campaign.id);
@@ -828,14 +906,41 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
     setLoading(false);
   };
 
-  const handleContactChange = async (contactId) => {
-    const contact = contacts.find(c => c.id === contactId);
+  const handleContactSelect = async (contact) => {
     setSelectedContact(contact);
+    setSearchTerm(contact.business_name || '');
     setSelectedAd(null);
     setContactAds([]);
     setShowAdUploader(false);
+    setShowSuggestions(false);
     if (contact) {
       await loadContactAds(contact.id);
+    }
+  };
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    setShowSuggestions(true);
+    
+    // If search is cleared, clear selection
+    if (!value.trim()) {
+      setSelectedContact(null);
+      setSelectedAd(null);
+      setContactAds([]);
+      setShowAdUploader(false);
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedContact(null);
+    setSearchTerm('');
+    setSelectedAd(null);
+    setContactAds([]);
+    setShowAdUploader(false);
+    setShowSuggestions(false);
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
     }
   };
   
@@ -905,15 +1010,21 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
   };
 
   const handleAssign = async () => {
-    if (!selectedContact || !selectedAd) {
-      alert('Please select both a contact and an ad');
+    if (!selectedContact) {
+      alert('Please select a contact');
+      return;
+    }
+
+    // Check if contact is already assigned to another slot
+    if (isContactAssigned(selectedContact.id) && selectedContact.id !== slot.contact_id) {
+      alert('This contact is already assigned to another slot. Each contact can only be assigned to one slot.');
       return;
     }
 
     setLoading(true);
     const updateData = {
       contact_id: selectedContact.id,
-      client_ad_id: selectedAd.id,
+      client_ad_id: selectedAd?.id || null, // Ad is optional
       status: 'booked'
     };
     
@@ -931,6 +1042,29 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
     } else {
       console.error('❌ Failed to assign slot:', error);
       alert('Failed to assign slot: ' + (error.message || JSON.stringify(error)));
+    }
+    setLoading(false);
+  };
+
+  const handleAdDelete = async (adId, e) => {
+    e.stopPropagation(); // Prevent selecting the ad when clicking delete
+    
+    if (!confirm('Are you sure you want to delete this ad? This action cannot be undone.')) {
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await clientAds.delete(adId);
+    
+    if (!error) {
+      // Remove from local state
+      setContactAds(contactAds.filter(ad => ad.id !== adId));
+      // Clear selection if deleted ad was selected
+      if (selectedAd?.id === adId) {
+        setSelectedAd(null);
+      }
+    } else {
+      alert('Failed to delete ad');
     }
     setLoading(false);
   };
@@ -953,9 +1087,10 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
     setLoading(false);
   };
 
-  // Filter contacts based on campaign's niche restrictions
+  // Filter campaign contacts based on campaign's niche restrictions
+  // Note: contacts prop contains only contacts that have been added to the campaign
   const getAvailableContacts = () => {
-    // If no niche restrictions, all contacts are available
+    // If no niche restrictions, all campaign contacts are available
     if (!campaign.niche_restriction_type || campaign.niche_restriction_type === 'any') {
       return contacts;
     }
@@ -973,7 +1108,7 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
         }
       });
 
-      // Filter contacts:
+      // Filter campaign contacts:
       // 1. Must have a niche that's in allowed_niches
       // 2. That niche must not already be used (unless it's the current slot's contact)
       return contacts.filter(contact => {
@@ -985,11 +1120,51 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
       });
     }
 
-    // Default: return all contacts
+    // Default: return all campaign contacts
     return contacts;
   };
 
   const availableContacts = getAvailableContacts();
+
+  // Get contacts that are already assigned to other slots (excluding current slot)
+  const getAssignedContactIds = () => {
+    const assignedIds = new Set();
+    allSlots.forEach(s => {
+      if (s.id !== slot.id && s.contact_id) {
+        assignedIds.add(s.contact_id);
+      }
+    });
+    return assignedIds;
+  };
+
+  const assignedContactIds = getAssignedContactIds();
+
+  // Check if a contact is already assigned to another slot
+  const isContactAssigned = (contactId) => {
+    return assignedContactIds.has(contactId);
+  };
+
+  // Filter contacts based on search term
+  const getFilteredSuggestions = () => {
+    if (!searchTerm.trim()) {
+      return availableContacts.slice(0, 10); // Show first 10 when no search
+    }
+
+    const searchLower = searchTerm.toLowerCase();
+    return availableContacts
+      .filter(contact => {
+        return (
+          contact.business_name?.toLowerCase().includes(searchLower) ||
+          contact.owner_name?.toLowerCase().includes(searchLower) ||
+          contact.email?.toLowerCase().includes(searchLower) ||
+          contact.phone?.toLowerCase().includes(searchLower) ||
+          contact.niche?.name?.toLowerCase().includes(searchLower)
+        );
+      })
+      .slice(0, 10); // Limit to 10 suggestions
+  };
+
+  const filteredSuggestions = getFilteredSuggestions();
 
   return (
     <div className="assign-modal-backdrop" onClick={onClose}>
@@ -1003,29 +1178,241 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
           {/* Contact Selection */}
           <div className="assign-form-group">
             <label>Select Advertiser</label>
-            <select
-              value={selectedContact?.id || ''}
-              onChange={(e) => handleContactChange(e.target.value)}
-              className="assign-select"
-            >
-              <option value="">Choose advertiser...</option>
-              {availableContacts.map(contact => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.business_name}
-                  {contact.niche?.name ? ` (${contact.niche.name})` : ''}
-                </option>
-              ))}
-            </select>
-            {campaign.niche_restriction_type === 'one_per_campaign' && (
+            <div style={{ position: 'relative' }}>
+              {selectedContact ? (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.75rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  backgroundColor: '#f9fafb'
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, color: '#111827' }}>
+                      {selectedContact.business_name}
+                    </div>
+                    {selectedContact.niche?.name && (
+                      <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                        {selectedContact.niche.name}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearSelection}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#6b7280',
+                      padding: '0.25rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      borderRadius: '0.25rem'
+                    }}
+                    title="Clear selection"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div style={{ position: 'relative' }}>
+                    <Search 
+                      size={18} 
+                      style={{ 
+                        position: 'absolute', 
+                        left: '0.75rem', 
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: '#6b7280',
+                        pointerEvents: 'none'
+                      }} 
+                    />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      placeholder="Search for advertiser..."
+                      value={searchTerm}
+                      onChange={handleSearchChange}
+                      onFocus={() => setShowSuggestions(true)}
+                      className="assign-select"
+                      style={{
+                        paddingLeft: '2.5rem',
+                        width: '100%'
+                      }}
+                      disabled={availableContacts.length === 0}
+                    />
+                    {searchTerm && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchTerm('');
+                          setShowSuggestions(false);
+                          if (searchInputRef.current) {
+                            searchInputRef.current.focus();
+                          }
+                        }}
+                        style={{
+                          position: 'absolute',
+                          right: '0.5rem',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: '#6b7280',
+                          padding: '0.25rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          borderRadius: '0.25rem'
+                        }}
+                        title="Clear search"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Suggestions Dropdown */}
+                  {showSuggestions && filteredSuggestions.length > 0 && (
+                    <div
+                      ref={suggestionsRef}
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        marginTop: '0.25rem',
+                        backgroundColor: 'white',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '0.375rem',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        maxHeight: '300px',
+                        overflowY: 'auto',
+                        zIndex: 1000
+                      }}
+                    >
+                      {filteredSuggestions.map(contact => {
+                        const isAssigned = isContactAssigned(contact.id);
+                        const isCurrentSlotContact = contact.id === slot.contact_id;
+                        const isDisabled = isAssigned && !isCurrentSlotContact;
+                        
+                        return (
+                          <button
+                            key={contact.id}
+                            type="button"
+                            onClick={() => {
+                              if (!isDisabled) {
+                                handleContactSelect(contact);
+                              }
+                            }}
+                            disabled={isDisabled}
+                            style={{
+                              width: '100%',
+                              padding: '0.75rem',
+                              textAlign: 'left',
+                              background: 'none',
+                              border: 'none',
+                              cursor: isDisabled ? 'not-allowed' : 'pointer',
+                              borderBottom: '1px solid #f3f4f6',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.75rem',
+                              transition: 'background-color 0.15s',
+                              opacity: isDisabled ? 0.5 : 1,
+                              backgroundColor: isDisabled ? '#f9fafb' : 'transparent'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isDisabled) {
+                                e.target.style.backgroundColor = '#f9fafb';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = isDisabled ? '#f9fafb' : 'transparent';
+                            }}
+                            title={isDisabled ? 'This contact is already assigned to another slot' : ''}
+                          >
+                            <div style={{ flex: 1 }}>
+                              <div style={{ 
+                                fontWeight: 500, 
+                                color: isDisabled ? '#9ca3af' : '#111827', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '0.5rem' 
+                              }}>
+                                <span>{contact.business_name}</span>
+                                {contact.niche?.name && (
+                                  <span style={{ 
+                                    fontSize: '0.875rem', 
+                                    color: isDisabled ? '#d1d5db' : '#6b7280', 
+                                    fontWeight: 'normal' 
+                                  }}>
+                                    ({contact.niche.name})
+                                  </span>
+                                )}
+                                {isDisabled && (
+                                  <span style={{ 
+                                    fontSize: '0.75rem', 
+                                    color: '#9ca3af', 
+                                    fontStyle: 'italic',
+                                    marginLeft: 'auto'
+                                  }}>
+                                    (Already assigned)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* No results message */}
+                  {showSuggestions && searchTerm.trim() && filteredSuggestions.length === 0 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        marginTop: '0.25rem',
+                        padding: '0.75rem',
+                        backgroundColor: 'white',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '0.375rem',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        zIndex: 1000,
+                        color: '#6b7280',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      No advertisers match "{searchTerm}"
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            
+            {availableContacts.length === 0 && (
+              <p style={{ 
+                fontSize: '0.875rem', 
+                color: '#dc2626', 
+                marginTop: '0.5rem' 
+              }}>
+                ⚠️ No advertisers available. Add advertisers to this campaign in the Contacts tab first.
+              </p>
+            )}
+            {availableContacts.length > 0 && campaign.niche_restriction_type === 'one_per_campaign' && !selectedContact && (
               <p style={{ 
                 fontSize: '0.875rem', 
                 color: '#6b7280', 
                 marginTop: '0.5rem' 
               }}>
-                {availableContacts.length === 0 
-                  ? '⚠️ No available contacts. All allowed niches are already assigned.' 
-                  : `${availableContacts.length} contact${availableContacts.length === 1 ? '' : 's'} with available niches`
-                }
+                {availableContacts.length} contact{availableContacts.length === 1 ? '' : 's'} with available niches
               </p>
             )}
           </div>
@@ -1034,7 +1421,7 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
           {selectedContact && (
             <div className="assign-form-group">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <label style={{ margin: 0 }}>Select Ad Creative</label>
+                <label style={{ margin: 0 }}>Select Ad Creative <span style={{ fontWeight: 'normal', color: '#6b7280', fontSize: '0.875rem' }}>(Optional)</span></label>
                 <button
                   type="button"
                   onClick={() => setShowAdUploader(!showAdUploader)}
@@ -1072,9 +1459,38 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
                       key={ad.id}
                       className={`assign-ad-card ${selectedAd?.id === ad.id ? 'selected' : ''}`}
                       onClick={() => setSelectedAd(ad)}
+                      style={{ position: 'relative' }}
                     >
                       {ad.image_url ? (
-                        <img src={ad.image_url} alt={ad.name} />
+                        <>
+                          <img src={ad.image_url} alt={ad.name} />
+                          <button
+                            type="button"
+                            onClick={(e) => handleAdDelete(ad.id, e)}
+                            style={{
+                              position: 'absolute',
+                              top: '0.25rem',
+                              right: '0.25rem',
+                              background: 'rgba(0, 0, 0, 0.7)',
+                              border: 'none',
+                              borderRadius: '50%',
+                              width: '24px',
+                              height: '24px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              color: 'white',
+                              padding: 0,
+                              transition: 'background-color 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(220, 38, 38, 0.9)'}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'}
+                            title="Delete ad"
+                          >
+                            <X size={14} />
+                          </button>
+                        </>
                       ) : (
                         <div className="assign-ad-placeholder">
                           <ImageIcon size={24} />
@@ -1086,7 +1502,7 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
                 </div>
               ) : !showAdUploader && (
                 <div className="assign-no-ads">
-                  No ads found for this advertiser. Upload one above.
+                  No ads found for this advertiser. Upload one above or assign without an ad.
                 </div>
               )}
             </div>
@@ -1139,7 +1555,7 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
               color: '#6b7280', 
               marginTop: '0.5rem' 
             }}>
-              Base price: ${getSlotBasePrice().toFixed(2)} • Edit if negotiated rate differs
+              Base price: ${Math.round(getSlotBasePrice()).toLocaleString()} • Edit if negotiated rate differs
             </p>
           </div>
         </div>
@@ -1160,7 +1576,7 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign }) => {
             </button>
             <button
               onClick={handleAssign}
-              disabled={!selectedContact || !selectedAd || loading}
+              disabled={!selectedContact || loading}
               className="btn-assign"
             >
               {loading ? 'Assigning...' : 'Assign to Slot'}

@@ -418,7 +418,7 @@ export const adSlots = {
   getByCampaign: async (campaignId) => {
     const { data, error } = await supabase
       .from('ad_slots')
-      .select('*, contact:contacts(business_name), client_ad:client_ads(image_url, name)')
+      .select('*, contact:contacts(business_name, niche_id, niche:niches!contacts_niche_id_fkey(name)), client_ad:client_ads(image_url, name)')
       .eq('campaign_id', campaignId)
       .order('slot_position');
     return { data, error };

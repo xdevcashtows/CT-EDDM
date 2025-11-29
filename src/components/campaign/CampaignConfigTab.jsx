@@ -334,9 +334,9 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose, tab = 'settings
             </div>
               <div className="analytics-card-content-sleek">
                 <div className="analytics-card-label-sleek">Revenue</div>
-                <div className="analytics-card-value-sleek">${revenueCollected.toLocaleString()}</div>
+                <div className="analytics-card-value-sleek">${Math.round(revenueCollected).toLocaleString()}</div>
                 <div className="analytics-card-detail-sleek">
-                  ${revenueTotal.toLocaleString()} expected
+                  ${Math.round(revenueTotal).toLocaleString()} expected
                 </div>
                 <div className="analytics-progress-bar-sleek">
                   <div
@@ -733,7 +733,7 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose, tab = 'settings
                 ) : (
                   <div className="rate-display-sleek">
                     <span className="rate-label-sleek">Rate per slot</span>
-                    <span className="rate-value-sleek">${(formData[`${slot.id}_price`] || 0).toFixed(2)}</span>
+                    <span className="rate-value-sleek">${Math.round(formData[`${slot.id}_price`] || 0).toLocaleString()}</span>
                   </div>
                 )}
               </div>
