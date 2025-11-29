@@ -372,7 +372,6 @@ function Routes() {
                   <div className="routes-optimization-icon">
                     <Zap size={14} />
                   </div>
-                  <h3 className="routes-optimization-title">Quick Optimization</h3>
                 </div>
                 <label className="routes-optimization-toggle">
                   <input
@@ -393,9 +392,9 @@ function Routes() {
                     className="routes-optimization-segmented-indicator"
                     style={{
                       left: QUICK_TARGETS.findIndex(opt => opt.value === lastOptimizationTarget) >= 0 
-                        ? `${QUICK_TARGETS.findIndex(opt => opt.value === lastOptimizationTarget) * 25 + 0.5}%` 
-                        : '0.5%',
-                      width: 'calc(25% - 4px)'
+                        ? `calc(${QUICK_TARGETS.findIndex(opt => opt.value === lastOptimizationTarget) * 25}% + 0.25rem)` 
+                        : 'calc(0% + 0.25rem)',
+                      width: 'calc(25% - 0.5rem)'
                     }}
                   />
                 </div>
