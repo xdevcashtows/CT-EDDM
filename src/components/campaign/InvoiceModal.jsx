@@ -11,6 +11,7 @@ const InvoiceModal = ({ slot, campaign, contacts, onClose }) => {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState(null);
   const [paymentMethods, setPaymentMethods] = useState([]);
+  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState(new Set());
 
   useEffect(() => {
     if (slot.contact_id) {
@@ -20,6 +21,8 @@ const InvoiceModal = ({ slot, campaign, contacts, onClose }) => {
     // Load enabled payment methods
     const enabled = getEnabledPaymentMethods();
     setPaymentMethods(enabled);
+    // Initialize with no payment methods selected by default
+    setSelectedPaymentMethods(new Set());
   }, [slot, contacts]);
 
   if (!contact) {
@@ -73,8 +76,21 @@ const InvoiceModal = ({ slot, campaign, contacts, onClose }) => {
     ? routes.map(r => `${r.zipCode} - Route ${r.routeNumber}`).join(', ')
     : 'No routes specified';
 
-  const generateInvoiceHTML = () => {
-    const paymentMethodsHTML = paymentMethods.map(method => {
+  const handlePaymentMethodToggle = (methodId) => {
+    setSelectedPaymentMethods(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(methodId)) {
+        newSet.delete(methodId);
+      } else {
+        newSet.add(methodId);
+      }
+      return newSet;
+    });
+  };
+
+  const generateInvoiceHTML = (paymentLinkUrl = null) => {
+    const selectedMethods = paymentMethods.filter(m => selectedPaymentMethods.has(m.id));
+    const paymentMethodsHTML = selectedMethods.map(method => {
       const methodLabels = {
         cash: 'Cash',
         manual_card: 'Manual Card Entry',
@@ -85,6 +101,19 @@ const InvoiceModal = ({ slot, campaign, contacts, onClose }) => {
       };
       return `<li>${methodLabels[method.id] || method.label}</li>`;
     }).join('');
+    
+    const paymentLinkSection = paymentLinkUrl 
+      ? `
+    <div class="payment-link-section" style="margin-top: 30px; padding: 20px; background: #eff6ff; border-radius: 8px; border: 2px solid #3b82f6;">
+      <h3 style="font-size: 18px; font-weight: 600; color: #1e293b; margin: 0 0 12px 0;">Pay Online</h3>
+      <p style="margin: 0 0 16px 0; color: #475569;">Click the button below to pay securely online:</p>
+      <a href="${paymentLinkUrl}" 
+         style="display: inline-block; padding: 12px 24px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+        Pay ${slotPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </a>
+    </div>
+    `
+      : '';
 
     return `
 <!DOCTYPE html>
@@ -269,7 +298,7 @@ const InvoiceModal = ({ slot, campaign, contacts, onClose }) => {
       </div>
     </div>
 
-    ${paymentMethods.length > 0 ? `
+    ${selectedMethods.length > 0 ? `
     <div class="payment-methods">
       <h3>Payment Methods Accepted</h3>
       <ul>
@@ -277,6 +306,7 @@ const InvoiceModal = ({ slot, campaign, contacts, onClose }) => {
       </ul>
     </div>
     ` : ''}
+    ${paymentLinkSection}
 
     <div class="footer">
       <p>Thank you for your business!</p>
@@ -298,7 +328,54 @@ const InvoiceModal = ({ slot, campaign, contacts, onClose }) => {
     setError(null);
 
     try {
-      const invoiceHTML = generateInvoiceHTML();
+      // Check if payment link is selected and create it
+      let paymentLinkUrl = null;
+      const hasPaymentLink = selectedPaymentMethods.has('payment_link');
+      
+      if (hasPaymentLink) {
+        try {
+          // Determine API base URL (works in both dev and production)
+          const isDev = import.meta.env.DEV;
+          const apiBase = isDev 
+            ? 'http://localhost:8888' // Netlify Dev default port
+            : '';
+          
+          const paymentLinkResponse = await fetch(`${apiBase}/.netlify/functions/create-payment-link`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              amount: slotPrice,
+              currency: 'usd',
+              contactId: contact.id,
+              campaignId: campaign.id,
+              slotId: slot.id,
+              userId: user.id,
+              description: `Invoice for ${campaign.name || 'Campaign'} - Ad Slot ${slot.slot_position}`
+            })
+          });
+
+          if (paymentLinkResponse.ok) {
+            const paymentLinkResult = await paymentLinkResponse.json();
+            paymentLinkUrl = paymentLinkResult.paymentLinkUrl;
+          } else {
+            console.warn('Failed to create payment link, continuing without it');
+          }
+        } catch (linkError) {
+          console.error('Error creating payment link:', linkError);
+          // Continue without payment link
+        }
+      }
+
+      const invoiceHTML = generateInvoiceHTML(paymentLinkUrl);
+      const selectedMethods = paymentMethods.filter(m => selectedPaymentMethods.has(m.id));
+      const paymentMethodsText = selectedMethods.length > 0 
+        ? `Payment Methods Accepted:\n${selectedMethods.map(m => `- ${m.label}`).join('\n')}`
+        : '';
+      
+      const paymentLinkText = paymentLinkUrl 
+        ? `\n\nPay Online: ${paymentLinkUrl}`
+        : '';
+
       const invoiceText = `
 Invoice
 
@@ -318,31 +395,75 @@ Total Mail Pieces: ${totalPieces.toLocaleString()}
 
 Total Amount Due: $${slotPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 
-${paymentMethods.length > 0 ? `Payment Methods Accepted:\n${paymentMethods.map(m => `- ${m.label}`).join('\n')}` : ''}
+${paymentMethodsText}${paymentLinkText}
 
 Thank you for your business!
       `.trim();
 
-      const response = await fetch('/.netlify/functions/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'invoice',
-          to: contact.email,
-          subject: `Invoice for ${campaign.name || 'Campaign'} - Ad Slot ${slot.slot_position}`,
-          html: invoiceHTML,
-          text: invoiceText,
-          contactId: contact.id,
-          campaignId: campaign.id,
-          userId: user.id
-        })
-      });
+      // Determine API base URL (works in both dev and production)
+      const isDev = import.meta.env.DEV;
+      let apiBase = '';
+      
+      if (isDev) {
+        // Try Netlify Dev first, fallback to relative path
+        apiBase = 'http://localhost:8888';
+      }
 
-      const result = await response.json();
+      let response;
+      try {
+        response = await fetch(`${apiBase}/.netlify/functions/send-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'invoice',
+            to: contact.email,
+            subject: `Invoice for ${campaign.name || 'Campaign'} - Ad Slot ${slot.slot_position}`,
+            html: invoiceHTML,
+            text: invoiceText,
+            contactId: contact.id,
+            campaignId: campaign.id,
+            userId: user.id
+          })
+        });
+      } catch (fetchError) {
+        // If fetch fails (e.g., Netlify Dev not running), try relative path
+        if (isDev && fetchError.message.includes('fetch')) {
+          try {
+            response = await fetch('/.netlify/functions/send-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'invoice',
+                to: contact.email,
+                subject: `Invoice for ${campaign.name || 'Campaign'} - Ad Slot ${slot.slot_position}`,
+                html: invoiceHTML,
+                text: invoiceText,
+                contactId: contact.id,
+                campaignId: campaign.id,
+                userId: user.id
+              })
+            });
+          } catch (retryError) {
+            throw new Error('Unable to connect to email service. Please ensure Netlify Dev is running (run "netlify dev" in your terminal) or deploy to production.');
+          }
+        } else {
+          throw fetchError;
+        }
+      }
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to send invoice');
+        let errorMessage = 'Failed to send invoice';
+        try {
+          const result = await response.json();
+          errorMessage = result.error || errorMessage;
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
+
+      const result = await response.json();
 
       setSent(true);
       setTimeout(() => {
@@ -357,7 +478,8 @@ Thank you for your business!
   };
 
   const handleDownload = () => {
-    const invoiceHTML = generateInvoiceHTML();
+    // For download, we don't have a payment link, so pass null
+    const invoiceHTML = generateInvoiceHTML(null);
     const blob = new Blob([invoiceHTML], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -443,26 +565,59 @@ Thank you for your business!
                   <h4 style={{ fontSize: '16px', fontWeight: 600, color: '#1e293b', marginBottom: '12px' }}>
                     Payment Methods
                   </h4>
+                  <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '12px' }}>
+                    Select which payment methods to include on this invoice:
+                  </p>
                   <div style={{
                     display: 'flex',
                     flexWrap: 'wrap',
                     gap: '8px'
                   }}>
-                    {paymentMethods.map(method => (
-                      <span
-                        key={method.id}
-                        style={{
-                          padding: '6px 12px',
-                          background: '#e0f2fe',
-                          color: '#0369a1',
-                          borderRadius: '6px',
-                          fontSize: '13px',
-                          fontWeight: 500
-                        }}
-                      >
-                        {method.label}
-                      </span>
-                    ))}
+                    {paymentMethods.map(method => {
+                      const isSelected = selectedPaymentMethods.has(method.id);
+                      return (
+                        <label
+                          key={method.id}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '8px 14px',
+                            background: isSelected ? '#dbeafe' : '#f1f5f9',
+                            color: isSelected ? '#0369a1' : '#64748b',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            border: isSelected ? '2px solid #0369a1' : '2px solid transparent',
+                            transition: 'all 0.2s',
+                            userSelect: 'none'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background = '#e2e8f0';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.background = '#f1f5f9';
+                            }
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handlePaymentMethodToggle(method.id)}
+                            style={{
+                              marginRight: '8px',
+                              cursor: 'pointer',
+                              width: '16px',
+                              height: '16px'
+                            }}
+                          />
+                          {method.label}
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -1611,9 +1611,6 @@ const AssignSlotModal = ({ slot, campaign, contacts, onClose, onAssign, onInvoic
                 Invoice
               </button>
             )}
-            <button onClick={onClose} className="btn-cancel">
-              Cancel
-            </button>
             <button
               onClick={handleAssign}
               disabled={!selectedContact || loading}

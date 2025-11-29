@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Bell, Mail, AlertTriangle, Save, CheckCircle } from 'lucide-react'
 import '../Settings.css'
 
 function NotificationsSettings() {
@@ -6,6 +7,7 @@ function NotificationsSettings() {
   const [pipelineUpdates, setPipelineUpdates] = useState(true)
   const [invoicePayments, setInvoicePayments] = useState(true)
   const [duplicateAlerts, setDuplicateAlerts] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!feedback) return
@@ -13,8 +15,14 @@ function NotificationsSettings() {
     return () => clearTimeout(timer)
   }, [feedback])
 
-  const handleSave = () => {
-    setFeedback('Notification preferences saved.')
+  const handleSave = async () => {
+    setSaving(true)
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    setFeedback('Notification preferences saved successfully')
+    setSaving(false)
   }
 
   return (
@@ -31,7 +39,15 @@ function NotificationsSettings() {
             checked={pipelineUpdates}
             onChange={() => setPipelineUpdates((prev) => !prev)}
           />
-          <span>Send email updates for new pipeline activity</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+            <Bell size={18} style={{ color: '#3b82f6' }} />
+            <div>
+              <span style={{ display: 'block', fontWeight: 600 }}>Pipeline Activity Updates</span>
+              <span style={{ display: 'block', fontSize: '13px', color: '#64748b', marginTop: '2px' }}>
+                Send email updates for new pipeline activity
+              </span>
+            </div>
+          </div>
         </label>
         <label className="form-field checkbox-field">
           <input
@@ -39,7 +55,15 @@ function NotificationsSettings() {
             checked={invoicePayments}
             onChange={() => setInvoicePayments((prev) => !prev)}
           />
-          <span>Notify me when clients pay invoices</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+            <Mail size={18} style={{ color: '#22c55e' }} />
+            <div>
+              <span style={{ display: 'block', fontWeight: 600 }}>Invoice Payments</span>
+              <span style={{ display: 'block', fontSize: '13px', color: '#64748b', marginTop: '2px' }}>
+                Notify me when clients pay invoices
+              </span>
+            </div>
+          </div>
         </label>
         <label className="form-field checkbox-field">
           <input
@@ -47,19 +71,41 @@ function NotificationsSettings() {
             checked={duplicateAlerts}
             onChange={() => setDuplicateAlerts((prev) => !prev)}
           />
-          <span>Alert me about duplicate contact suggestions</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+            <AlertTriangle size={18} style={{ color: '#f59e0b' }} />
+            <div>
+              <span style={{ display: 'block', fontWeight: 600 }}>Duplicate Alerts</span>
+              <span style={{ display: 'block', fontSize: '13px', color: '#64748b', marginTop: '2px' }}>
+                Alert me about duplicate contact suggestions
+              </span>
+            </div>
+          </div>
         </label>
       </div>
 
       <div className="form-actions">
-        <button type="button" className="btn-primary" onClick={handleSave}>
-          Save notification preferences
+        <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
+          {saving ? (
+            <>
+              <span className="spinner" style={{ display: 'inline-block', width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }}></span>
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save size={16} />
+              Save Notification Preferences
+            </>
+          )}
         </button>
-        {feedback && <span className="form-help">{feedback}</span>}
+        {feedback && (
+          <span className="form-help">
+            <CheckCircle size={16} />
+            {feedback}
+          </span>
+        )}
       </div>
     </div>
   )
 }
 
 export default NotificationsSettings
-

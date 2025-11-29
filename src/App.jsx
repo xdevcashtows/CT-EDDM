@@ -12,7 +12,6 @@ import Settings from './pages/Settings'
 import AccountSettings from './pages/settings/Account'
 import NotificationsSettings from './pages/settings/Notifications'
 import AppearanceSettings from './pages/settings/Appearance'
-import DataSettings from './pages/settings/Data'
 import SubscriptionSettings from './pages/settings/Subscription'
 import PaymentLinksSettings from './pages/settings/PaymentLinks'
 import SignIn from './pages/SignIn'
@@ -40,7 +39,6 @@ function App() {
             <Route path="account" element={<AccountSettings />} />
             <Route path="notifications" element={<NotificationsSettings />} />
             <Route path="appearance" element={<AppearanceSettings />} />
-            <Route path="data" element={<DataSettings />} />
             <Route path="subscription" element={<SubscriptionSettings />} />
             <Route path="payment-links" element={<PaymentLinksSettings />} />
           </Route>
