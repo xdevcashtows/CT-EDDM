@@ -93,6 +93,83 @@ const formatTemperatureLabel = (value) => {
   return value.charAt(0).toUpperCase() + value.slice(1);
 };
 
+// Helper function to get avatar gradient based on contact ID
+const getAvatarGradient = (contactId) => {
+  const gradients = [
+    { from: '#3b82f6', to: '#06b6d4' }, // blue to cyan
+    { from: '#8b5cf6', to: '#ec4899' }, // purple to pink
+    { from: '#f97316', to: '#ef4444' }, // orange to red
+    { from: '#22c55e', to: '#10b981' }, // green to emerald
+    { from: '#6366f1', to: '#3b82f6' }, // indigo to blue
+    { from: '#ec4899', to: '#f43f5e' }, // pink to rose
+    { from: '#eab308', to: '#f97316' }, // yellow to orange
+    { from: '#6366f1', to: '#8b5cf6' }, // indigo to purple
+  ];
+  if (!contactId) return gradients[0];
+  const index = parseInt(contactId.toString().slice(-1), 16) % gradients.length;
+  return gradients[index];
+};
+
+// Helper function to get initials from business name
+const getInitials = (businessName) => {
+  if (!businessName) return '?';
+  const words = businessName.trim().split(/\s+/);
+  if (words.length === 1) {
+    return words[0].substring(0, 2).toUpperCase();
+  }
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+};
+
+// Helper function to get temperature config
+const getTemperatureConfig = (temperature) => {
+  const configs = {
+    hot: {
+      background: { background: 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)' },
+      boxShadow: '0 2px 8px rgba(239, 68, 68, 0.5)',
+      icon: '🔥',
+    },
+    warm: {
+      background: { background: 'linear-gradient(135deg, #facc15 0%, #f97316 100%)' },
+      boxShadow: '0 2px 8px rgba(250, 204, 21, 0.5)',
+      icon: '☀️',
+    },
+    cold: {
+      background: { background: 'linear-gradient(135deg, #60a5fa 0%, #06b6d4 100%)' },
+      boxShadow: '0 2px 8px rgba(96, 165, 250, 0.5)',
+      icon: '❄️',
+    },
+  };
+  return configs[temperature] || configs.warm;
+};
+
+// Helper function to get stage style
+const getStageStyle = (stage, pipelineStages) => {
+  const stageObj = pipelineStages.find(s => s.id === stage);
+  // Convert hex to rgba for background
+  const hexToRgba = (hex, alpha) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+  
+  if (!stageObj) {
+    // Return default gray style object
+    return {
+      backgroundColor: '#f3f4f6',
+      color: '#374151',
+      borderColor: '#e5e7eb',
+    };
+  }
+  
+  const color = stageObj.color;
+  return {
+    backgroundColor: hexToRgba(color, 0.1),
+    color: color,
+    borderColor: hexToRgba(color, 0.3),
+  };
+};
+
 function Contacts() {
   const { user } = useAuth();
   const [contacts, setContacts] = useState([]);
@@ -1308,105 +1385,128 @@ function Contacts() {
                 ? contact.tags.split(',').map(t => t.trim()).filter(Boolean)
                 : (Array.isArray(contact.tags) ? contact.tags.filter(Boolean) : []);
 
+              const tempConfig = getTemperatureConfig(temperature);
+              const stageStyle = getStageStyle(contact.stage, pipelineStages);
+              const isSelected = selectedContactIds.has(contact.id);
+              const avatarGradient = getAvatarGradient(contact.id);
+
               return (
                 <div
                   key={contact.id}
-                  className="contact-card-sleek"
+                  className="contact-card-redesigned"
                   onClick={() => handleContactClick(contact)}
                 >
-                  {/* Top Actions Bar */}
-                  <div className="contact-card-actions-bar" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      className="contact-checkbox-sleek"
-                      checked={selectedContactIds.has(contact.id)}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        handleSelectContact(contact.id);
+                  {/* Header */}
+                  <div className="contact-card-header-redesigned">
+                    {/* Avatar with Gradient */}
+                    <div 
+                      className="contact-avatar-redesigned"
+                      style={{
+                        background: `linear-gradient(135deg, ${avatarGradient.from} 0%, ${avatarGradient.to} 100%)`
                       }}
-                    />
-                    <button
-                      className={`contact-favorite-btn-sleek ${contact.is_favorite ? 'active' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleFavorite(contact.id, contact.is_favorite);
-                      }}
-                      title={contact.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
                     >
-                      <Star size={16} fill={contact.is_favorite ? 'currentColor' : 'none'} />
-                    </button>
-                  </div>
-
-                  {/* Header Section with Avatar and Name */}
-                  <div className="contact-card-header-sleek">
-                    <div className="contact-avatar-sleek" style={{
-                      background: stage?.color 
-                        ? `linear-gradient(135deg, ${stage.color} 0%, ${stage.color}dd 100%)`
-                        : 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)'
-                    }}>
-                      {contact.business_name?.charAt(0).toUpperCase() || '?'}
+                      {getInitials(contact.business_name)}
                     </div>
-                    <div className="contact-name-section">
-                      <h3 className="contact-business-name">{contact.business_name || 'Unnamed Business'}</h3>
+
+                    {/* Business Info */}
+                    <div className="contact-business-info-redesigned">
+                      <h3 className="contact-business-name-redesigned">
+                        {contact.business_name || 'Unnamed Business'}
+                      </h3>
                       {contact.owner_name && (
-                        <p className="contact-owner-name">{contact.owner_name}</p>
+                        <p className="contact-owner-name-redesigned">{contact.owner_name}</p>
                       )}
                     </div>
+
+                    {/* Top Right Controls */}
+                    <div className="contact-card-controls-redesigned" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className={`contact-checkbox-redesigned ${isSelected ? 'checked' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectContact(contact.id);
+                        }}
+                      >
+                        {isSelected && (
+                          <svg
+                            className="checkmark-icon"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={3.5}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        )}
+                      </button>
+
+                      <button
+                        className={`contact-favorite-btn-redesigned ${contact.is_favorite ? 'active' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleFavorite(contact.id, contact.is_favorite);
+                        }}
+                        title={contact.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                      >
+                        <Star size={16} fill={contact.is_favorite ? 'currentColor' : 'none'} />
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Status Badges Row */}
-                  <div className="contact-status-badges">
+                  {/* Tags Row */}
+                  <div className="contact-tags-row-redesigned">
+                    {/* Niche Tag */}
                     {contact.niche?.name && (
-                      <div className="status-badge niche-badge">
-                        <Tag size={12} />
-                        <span>{contact.niche.name}</span>
-                      </div>
+                      <span className="contact-niche-tag-redesigned">
+                        {contact.niche.name}
+                      </span>
                     )}
-                    <div 
-                      className="status-badge stage-badge"
-                      style={{
-                        backgroundColor: stage?.color ? `${stage.color}15` : '#f3f4f6',
-                        color: stage?.color || '#6b7280',
-                        borderColor: stage?.color ? `${stage.color}40` : '#e5e7eb'
-                      }}
+
+                    {/* Stage Badge */}
+                    <span
+                      className="contact-stage-badge-redesigned"
+                      style={stageStyle}
                     >
                       {stage?.label || contact.stage || 'N/A'}
-                    </div>
-                    <div className={`status-badge temperature-badge temperature-${temperature}`}>
-                      {temperature === 'hot' && '🔥'}
-                      {temperature === 'warm' && '☀️'}
-                      {temperature === 'cold' && '❄️'}
-                      <span>{formatTemperatureLabel(temperature)}</span>
-                    </div>
+                    </span>
                   </div>
 
-                  {/* Contact Information */}
-                  <div className="contact-info-section">
-                    {contact.email && (
-                      <div className="contact-info-item">
-                        <Mail size={14} className="info-icon" />
-                        <span className="info-text">{contact.email}</span>
-                      </div>
-                    )}
-                    {contact.phone && (
-                      <div className="contact-info-item">
-                        <Phone size={14} className="info-icon" />
-                        <span className="info-text">{contact.phone}</span>
-                      </div>
-                    )}
-                  </div>
+                  {/* Divider */}
+                  <div className="contact-card-divider-redesigned" />
 
-                  {/* Tags Section */}
-                  {tagsArray.length > 0 && (
-                    <div className="contact-tags-section">
-                      {tagsArray.slice(0, 3).map((tag, idx) => (
-                        <span key={idx} className="contact-tag-sleek">{tag}</span>
-                      ))}
-                      {tagsArray.length > 3 && (
-                        <span className="contact-tag-more">+{tagsArray.length - 3}</span>
+                  {/* Contact Details with Temperature */}
+                  <div className="contact-details-redesigned">
+                    {/* Temperature Icon */}
+                    <div 
+                      className="contact-temperature-icon-redesigned"
+                      style={{
+                        ...tempConfig.background,
+                        boxShadow: tempConfig.boxShadow
+                      }}
+                    >
+                      <span className="temperature-emoji">{tempConfig.icon}</span>
+                    </div>
+
+                    {/* Contact Info */}
+                    <div className="contact-info-redesigned">
+                      {contact.email && (
+                        <div className="contact-info-row-redesigned">
+                          <Mail size={12} className="contact-info-icon-redesigned" />
+                          <span className="contact-info-text-redesigned">{contact.email}</span>
+                        </div>
+                      )}
+                      {contact.phone && (
+                        <div className="contact-info-row-redesigned">
+                          <Phone size={12} className="contact-info-icon-redesigned" />
+                          <span className="contact-info-text-redesigned">{contact.phone}</span>
+                        </div>
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })

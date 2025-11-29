@@ -940,15 +940,15 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
                       <h3>{nicheName}</h3>
                     </div>
                     <div className="niche-stats">
-                      <span className="niche-stat-item">
+                      <span className={`niche-stat-item niche-stat-advertisers ${nicheContacts.length > 0 ? 'has-data' : ''}`}>
                         <User size={14} />
                         {nicheContacts.length} advertiser{nicheContacts.length !== 1 ? 's' : ''}
                       </span>
-                      <span className="niche-stat-item">
+                      <span className={`niche-stat-item niche-stat-slots ${nicheSlots > 0 ? 'has-data' : ''}`}>
                         <LayoutGrid size={14} />
                         {nicheSlots} slot{nicheSlots !== 1 ? 's' : ''}
                       </span>
-                      <span className="niche-stat-item">
+                      <span className={`niche-stat-item niche-stat-revenue ${nicheRevenue > 0 ? 'has-data' : ''}`}>
                         <DollarSign size={14} />
                         ${Math.round(nicheRevenue).toLocaleString()}
                       </span>
