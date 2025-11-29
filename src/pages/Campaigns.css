@@ -919,13 +919,14 @@
 .contact-card-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
+  gap: 10px;
+  padding: 4px 8px;
   border: 2px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: white;
   cursor: pointer;
   transition: all 0.2s;
+  min-height: 32px;
 }
 
 .contact-card-item:hover {
@@ -958,29 +959,29 @@
 }
 
 .contact-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 14px;
+  font-weight: 600;
+  font-size: 11px;
   flex-shrink: 0;
 }
 
 .contact-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
   flex: 1;
   min-width: 0;
 }
 
 .contact-info strong {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #0f172a;
   white-space: nowrap;

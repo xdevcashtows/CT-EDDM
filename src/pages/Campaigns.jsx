@@ -1361,11 +1361,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
                         onChange={() => handleNicheToggle(niche.id)}
                       />
                       <div className="contact-card-content">
-                        <div className="contact-avatar" style={{ 
-                          background: `hsl(${(niche.name.charCodeAt(0) * 137.5) % 360}, 70%, 85%)`
-                        }}>
-                          {niche.name?.charAt(0) || 'N'}
-                        </div>
                         <div className="contact-info">
                           <strong>{niche.name}</strong>
                           {niche.description && <span>{niche.description}</span>}
@@ -1450,9 +1445,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
                       onChange={() => toggleEmailContact(contact.id)}
                     />
                     <div className="contact-card-content">
-                      <div className="contact-avatar">
-                        {contact.business_name?.charAt(0) || 'C'}
-                      </div>
                       <div className="contact-info">
                         <strong>{contact.business_name}</strong>
                         <span>
