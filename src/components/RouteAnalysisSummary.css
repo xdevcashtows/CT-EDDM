@@ -271,7 +271,7 @@
 }
 
 .quick-optimization-toggle-input:checked ~ .quick-optimization-toggle-wrapper .quick-optimization-toggle-slider {
-  background: rgba(255, 255, 255, 0.3);
+  background: #22c55e;
 }
 
 .quick-optimization-toggle-input:checked ~ .quick-optimization-toggle-wrapper .quick-optimization-toggle-slider::before {
@@ -314,11 +314,12 @@
 }
 
 .quick-optimization-segmented-buttons {
-  position: relative;
+  position: absolute;
+  inset: 2px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 2px;
-  z-index: 1;
+  z-index: 3;
 }
 
 .quick-optimization-segmented-btn {

@@ -13,7 +13,7 @@ function Dashboard({ onSignOut }) {
   const [selectedRoutes, setSelectedRoutes] = useState(new Set())
   const [residentialOnly, setResidentialOnly] = useState(false)
   const [savedRoutes, setSavedRoutes] = useState([])
-  const [lastOptimizationTarget, setLastOptimizationTarget] = useState(null)
+  const [lastOptimizationTarget, setLastOptimizationTarget] = useState(2500)
 
   const handleProcessData = (data) => {
     // Initialize batch numbers
@@ -22,15 +22,15 @@ function Dashboard({ onSignOut }) {
       batchNumber: undefined
     }))
     setRouteData(dataWithBatches)
-    // Auto-optimize for 5,000 postcards on data import
+    // Auto-optimize for 2,500 postcards on data import
     if (dataWithBatches.length > 0) {
-      const result = optimizeRoutes(dataWithBatches, 5000, residentialOnly)
+      const result = optimizeRoutes(dataWithBatches, 2500, residentialOnly)
       setSelectedRoutes(new Set(result.routeIds))
       updateBatchNumbers(result.batchMap)
-      setLastOptimizationTarget(5000)
+      setLastOptimizationTarget(2500)
     } else {
       setSelectedRoutes(new Set())
-      setLastOptimizationTarget(null)
+      setLastOptimizationTarget(2500)
     }
   }
 
