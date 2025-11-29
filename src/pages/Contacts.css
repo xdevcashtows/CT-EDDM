@@ -1,7 +1,9 @@
 .contacts-page {
-  padding: 24px;
-  max-width: 1600px;
-  margin: 0 auto;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  box-sizing: border-box;
 }
 
 .page-header {
@@ -60,6 +62,8 @@
   margin-bottom: 20px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid #e5e7eb;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Main Bar: Search, Filters, View, Results */
@@ -577,6 +581,8 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .contacts-kanban {
@@ -585,6 +591,7 @@
   min-height: 500px;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .pipeline-header {
@@ -2932,9 +2939,306 @@
   transform: scale(1.1);
 }
 
+/* Spreadsheet View Styles */
+.contacts-spreadsheet-container {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
+.contacts-spreadsheet-wrapper {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 300px);
+  position: relative;
+  width: 100%;
+}
+
+.contacts-spreadsheet-table {
+  width: 100%;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #ffffff;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  table-layout: auto;
+}
+
+.contacts-spreadsheet-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #f8f9fa;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.contacts-spreadsheet-table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8f9fa;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.contacts-spreadsheet-table th:last-child {
+  border-right: none;
+}
+
+.spreadsheet-row-header {
+  width: 40px;
+  min-width: 40px;
+  text-align: center;
+  background: #f1f5f9 !important;
+  border-right: 2px solid #cbd5e1 !important;
+}
+
+.spreadsheet-row-number {
+  width: 50px;
+  min-width: 50px;
+  text-align: center;
+  background: #f1f5f9 !important;
+  border-right: 2px solid #cbd5e1 !important;
+  color: #64748b;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.spreadsheet-header-cell.sortable {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.spreadsheet-header-cell.sortable:hover {
+  background: #e5e7eb;
+}
+
+.spreadsheet-sort-icon {
+  margin-left: 6px;
+  font-size: 10px;
+  color: #9ca3af;
+  display: inline-block;
+}
+
+.contacts-spreadsheet-table tbody tr {
+  border-bottom: 1px solid #e5e7eb;
+  transition: background-color 0.15s;
+}
+
+.contacts-spreadsheet-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.contacts-spreadsheet-table tbody tr.selected {
+  background: #eff6ff;
+}
+
+.contacts-spreadsheet-table tbody tr.selected:hover {
+  background: #dbeafe;
+}
+
+.contacts-spreadsheet-table td {
+  padding: 8px 12px;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  vertical-align: middle;
+  position: relative;
+}
+
+.contacts-spreadsheet-table tbody td:last-child {
+  border-right: none;
+}
+
+.spreadsheet-checkbox-cell {
+  width: 40px;
+  min-width: 40px;
+  text-align: center;
+  background: #f8fafc;
+  border-right: 2px solid #e5e7eb !important;
+  padding: 8px !important;
+}
+
+.spreadsheet-checkbox-cell input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.spreadsheet-cell {
+  cursor: cell;
+  min-width: 100px;
+  position: relative;
+}
+
+.spreadsheet-cell:hover {
+  background: #f3f4f6;
+}
+
+.spreadsheet-cell-content {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #1f2937;
+}
+
+.spreadsheet-cell-input {
+  width: 100%;
+  min-width: 100px;
+  padding: 4px 8px;
+  border: 2px solid #3b82f6;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #ffffff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.spreadsheet-empty {
+  color: #d1d5db;
+  font-style: italic;
+}
+
+.spreadsheet-empty-state {
+  text-align: center;
+  padding: 48px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.spreadsheet-temperature {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.spreadsheet-stage-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+/* Freeze first column (checkbox and row number) */
+.contacts-spreadsheet-table thead th:first-child,
+.contacts-spreadsheet-table thead th:nth-child(2),
+.contacts-spreadsheet-table tbody td:first-child,
+.contacts-spreadsheet-table tbody td:nth-child(2) {
+  position: sticky;
+  z-index: 5;
+}
+
+.contacts-spreadsheet-table thead th:first-child,
+.contacts-spreadsheet-table tbody td:first-child {
+  left: 0;
+}
+
+.contacts-spreadsheet-table thead th:nth-child(2),
+.contacts-spreadsheet-table tbody td:nth-child(2) {
+  left: 40px;
+}
+
+/* Scrollbar styling */
+.contacts-spreadsheet-wrapper::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.contacts-spreadsheet-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.contacts-spreadsheet-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 6px;
+  border: 2px solid #f1f5f9;
+}
+
+.contacts-spreadsheet-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@media (max-width: 1024px) {
+  .contacts-spreadsheet-table {
+    font-size: 12px;
+  }
+
+  .contacts-spreadsheet-table th,
+  .contacts-spreadsheet-table td {
+    padding: 7px 10px;
+  }
+}
+
 @media (max-width: 768px) {
+  .contacts-page {
+    padding: 0;
+  }
+
+  .contacts-filters-v2 {
+    border-radius: 0;
+    margin-bottom: 0;
+    padding: 10px 12px;
+  }
+
   .contacts-grid {
     grid-template-columns: 1fr;
+    padding: 0 12px;
+  }
+  
+  .contacts-spreadsheet-container {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  .contacts-spreadsheet-wrapper {
+    max-height: calc(100vh - 250px);
+  }
+  
+  .contacts-spreadsheet-table {
+    font-size: 11px;
+  }
+  
+  .contacts-spreadsheet-table th,
+  .contacts-spreadsheet-table td {
+    padding: 6px 6px;
+  }
+  
+  .spreadsheet-row-header,
+  .spreadsheet-checkbox-cell {
+    width: 30px;
+    min-width: 30px;
+    padding: 6px 4px !important;
+  }
+  
+  .spreadsheet-row-number {
+    width: 35px;
+    min-width: 35px;
+    font-size: 11px;
+  }
+
+  .spreadsheet-header-cell {
+    font-size: 10px;
+    padding: 6px 6px;
+  }
+
+  .spreadsheet-cell-content {
+    font-size: 11px;
   }
 
   .search-and-view-row {
@@ -3031,6 +3335,39 @@
   .btn-clear {
     width: 44px;
     height: 44px;
+  }
+}
+
+@media (max-width: 640px) {
+  .contacts-spreadsheet-table {
+    font-size: 10px;
+  }
+
+  .contacts-spreadsheet-table th,
+  .contacts-spreadsheet-table td {
+    padding: 5px 4px;
+  }
+
+  .spreadsheet-row-header,
+  .spreadsheet-checkbox-cell {
+    width: 28px;
+    min-width: 28px;
+    padding: 5px 3px !important;
+  }
+
+  .spreadsheet-row-number {
+    width: 32px;
+    min-width: 32px;
+    font-size: 10px;
+  }
+
+  .spreadsheet-header-cell {
+    font-size: 9px;
+    padding: 5px 4px;
+  }
+
+  .spreadsheet-cell-content {
+    font-size: 10px;
   }
 }
 

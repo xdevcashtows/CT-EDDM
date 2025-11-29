@@ -23,7 +23,8 @@ import {
   GripVertical,
   Save,
   XCircle,
-  Tag
+  Tag,
+  Table
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import './Contacts.css';
@@ -438,6 +439,39 @@ function Contacts() {
         console.error('Failed to create contact', error);
         alert(`Failed to create contact: ${error?.message || 'Unknown error'}`);
       }
+    }
+  };
+
+  const handleInlineUpdate = async (contactId, field, value) => {
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return;
+
+    const updates = { [field]: value };
+    
+    // Handle special fields
+    if (field === 'niche_id') {
+      // Find niche by name
+      const niche = niches.find(n => n.name.toLowerCase() === value.toLowerCase());
+      updates.niche_id = niche ? niche.id : null;
+    } else if (field === 'stage') {
+      // Find stage by label
+      const stage = pipelineStages.find(s => s.label.toLowerCase() === value.toLowerCase());
+      updates.stage = stage ? stage.id : value;
+    } else if (field === 'tags') {
+      // Convert comma-separated string to array
+      updates.tags = value 
+        ? value.split(',').map(t => t.trim()).filter(Boolean)
+        : [];
+    }
+
+    const payload = sanitizeContactPayload({ ...contact, ...updates });
+    
+    const { data, error } = await contactsAPI.update(contactId, payload);
+    if (!error) {
+      setContacts(contacts.map(c => c.id === contactId ? data : c));
+    } else {
+      console.error('Failed to update contact', error);
+      // Silently fail for inline edits to avoid interrupting workflow
     }
   };
 
@@ -1120,6 +1154,14 @@ function Contacts() {
                 </button>
                 <button
                   type="button"
+                  className={`view-btn-v2 ${viewMode === 'table' ? 'active' : ''}`}
+                  onClick={() => setViewMode('table')}
+                  title="Table view"
+                >
+                  <Table size={16} />
+                </button>
+                <button
+                  type="button"
                   className={`view-btn-v2 ${viewMode === 'pipeline' ? 'active' : ''}`}
                   onClick={() => setViewMode('pipeline')}
                   title="Pipeline view"
@@ -1258,7 +1300,18 @@ function Contacts() {
       )}
 
       {/* Contacts Content */}
-      {viewMode === 'pipeline' ? (
+      {viewMode === 'table' ? (
+        <ContactsSpreadsheetView
+          contacts={filteredAndSortedContacts}
+          niches={niches}
+          pipelineStages={pipelineStages}
+          selectedContactIds={selectedContactIds}
+          onSelectContact={handleSelectContact}
+          onSelectAllContacts={handleSelectAllContacts}
+          onContactClick={handleContactClick}
+          onUpdateContact={handleInlineUpdate}
+        />
+      ) : viewMode === 'pipeline' ? (
         filteredAndSortedContacts.length === 0 ? (
           <div className="empty-state">
             <p>No contacts found</p>
@@ -2564,6 +2617,240 @@ function StageEditorModal({ stages, onSave, onClose, user, contacts }) {
             Save Changes
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Contacts Spreadsheet View Component
+function ContactsSpreadsheetView({
+  contacts,
+  niches,
+  pipelineStages,
+  selectedContactIds,
+  onSelectContact,
+  onSelectAllContacts,
+  onContactClick,
+  onUpdateContact
+}) {
+  const [editingCell, setEditingCell] = useState(null);
+  const [editValue, setEditValue] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
+  const handleCellClick = (contactId, field, value) => {
+    setEditingCell({ contactId, field });
+    setEditValue(value || '');
+  };
+
+  const handleCellBlur = async (contact) => {
+    if (!editingCell) return;
+    
+    const { contactId, field } = editingCell;
+    const updatedValue = editValue.trim();
+    const currentValue = getCellValue(contact, field);
+    
+    setEditingCell(null);
+    setEditValue('');
+
+    // Only update if value changed
+    if (currentValue !== updatedValue) {
+      await onUpdateContact(contactId, field, updatedValue);
+    }
+  };
+
+  const handleKeyDown = (e, contact) => {
+    if (e.key === 'Enter') {
+      handleCellBlur(contact);
+    } else if (e.key === 'Escape') {
+      setEditingCell(null);
+      setEditValue('');
+    }
+  };
+
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedContacts = [...contacts].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+    
+    const aVal = a[sortConfig.key];
+    const bVal = b[sortConfig.key];
+    
+    if (aVal == null && bVal == null) return 0;
+    if (aVal == null) return 1;
+    if (bVal == null) return -1;
+    
+    if (typeof aVal === 'string') {
+      return sortConfig.direction === 'asc' 
+        ? aVal.localeCompare(bVal)
+        : bVal.localeCompare(aVal);
+    }
+    
+    return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+  });
+
+  const allSelected = contacts.length > 0 && selectedContactIds.size === contacts.length;
+  const someSelected = selectedContactIds.size > 0 && selectedContactIds.size < contacts.length;
+
+  const columns = [
+    { key: 'business_name', label: 'Business Name', width: 200 },
+    { key: 'owner_name', label: 'Owner', width: 150 },
+    { key: 'email', label: 'Email', width: 200 },
+    { key: 'phone', label: 'Phone', width: 130 },
+    { key: 'website', label: 'Website', width: 180 },
+    { key: 'city', label: 'City', width: 120 },
+    { key: 'state', label: 'State', width: 80 },
+    { key: 'zip', label: 'ZIP', width: 80 },
+    { key: 'niche_id', label: 'Niche', width: 150 },
+    { key: 'stage', label: 'Stage', width: 140 },
+    { key: 'temperature', label: 'Temperature', width: 120 },
+    { key: 'tags', label: 'Tags', width: 200 }
+  ];
+
+  const getCellValue = (contact, field) => {
+    if (field === 'niche_id') {
+      return contact.niche?.name || '';
+    }
+    if (field === 'stage') {
+      const stage = pipelineStages.find(s => s.id === contact.stage);
+      return stage?.label || contact.stage || '';
+    }
+    if (field === 'tags') {
+      if (Array.isArray(contact.tags)) {
+        return contact.tags.join(', ');
+      }
+      if (typeof contact.tags === 'string') {
+        return contact.tags;
+      }
+      return '';
+    }
+    return contact[field] || '';
+  };
+
+  const SortIcon = ({ columnKey }) => {
+    if (sortConfig.key !== columnKey) {
+      return <span className="spreadsheet-sort-icon">↕</span>;
+    }
+    return <span className="spreadsheet-sort-icon">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
+  };
+
+  return (
+    <div className="contacts-spreadsheet-container">
+      <div className="contacts-spreadsheet-wrapper">
+        <table className="contacts-spreadsheet-table">
+          <thead>
+            <tr>
+              <th className="spreadsheet-row-header">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(input) => {
+                    if (input) input.indeterminate = someSelected;
+                  }}
+                  onChange={(e) => onSelectAllContacts(e.target.checked)}
+                />
+              </th>
+              <th className="spreadsheet-row-number">#</th>
+              {columns.map(column => (
+                <th
+                  key={column.key}
+                  className="spreadsheet-header-cell sortable"
+                  style={{ width: column.width }}
+                  onClick={() => handleSort(column.key)}
+                >
+                  {column.label}
+                  <SortIcon columnKey={column.key} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sortedContacts.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length + 2} className="spreadsheet-empty-state">
+                  No contacts found
+                </td>
+              </tr>
+            ) : (
+              sortedContacts.map((contact, index) => (
+                <tr
+                  key={contact.id}
+                  className={`spreadsheet-row ${selectedContactIds.has(contact.id) ? 'selected' : ''}`}
+                  onClick={() => onContactClick(contact)}
+                >
+                  <td className="spreadsheet-checkbox-cell" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedContactIds.has(contact.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        onSelectContact(contact.id);
+                      }}
+                    />
+                  </td>
+                  <td className="spreadsheet-row-number">{index + 1}</td>
+                  {columns.map(column => {
+                    const isEditing = editingCell?.contactId === contact.id && editingCell?.field === column.key;
+                    const cellValue = getCellValue(contact, column.key);
+                    
+                    return (
+                      <td
+                        key={column.key}
+                        className="spreadsheet-cell"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCellClick(contact.id, column.key, cellValue);
+                        }}
+                      >
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            className="spreadsheet-cell-input"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onBlur={() => handleCellBlur(contact)}
+                            onKeyDown={(e) => handleKeyDown(e, contact)}
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <span className="spreadsheet-cell-content">
+                            {column.key === 'temperature' && contact.temperature ? (
+                              <span className="spreadsheet-temperature">
+                                {contact.temperature === 'hot' && '🔥'}
+                                {contact.temperature === 'warm' && '☀️'}
+                                {contact.temperature === 'cold' && '❄️'}
+                                {!contact.temperature && '☀️'}
+                              </span>
+                            ) : column.key === 'stage' ? (
+                              <span
+                                className="spreadsheet-stage-badge"
+                                style={{
+                                  backgroundColor: `${pipelineStages.find(s => s.id === contact.stage)?.color || '#6b7280'}15`,
+                                  color: pipelineStages.find(s => s.id === contact.stage)?.color || '#6b7280',
+                                  borderColor: `${pipelineStages.find(s => s.id === contact.stage)?.color || '#6b7280'}40`
+                                }}
+                              >
+                                {cellValue}
+                              </span>
+                            ) : (
+                              cellValue || <span className="spreadsheet-empty">—</span>
+                            )}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
