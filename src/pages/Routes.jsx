@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Printer, Save } from 'lucide-react';
+import { Printer, Save, ChevronDown, ChevronUp } from 'lucide-react';
 import './Routes.css';
 import ImportPanel from '../components/ImportPanel';
 import RouteAnalysisSummary from '../components/RouteAnalysisSummary';
@@ -229,59 +229,84 @@ function Routes() {
   };
 
   const printTimestampRef = useRef(new Date().toLocaleString());
+  const printConfigRef = useRef(null);
+  const [showPrintConfig, setShowPrintConfig] = useState(false);
+  const [isImportCollapsed, setIsImportCollapsed] = useState(false);
+  const [isSavedRoutesCollapsed, setIsSavedRoutesCollapsed] = useState(false);
+  const [isAnalysisCollapsed, setIsAnalysisCollapsed] = useState(false);
+  const [isRoutesTableCollapsed, setIsRoutesTableCollapsed] = useState(false);
+  const [printColumns, setPrintColumns] = useState({
+    route: true,
+    residential: true,
+    business: true,
+    total: true,
+    resShare: true,
+    age: true,
+    size: true,
+    income: true,
+    cost: true
+  });
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (printConfigRef.current && !printConfigRef.current.contains(event.target)) {
+        setShowPrintConfig(false);
+      }
+    };
+
+    if (showPrintConfig) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showPrintConfig]);
+
+  const handlePrintConfigToggle = () => {
+    if (selectedData.length === 0) return;
+    setShowPrintConfig(!showPrintConfig);
+  };
+
+  const handlePrintColumnToggle = (column) => {
+    setPrintColumns(prev => ({
+      ...prev,
+      [column]: !prev[column]
+    }));
+  };
 
   const handlePrintSummary = () => {
     if (selectedData.length === 0) return;
     printTimestampRef.current = new Date().toLocaleString();
+    setShowPrintConfig(false);
     window.print();
   };
 
   const printSummaryStats = useMemo(() => {
     const residential = selectedData.reduce((sum, route) => sum + (route.residential || 0), 0);
     const business = selectedData.reduce((sum, route) => sum + (route.business || 0), 0);
-    const households = selectedData.reduce((sum, route) => sum + (route.total || 0), 0);
+    const total = selectedData.reduce((sum, route) => sum + (route.total || 0), 0);
     const totalCost = selectedData.reduce((sum, route) => sum + (parseFloat(route.cost) || 0), 0);
     const totalRoutes = selectedData.length;
-    const avgCost = totalRoutes ? totalCost / totalRoutes : 0;
-    const avgHouseholds = totalRoutes ? households / totalRoutes : 0;
     const totalSize = selectedData.reduce((sum, route) => sum + (route.size || 0), 0);
     const totalIncome = selectedData.reduce((sum, route) => sum + (route.income || 0), 0);
-    const avgSize = totalRoutes ? totalSize / totalRoutes : 0;
-    const avgIncome = totalRoutes ? totalIncome / totalRoutes : 0;
+    const totalAge = selectedData.reduce((sum, route) => sum + (route.age || 0), 0);
+    const avgSize = totalRoutes > 0 ? totalSize / totalRoutes : 0;
+    const avgIncome = totalRoutes > 0 ? totalIncome / totalRoutes : 0;
+    const avgAge = totalRoutes > 0 ? totalAge / totalRoutes : 0;
     const mix = residential + business;
-    const residentialShare = mix ? (residential / mix) * 100 : 0;
-    const batchTotals = selectedData.reduce(
-      (acc, route) => {
-        const batchKey = route.batchNumber;
-        if (batchKey >= 1 && batchKey <= 3) {
-          acc[batchKey].routes += 1;
-          acc[batchKey].pieces += route.total || 0;
-        } else {
-          acc.unassigned.routes += 1;
-          acc.unassigned.pieces += route.total || 0;
-        }
-        return acc;
-      },
-      {
-        1: { routes: 0, pieces: 0 },
-        2: { routes: 0, pieces: 0 },
-        3: { routes: 0, pieces: 0 },
-        unassigned: { routes: 0, pieces: 0 }
-      }
-    );
+    const residentialShare = mix > 0 ? (residential / mix) * 100 : 0;
 
     return {
-      totalRoutes,
       residential,
       business,
-      households,
-      totalCost,
-      avgCost,
-      avgHouseholds,
+      total,
+      residentialShare,
+      avgAge,
       avgSize,
       avgIncome,
-      residentialShare,
-      batchTotals
+      totalCost
     };
   }, [selectedData]);
 
@@ -303,50 +328,175 @@ function Routes() {
     <PageLayout {...layoutProps} className="page-shell--fullwidth">
       <div className="routes-page">
         <div className="routes-top-row">
-          <div className="routes-import-card">
-            <ImportPanel onProcessData={handleProcessData} />
+          <div className="routes-import-card collapsible-section">
+            <div 
+              className="collapsible-header"
+              onClick={() => setIsImportCollapsed(!isImportCollapsed)}
+            >
+              <h3>Import Data</h3>
+              {isImportCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+            </div>
+            <div className={`collapsible-content ${isImportCollapsed ? 'collapsed' : ''}`}>
+              <ImportPanel onProcessData={handleProcessData} />
+            </div>
           </div>
 
-          <div className="routes-top-card">
-            <SavedRoutes 
-              routes={savedRoutes}
-              onLoad={handleLoadSavedRoute}
-              onDelete={handleDeleteSavedRoute}
-              onRename={handleRenameSavedRoute}
-              loading={loading}
+          <div className="routes-top-card collapsible-section">
+            <div 
+              className="collapsible-header"
+              onClick={() => setIsSavedRoutesCollapsed(!isSavedRoutesCollapsed)}
+            >
+              <h3>Saved Routes</h3>
+              {isSavedRoutesCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+            </div>
+            <div className={`collapsible-content ${isSavedRoutesCollapsed ? 'collapsed' : ''}`}>
+              <SavedRoutes 
+                routes={savedRoutes}
+                onLoad={handleLoadSavedRoute}
+                onDelete={handleDeleteSavedRoute}
+                onRename={handleRenameSavedRoute}
+                loading={loading}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="route-analysis-row collapsible-section">
+          <div 
+            className="collapsible-header"
+            onClick={() => setIsAnalysisCollapsed(!isAnalysisCollapsed)}
+          >
+            <h3>Route Analysis</h3>
+            {isAnalysisCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+          </div>
+          <div className={`collapsible-content ${isAnalysisCollapsed ? 'collapsed' : ''}`}>
+            <RouteAnalysisSummary 
+              data={filteredData}
+              residentialOnly={residentialOnly}
+              onResidentialOnlyChange={setResidentialOnly}
+              selectedData={selectedData}
+              onOptimize={handleOptimize}
+              activeTarget={lastOptimizationTarget}
             />
           </div>
         </div>
 
-        <div className="route-analysis-row">
-          <RouteAnalysisSummary 
-            data={filteredData}
-            residentialOnly={residentialOnly}
-            onResidentialOnlyChange={setResidentialOnly}
-            selectedData={selectedData}
-            onOptimize={handleOptimize}
-            activeTarget={lastOptimizationTarget}
-          />
-        </div>
-
-        <section className="routes-table-card">
-          <div className="routes-table-header">
+        <section className="routes-table-card collapsible-section">
+          <div 
+            className="collapsible-header routes-table-header"
+            onClick={() => setIsRoutesTableCollapsed(!isRoutesTableCollapsed)}
+          >
             <div>
               <h2>Routes</h2>
               <p className="routes-table-subtitle">
                 {filteredData.length.toLocaleString()} routes imported · {selectedData.length.toLocaleString()} selected
               </p>
             </div>
-              <div className="routes-table-actions">
-                <button
-                  type="button"
-                  onClick={handlePrintSummary}
-                  disabled={selectedData.length === 0}
-                  className="saved-action-button saved-action-print"
-                >
-                  <Printer size={14} />
-                  Print summary
-                </button>
+            <div className="routes-table-actions-wrapper">
+              {!isRoutesTableCollapsed && (
+                <div className="routes-table-actions" onClick={(e) => e.stopPropagation()}>
+                <div className="print-button-wrapper" ref={printConfigRef}>
+                  <button
+                    type="button"
+                    onClick={handlePrintConfigToggle}
+                    disabled={selectedData.length === 0}
+                    className={`saved-action-button saved-action-print ${showPrintConfig ? 'active' : ''}`}
+                  >
+                    <Printer size={14} />
+                    Print summary
+                  </button>
+                  {showPrintConfig && (
+                    <div className="print-config-menu">
+                      <div className="print-config-header">
+                        <h4>Select columns to print</h4>
+                        <p>Choose which data points to include in your print summary</p>
+                      </div>
+                      <div className="print-config-options">
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={printColumns.route}
+                            onChange={() => handlePrintColumnToggle('route')}
+                          />
+                          Route
+                        </label>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={printColumns.residential}
+                            onChange={() => handlePrintColumnToggle('residential')}
+                          />
+                          Residential
+                        </label>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={printColumns.business}
+                            onChange={() => handlePrintColumnToggle('business')}
+                          />
+                          Business
+                        </label>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={printColumns.total}
+                            onChange={() => handlePrintColumnToggle('total')}
+                          />
+                          Total
+                        </label>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={printColumns.resShare}
+                            onChange={() => handlePrintColumnToggle('resShare')}
+                          />
+                          Res %
+                        </label>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={printColumns.age}
+                            onChange={() => handlePrintColumnToggle('age')}
+                          />
+                          Age
+                        </label>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={printColumns.size}
+                            onChange={() => handlePrintColumnToggle('size')}
+                          />
+                          Size
+                        </label>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={printColumns.income}
+                            onChange={() => handlePrintColumnToggle('income')}
+                          />
+                          Income
+                        </label>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={printColumns.cost}
+                            onChange={() => handlePrintColumnToggle('cost')}
+                          />
+                          Cost
+                        </label>
+                      </div>
+                      <div className="print-config-footer">
+                        <button
+                          type="button"
+                          onClick={handlePrintSummary}
+                          className="print-confirm-button"
+                        >
+                          Print
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={copySelectedToClipboard}
@@ -365,16 +515,21 @@ function Routes() {
                   <Save size={14} />
                   Save route
                 </button>
-              </div>
+                </div>
+              )}
+              {isRoutesTableCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+            </div>
           </div>
-          <div className="routes-table-body">
-            <DataTable 
-              data={filteredData}
-              selectedRoutes={selectedRoutes}
-              onRouteToggle={handleRouteToggle}
-              onSelectAll={handleSelectAll}
-              onBatchChange={handleBatchChange}
-            />
+          <div className={`collapsible-content ${isRoutesTableCollapsed ? 'collapsed' : ''}`}>
+            <div className="routes-table-body">
+              <DataTable 
+                data={filteredData}
+                selectedRoutes={selectedRoutes}
+                onRouteToggle={handleRouteToggle}
+                onSelectAll={handleSelectAll}
+                onBatchChange={handleBatchChange}
+              />
+            </div>
           </div>
         </section>
       <div className="routes-print-summary" aria-hidden="true">
@@ -391,86 +546,93 @@ function Routes() {
             )}
           </div>
         </div>
-        <div className="print-summary-grid">
-          <div className="print-summary-stat">
-            <p className="print-stat-label">Routes selected</p>
-            <p className="print-stat-value">{printSummaryStats.totalRoutes.toLocaleString()}</p>
+        <div className="print-hero-stats">
+          <div className="print-hero-stat">
+            <p className="print-hero-label">Total Households</p>
+            <p className="print-hero-value">{printSummaryStats.total.toLocaleString()}</p>
           </div>
-          <div className="print-summary-stat">
-            <p className="print-stat-label">Households (total)</p>
-            <p className="print-stat-value">{printSummaryStats.households.toLocaleString()}</p>
-          </div>
-          <div className="print-summary-stat">
-            <p className="print-stat-label">Total cost</p>
-            <p className="print-stat-value">${printSummaryStats.totalCost.toFixed(2)}</p>
-          </div>
-          <div className="print-summary-stat">
-            <p className="print-stat-label">Avg. households</p>
-            <p className="print-stat-value">{printSummaryStats.avgHouseholds.toFixed(1)}</p>
-          </div>
-          <div className="print-summary-stat">
-            <p className="print-stat-label">Avg. cost</p>
-            <p className="print-stat-value">${printSummaryStats.avgCost.toFixed(2)}</p>
-          </div>
-          <div className="print-summary-stat">
-            <p className="print-stat-label">Avg. size</p>
-            <p className="print-stat-value">{printSummaryStats.avgSize.toFixed(2)}</p>
-          </div>
-          <div className="print-summary-stat">
-            <p className="print-stat-label">Avg. income</p>
-            <p className="print-stat-value">${Math.round(printSummaryStats.avgIncome)}</p>
-          </div>
-          <div className="print-summary-stat">
-            <p className="print-stat-label">Residential share</p>
-            <p className="print-stat-value">
-              {printSummaryStats.residentialShare ? `${printSummaryStats.residentialShare.toFixed(1)}%` : '—'}
-            </p>
+          <div className="print-hero-stat">
+            <p className="print-hero-label">Total Cost</p>
+            <p className="print-hero-value">${printSummaryStats.totalCost.toFixed(2)}</p>
           </div>
         </div>
-        <div className="print-summary-batches">
-          <div className="print-summary-batch-heading">
-            <p className="print-stat-label">Batch breakdown</p>
-            <p className="print-summary-subtitle">Routes grouped by batch assignment</p>
-          </div>
-          <div className="print-summary-batch-grid">
-            {Object.entries(printSummaryStats.batchTotals).map(([batchKey, batch]) => (
-              <div key={batchKey} className="print-batch-card">
-                <p className="print-batch-label">
-                  {batchKey === 'unassigned' ? 'Unassigned' : `Batch ${batchKey}`}
-                </p>
-                <p className="print-batch-value">{batch.pieces.toLocaleString()} pcs</p>
-                <p className="print-batch-sub">{batch.routes} routes</p>
-              </div>
-            ))}
-          </div>
+
+        <div className="print-details-grid">
+          {printColumns.residential && (
+            <div className="print-detail-stat">
+              <p className="print-stat-label">Residential</p>
+              <p className="print-stat-value">{printSummaryStats.residential.toLocaleString()}</p>
+            </div>
+          )}
+          {printColumns.business && (
+            <div className="print-detail-stat">
+              <p className="print-stat-label">Business</p>
+              <p className="print-stat-value">{printSummaryStats.business.toLocaleString()}</p>
+            </div>
+          )}
+          {printColumns.resShare && (
+            <div className="print-detail-stat">
+              <p className="print-stat-label">Res Share</p>
+              <p className="print-stat-value">
+                {printSummaryStats.residentialShare ? `${printSummaryStats.residentialShare.toFixed(1)}%` : '—'}
+              </p>
+            </div>
+          )}
+          {printColumns.age && (
+            <div className="print-detail-stat">
+              <p className="print-stat-label">Age 30-65</p>
+              <p className="print-stat-value">{printSummaryStats.avgAge.toFixed(1)}%</p>
+            </div>
+          )}
+          {printColumns.size && (
+            <div className="print-detail-stat">
+              <p className="print-stat-label">Avg Size</p>
+              <p className="print-stat-value">{printSummaryStats.avgSize.toFixed(2)}</p>
+            </div>
+          )}
+          {printColumns.income && (
+            <div className="print-detail-stat">
+              <p className="print-stat-label">Avg Income</p>
+              <p className="print-stat-value">${Math.round(printSummaryStats.avgIncome).toLocaleString()}</p>
+            </div>
+          )}
         </div>
         <div className="print-summary-table-wrapper">
           <table className="print-summary-table">
             <thead>
               <tr>
-                <th>Route</th>
-                <th>Residential</th>
-                <th>Business</th>
-                <th>Total</th>
-                <th>Cost</th>
-                <th>Size</th>
-                <th>Income</th>
-                <th>Batch</th>
+                {printColumns.route && <th>Route</th>}
+                {printColumns.residential && <th>Res</th>}
+                {printColumns.business && <th>Bus</th>}
+                {printColumns.resShare && <th>Res %</th>}
+                {printColumns.total && <th>Total</th>}
+                {printColumns.age && <th>Age %</th>}
+                {printColumns.size && <th>Size</th>}
+                {printColumns.income && <th>Income</th>}
+                {printColumns.cost && <th>Cost</th>}
               </tr>
             </thead>
             <tbody>
-              {selectedData.map(route => (
-                <tr key={route.id}>
-                  <td>{route.route || 'Unknown'}</td>
-                  <td>{(route.residential || 0).toLocaleString()}</td>
-                  <td>{(route.business || 0).toLocaleString()}</td>
-                  <td>{(route.total || 0).toLocaleString()}</td>
-                  <td>${(parseFloat(route.cost) || 0).toFixed(2)}</td>
-                  <td>{route.size || '—'}</td>
-                  <td>{route.income ? `$${route.income.toLocaleString()}` : '—'}</td>
-                  <td>{route.batchNumber ?? '—'}</td>
-                </tr>
-              ))}
+              {selectedData.map(route => {
+                const routeResidential = route.residential || 0;
+                const routeBusiness = route.business || 0;
+                const routeTotal = routeResidential + routeBusiness;
+                const routeResidentialShare = routeTotal > 0 ? ((routeResidential / routeTotal) * 100) : 0;
+                
+                return (
+                  <tr key={route.id}>
+                    {printColumns.route && <td>{route.route || 'Unknown'}</td>}
+                    {printColumns.residential && <td>{routeResidential.toLocaleString()}</td>}
+                    {printColumns.business && <td>{routeBusiness.toLocaleString()}</td>}
+                    {printColumns.resShare && <td>{routeResidentialShare.toFixed(1)}%</td>}
+                    {printColumns.total && <td>{(route.total || routeTotal).toLocaleString()}</td>}
+                    {printColumns.age && <td>{(route.age || 0).toFixed(1)}%</td>}
+                    {printColumns.size && <td>{(route.size || 0).toFixed(2)}</td>}
+                    {printColumns.income && <td>{route.income ? `$${route.income.toLocaleString()}` : '—'}</td>}
+                    {printColumns.cost && <td>${(parseFloat(route.cost) || 0).toFixed(2)}</td>}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -4,9 +4,6 @@ import './SavedRoutes.css';
 function SavedRoutes({ routes = [], onLoad, onDelete, onRename, loading = false }) {
   return (
     <div className="saved-routes">
-      <div className="saved-routes-header">
-        <h3>Saved routes</h3>
-      </div>
       <div className="saved-routes-body">
         {loading ? (
           <p className="loading-message">Loading...</p>
