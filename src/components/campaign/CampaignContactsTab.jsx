@@ -385,6 +385,10 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
   const emailStats = getEmailStats();
   const nicheChecklist = getNicheChecklist();
   
+  // Calculate selected niches count (niches that are used/selected)
+  const selectedNichesCount = nicheChecklist.filter(item => item.isUsed).length;
+  const totalNichesCount = nicheChecklist.length;
+  
   // Calculate niche slots stats (for one_per_campaign mode)
   const totalNicheSlots = campaign.niche_restriction_type === 'one_per_campaign' 
     ? (campaign.allowed_niches?.length || 0)
@@ -747,7 +751,7 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
             <div style={{ flex: 1 }}>
               <h3>Business Niches on Card</h3>
               <div className="niche-checklist-total">
-                Total: {nicheChecklist.length}
+                {selectedNichesCount} selected out of {totalNichesCount} total
               </div>
             </div>
           </div>
