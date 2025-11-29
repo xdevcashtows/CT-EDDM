@@ -52,7 +52,8 @@ const getEmptyCampaignFormData = () => ({
   name: '',
   city: '',
   state: '',
-  saved_route_id: null,
+  saved_route_id: null, // Kept for backward compatibility
+  saved_route_ids: [], // Array of route IDs for multiple route selection
   design_id: null,
   front_design_id: null,
   back_design_id: null,
@@ -77,11 +78,17 @@ const mapCampaignToFormData = (campaign) => {
   const frontId = campaign.front_design_id || frontFromSnapshot || campaign.design_id || null;
   const backId = campaign.back_design_id || backFromSnapshot || campaign.design_id || null;
 
+  // Handle route IDs: if campaign has saved_route_id, convert to array format
+  // If route_snapshot exists but no saved_route_id, we can't determine which routes were selected
+  // So we'll start with an empty array and let user re-select
+  const saved_route_ids = campaign.saved_route_ids || (campaign.saved_route_id ? [campaign.saved_route_id] : []);
+
   return {
     ...base,
     design_id: frontId || base.design_id,
     front_design_id: frontId,
-    back_design_id: backId
+    back_design_id: backId,
+    saved_route_ids
   };
 };
 
@@ -515,6 +522,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     body_text: ''
   });
   const [contactTagFilter, setContactTagFilter] = useState('');
+  const [nicheFilter, setNicheFilter] = useState('');
   const [loading, setLoading] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
 
@@ -532,7 +540,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     const mappedData = mapCampaignToFormData(campaign);
     setFormData(mappedData);
     setContactsTabIndex(0); // Reset to first tab when modal opens
-    // Both new and editing campaigns start at templates step
+    // Both new and editing campaigns start at basic info step
     setActiveStep(0);
     setTemplateSubStep('front');
   }, [campaign]);
@@ -573,7 +581,10 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     if (!error) setSlots(data || []);
   };
 
-  const selectedRoute = savedRoutes.find(r => r.id === formData.saved_route_id);
+  // Handle multiple routes
+  const selectedRouteIds = formData.saved_route_ids || [];
+  const selectedRoutes = savedRoutes.filter(r => selectedRouteIds.includes(r.id));
+  const selectedRoute = selectedRoutes.length === 1 ? selectedRoutes[0] : null; // For backward compatibility where single route is expected
   const selectedFrontDesign = designs.find(d => d.id === formData.front_design_id);
   const selectedBackDesign = designs.find(d => d.id === formData.back_design_id);
   const selectedDesign = selectedFrontDesign || selectedBackDesign;
@@ -637,6 +648,31 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   };
 
   const filteredSelectableContacts = getFilteredContacts();
+
+  // Filter niches based on search term - always show selected niches
+  const getFilteredNiches = () => {
+    if (!nicheFilter.trim()) {
+      return niches;
+    }
+
+    const filterTerm = nicheFilter.trim().toLowerCase();
+    const selectedNicheIds = formData.allowed_niches || [];
+
+    return niches.filter(niche => {
+      // Always show selected niches
+      if (selectedNicheIds.includes(niche.id)) {
+        return true;
+      }
+
+      // Filter by name or description
+      const nameMatch = niche.name?.toLowerCase().includes(filterTerm);
+      const descriptionMatch = niche.description?.toLowerCase().includes(filterTerm);
+      
+      return nameMatch || descriptionMatch;
+    });
+  };
+
+  const filteredNiches = getFilteredNiches();
 
   const contactTagSet = new Set();
   contacts.forEach(contact => {
@@ -759,12 +795,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   };
 
   const handleTemplateSelect = (designId, side) => {
-    // Require campaign name before selecting templates
-    if (!formData.name?.trim()) {
-      alert('Please enter a campaign name before selecting templates.');
-      return;
-    }
-
     if (side === 'front') {
       setFormData(prev => ({
         ...prev,
@@ -798,8 +828,8 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
       return;
     }
 
-    if (!formData.saved_route_id || !formData.front_design_id || !formData.back_design_id) {
-      alert('Please select a route and templates for both sides of the card.');
+    if (!formData.saved_route_ids || formData.saved_route_ids.length === 0 || !formData.front_design_id || !formData.back_design_id) {
+      alert('Please select at least one route and templates for both sides of the card.');
       return;
     }
 
@@ -808,20 +838,51 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
 
     try {
       if (campaign?.id) {
-        const { error } = await campaignsAPI.update(campaign.id, {
+        // For updates, combine routes if multiple are selected
+        let updateData = {
           ...sanitizedForm,
           name: trimmedName,
           design_snapshot: buildCampaignDesignSnapshot(selectedFrontDesign, selectedBackDesign)
-        });
+        };
+
+        // If routes are selected, update route_snapshot and total_pieces
+        if (formData.saved_route_ids && formData.saved_route_ids.length > 0) {
+          const combinedRoutes = selectedRoutes.reduce((acc, route) => {
+            return [...acc, ...(route.routes || [])];
+          }, []);
+          
+          const combinedTotalHouseholds = selectedRoutes.reduce((sum, route) => {
+            return sum + (route.total_households || 0);
+          }, 0);
+
+          updateData = {
+            ...updateData,
+            saved_route_id: formData.saved_route_ids[0] || null, // Keep first route ID for backward compatibility
+            route_snapshot: combinedRoutes,
+            total_pieces: combinedTotalHouseholds
+          };
+        }
+
+        const { error } = await campaignsAPI.update(campaign.id, updateData);
         if (error) throw error;
       } else {
+        // Combine routes from all selected routes
+        const combinedRoutes = selectedRoutes.reduce((acc, route) => {
+          return [...acc, ...(route.routes || [])];
+        }, []);
+        
+        const combinedTotalHouseholds = selectedRoutes.reduce((sum, route) => {
+          return sum + (route.total_households || 0);
+        }, 0);
+
         const campaignData = {
           ...sanitizedForm,
           name: trimmedName,
           user_id: userId,
-          route_snapshot: selectedRoute?.routes || [],
+          saved_route_id: formData.saved_route_ids[0] || null, // Keep first route ID for backward compatibility
+          route_snapshot: combinedRoutes,
           design_snapshot: buildCampaignDesignSnapshot(selectedFrontDesign, selectedBackDesign),
-          total_pieces: selectedRoute?.total_households || 0,
+          total_pieces: combinedTotalHouseholds,
           status: 'draft',
           // Add slot pricing from slotPrices state
           slot_1_price: Number(slotPrices.slot_1) || 0,
@@ -937,26 +998,60 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
       const draftPayload = { ...sanitizedForm, name: trimmedName, status: 'draft' };
 
       if (campaign?.id) {
-        const { error } = await campaignsAPI.update(campaign.id, {
+        // For draft updates, combine routes if multiple are selected
+        let draftUpdateData = {
           ...draftPayload,
           design_snapshot: buildCampaignDesignSnapshot(selectedFrontDesign, selectedBackDesign)
-        });
+        };
+
+        // If routes are selected, update route_snapshot and total_pieces
+        if (formData.saved_route_ids && formData.saved_route_ids.length > 0) {
+          const combinedRoutes = selectedRoutes.reduce((acc, route) => {
+            return [...acc, ...(route.routes || [])];
+          }, []);
+          
+          const combinedTotalHouseholds = selectedRoutes.reduce((sum, route) => {
+            return sum + (route.total_households || 0);
+          }, 0);
+
+          draftUpdateData = {
+            ...draftUpdateData,
+            saved_route_id: formData.saved_route_ids[0] || null, // Keep first route ID for backward compatibility
+            route_snapshot: combinedRoutes,
+            total_pieces: combinedTotalHouseholds
+          };
+        }
+
+        const { error } = await campaignsAPI.update(campaign.id, draftUpdateData);
         if (error) throw error;
       } else {
+        // Combine routes from all selected routes (for draft)
+        const combinedRoutes = selectedRoutes.reduce((acc, route) => {
+          return [...acc, ...(route.routes || [])];
+        }, []);
+        
+        const combinedTotalHouseholds = selectedRoutes.reduce((sum, route) => {
+          return sum + (route.total_households || 0);
+        }, 0);
+
         const campaignData = {
           ...draftPayload,
           user_id: userId,
-          route_snapshot: selectedRoute?.routes || [],
+          saved_route_id: formData.saved_route_ids?.[0] || null, // Keep first route ID for backward compatibility
+          route_snapshot: combinedRoutes,
           design_snapshot: buildCampaignDesignSnapshot(selectedFrontDesign, selectedBackDesign),
-          total_pieces: selectedRoute?.total_households || 0,
+          total_pieces: combinedTotalHouseholds,
           status: 'draft'
         };
 
         const { data: newCampaign, error } = await campaignsAPI.create(campaignData);
         if (error) throw error;
 
-        if (formData.saved_route_id) {
-          await savedRoutesAPI.lock(formData.saved_route_id);
+        // Lock all selected routes (for draft)
+        if (formData.saved_route_ids && formData.saved_route_ids.length > 0) {
+          await Promise.all(
+            formData.saved_route_ids.map(routeId => savedRoutesAPI.lock(routeId))
+          );
         }
       }
 
@@ -1116,6 +1211,30 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     });
   };
 
+  const handleRouteToggle = (routeId) => {
+    setFormData(prev => {
+      const currentRoutes = prev.saved_route_ids || [];
+      const isCurrentlySelected = currentRoutes.includes(routeId);
+      
+      if (isCurrentlySelected) {
+        // Remove the route
+        return {
+          ...prev,
+          saved_route_ids: currentRoutes.filter(id => id !== routeId),
+          saved_route_id: null // Clear single route ID for backward compatibility
+        };
+      } else {
+        // Add the route
+        const updatedRoutes = [...currentRoutes, routeId];
+        return {
+          ...prev,
+          saved_route_ids: updatedRoutes,
+          saved_route_id: updatedRoutes[0] || null // Set first route ID for backward compatibility
+        };
+      }
+    });
+  };
+
   const nicheStepContent = (
     <div className="form-section">
       <div className="section-heading">
@@ -1199,6 +1318,21 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           <div className="contacts-input-section">
             {niches.length > 0 ? (
               <>
+                {/* Search bar */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label className="contacts-label">Search Niches</label>
+                  <input
+                    type="text"
+                    placeholder="Search by name or description..."
+                    value={nicheFilter}
+                    onChange={(e) => setNicheFilter(e.target.value)}
+                    className="contacts-input"
+                  />
+                  <p className="form-hint" style={{ marginTop: '8px', fontSize: '12px' }}>
+                    ℹ️ Search by niche name or description. Selected niches always show.
+                  </p>
+                </div>
+
                 {/* Selection counter at the top */}
                 <div className={`contacts-selected-count ${
                   (formData.allowed_niches || []).length === totalCampaignSlots ? 'success' : 'warning'
@@ -1217,8 +1351,9 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
                   </span>
                 </div>
                 
-                <div className="contacts-list-redesign">
-                  {niches.map(niche => (
+                {filteredNiches.length > 0 ? (
+                  <div className="contacts-list-redesign">
+                    {filteredNiches.map(niche => (
                     <label key={niche.id} className="contact-card-item">
                       <input
                         type="checkbox"
@@ -1237,8 +1372,21 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
                         </div>
                       </div>
                     </label>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="contacts-empty-state">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="16" x2="12" y2="16"/>
+                      <line x1="12" y1="12" x2="12" y2="8"/>
+                    </svg>
+                    <p>No niches match your search.</p>
+                    <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '8px' }}>
+                      Try a different search term or clear the filter.
+                    </p>
+                  </div>
+                )}
               </>
             ) : (
               <div className="contacts-empty-state">
@@ -1372,8 +1520,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   ];
 
   const renderTemplateGrid = (templates, side, selectedId) => {
-    const campaignNameEntered = Boolean(formData.name?.trim());
-    
     if (!templates.length) {
       return (
         <div className="empty-state">
@@ -1390,12 +1536,8 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           return (
             <div
               key={design.id}
-              className={`template-thumbnail-card ${selectedId === design.id ? 'selected' : ''} ${!campaignNameEntered ? 'disabled' : ''}`}
+              className={`template-thumbnail-card ${selectedId === design.id ? 'selected' : ''}`}
               onClick={() => handleTemplateSelect(design.id, side)}
-              style={{ 
-                opacity: !campaignNameEntered ? 0.5 : 1,
-                cursor: !campaignNameEntered ? 'not-allowed' : 'pointer'
-              }}
             >
               <div className="template-thumbnail-preview">
                 <div className="saved-template-grid">
@@ -1459,13 +1601,20 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     );
   };
 
-  const templateStepContent = (
+  const basicInfoStepContent = (
     <div className="form-section">
+      <div className="section-heading" style={{ marginBottom: '24px' }}>
+        <div>
+          <h3>Basic Campaign Information</h3>
+          <p>Start by providing the essential details for your campaign.</p>
+        </div>
+      </div>
+      
       {/* Campaign Config Grid - Compact 2x2 Layout */}
       <div className="campaign-modal__form-grid" style={{ marginBottom: '0', display: 'flex', flexDirection: 'column', gap: '0px' }}>
         
         {/* Row 1: Name (Approx 65%) & Mail Date (Approx 35%) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '12px', marginBottom: '12px' }}>
           <div className="form-group">
             <label>Campaign Name *</label>
             <input
@@ -1476,7 +1625,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
               required
               autoFocus={!campaign?.id}
             />
-            {!formData.name?.trim()}
           </div>
           <div className="form-group">
             <label>Mail Date <span style={{fontWeight: 'normal', color: '#94a3b8'}}>(Optional)</span></label>
@@ -1495,7 +1643,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         {/* Row 2: City (Grow) & State (Fixed) */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '12px' }}>
           <div className="form-group">
-            <label>Target City</label>
+            <label>Target City <span style={{fontWeight: 'normal', color: '#94a3b8'}}>(Optional)</span></label>
             <input
               type="text"
               value={formData.city || ''}
@@ -1504,7 +1652,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
             />
           </div>
           <div className="form-group">
-            <label>State</label>
+            <label>State <span style={{fontWeight: 'normal', color: '#94a3b8'}}>(Optional)</span></label>
             <select
               value={formData.state || ''}
               onChange={(e) => setFormData({ ...formData, state: e.target.value })}
@@ -1519,7 +1667,11 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
           </div>
         </div>
       </div>
+    </div>
+  );
 
+  const templateStepContent = (
+    <div className="form-section">
       {templateSubStep === 'front' && (
         <>
           <div className="section-heading" style={{ marginBottom: '12px' }}>
@@ -1546,34 +1698,119 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     </div>
   );
 
+  // Calculate combined stats from all selected routes
+  const combinedRouteStats = useMemo(() => {
+    if (selectedRoutes.length === 0) return null;
+    
+    const totalHouseholds = selectedRoutes.reduce((sum, route) => sum + (route.total_households || 0), 0);
+    const totalCost = selectedRoutes.reduce((sum, route) => sum + (route.total_cost || 0), 0);
+    const totalRoutes = selectedRoutes.reduce((sum, route) => sum + (route.routes?.length || 0), 0);
+    const routeNames = selectedRoutes.map(r => r.name).join(', ');
+    
+    return {
+      totalHouseholds,
+      totalCost,
+      totalRoutes,
+      routeNames,
+      costPerPiece: totalHouseholds > 0 ? totalCost / totalHouseholds : 0,
+      estDeliveryDays: totalRoutes ? Math.ceil(totalRoutes / 5) : 0
+    };
+  }, [selectedRoutes]);
+
   const routeStepContent = (
     <div className="form-section">
       <div className="section-heading">
         <div>
           <h3>Route Selection</h3>
-          <p>Choose which saved route you want to mail this campaign along.</p>
+          <p>Select one or more saved routes for this campaign. You can combine multiple routes to expand your mailing coverage.</p>
         </div>
       </div>
-      <div className="form-group">
-        <label>Select Route *</label>
-        <select
-          value={formData.saved_route_id || ''}
-          onChange={(e) => setFormData({ ...formData, saved_route_id: e.target.value })}
-          required
-        >
-          <option value="">Choose a saved route...</option>
-          {savedRoutes.filter(r => !r.is_locked).map(route => (
-            <option key={route.id} value={route.id}>
-              {route.name} ({route.total_households || 0} households)
-            </option>
-          ))}
-        </select>
+      
+      {/* Selection counter */}
+      {selectedRouteIds.length > 0 && (
+        <div className={`contacts-selected-count ${selectedRouteIds.length > 0 ? 'success' : 'warning'}`} style={{ marginBottom: '16px' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          <span>
+            {selectedRouteIds.length} route{selectedRouteIds.length === 1 ? '' : 's'} selected
+            {selectedRouteIds.length > 0 ? ' • ✓ Ready to continue' : ' • Select at least one route'}
+          </span>
+        </div>
+      )}
+
+      {/* Route selection list */}
+      <div className="contacts-card" style={{ borderLeft: '4px solid #3b82f6', marginBottom: '24px' }}>
+        <div className="contacts-card-header">
+          <div className="contacts-card-icon" style={{ background: '#dbeafe' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e40af" strokeWidth="2">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </div>
+          <div>
+            <h4>Select Routes</h4>
+            <p>Choose which routes to include in this campaign</p>
+          </div>
+        </div>
+
+        <div className="contacts-input-section">
+          {savedRoutes.filter(r => !r.is_locked).length > 0 ? (
+            <>
+              <div className="contacts-list-redesign" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {savedRoutes.filter(r => !r.is_locked).map(route => (
+                  <label key={route.id} className="contact-card-item">
+                    <input
+                      type="checkbox"
+                      checked={selectedRouteIds.includes(route.id)}
+                      onChange={() => handleRouteToggle(route.id)}
+                    />
+                    <div className="contact-card-content">
+                      <div className="contact-avatar" style={{ 
+                        background: `hsl(${(route.name.charCodeAt(0) * 137.5) % 360}, 70%, 85%)`
+                      }}>
+                        {route.name?.charAt(0) || 'R'}
+                      </div>
+                      <div className="contact-info">
+                        <strong>{route.name}</strong>
+                        <span>
+                          {(route.total_households || 0).toLocaleString()} households
+                          {route.routes?.length && ` • ${route.routes.length} delivery route${route.routes.length === 1 ? '' : 's'}`}
+                          {route.total_cost && ` • $${route.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        </span>
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              {selectedRouteIds.length === 0 && (
+                <p className="form-hint" style={{ marginTop: '12px', textAlign: 'center' }}>
+                  Select at least one route to continue
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="contacts-empty-state">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+              <p>No available routes. Save a route in the Routes section first.</p>
+            </div>
+          )}
+        </div>
       </div>
-      {selectedRoute ? (
+
+      {combinedRouteStats ? (
         <div className="route-stats-container">
           <div className="route-stats-header">
-            <h4>{selectedRoute.name}</h4>
-            <p>Complete route details for your campaign</p>
+            <h4>{selectedRoutes.length === 1 ? selectedRoutes[0].name : `${selectedRoutes.length} Routes Selected`}</h4>
+            <p>{selectedRoutes.length === 1 ? 'Complete route details for your campaign' : `Combined statistics from ${selectedRoutes.length} routes`}</p>
+            {selectedRoutes.length > 1 && (
+              <p style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                {combinedRouteStats.routeNames}
+              </p>
+            )}
           </div>
           <div className="route-stats-grid">
             <div className="route-stat-card">
@@ -1585,7 +1822,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
               </div>
               <div className="route-stat-content">
                 <span className="route-stat-label">Total Households</span>
-                <strong className="route-stat-value">{(selectedRoute.total_households || 0).toLocaleString()}</strong>
+                <strong className="route-stat-value">{combinedRouteStats.totalHouseholds.toLocaleString()}</strong>
               </div>
             </div>
             
@@ -1597,7 +1834,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
               </div>
               <div className="route-stat-content">
                 <span className="route-stat-label">Number of Routes</span>
-                <strong className="route-stat-value">{(selectedRoute.routes?.length || 0).toLocaleString()}</strong>
+                <strong className="route-stat-value">{combinedRouteStats.totalRoutes.toLocaleString()}</strong>
               </div>
             </div>
             
@@ -1610,7 +1847,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
               </div>
               <div className="route-stat-content">
                 <span className="route-stat-label">Total Cost</span>
-                <strong className="route-stat-value">${(selectedRoute.total_cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                <strong className="route-stat-value">${combinedRouteStats.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
               </div>
             </div>
             
@@ -1625,9 +1862,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
               <div className="route-stat-content">
                 <span className="route-stat-label">Cost per Piece</span>
                 <strong className="route-stat-value">
-                  ${selectedRoute.total_households > 0 
-                    ? (selectedRoute.total_cost / selectedRoute.total_households).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                    : '0.00'}
+                  ${combinedRouteStats.costPerPiece.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </strong>
               </div>
             </div>
@@ -1642,7 +1877,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
               </div>
               <div className="route-stat-content">
                 <span className="route-stat-label">Total Pieces</span>
-                <strong className="route-stat-value">{(selectedRoute.total_households || 0).toLocaleString()}</strong>
+                <strong className="route-stat-value">{combinedRouteStats.totalHouseholds.toLocaleString()}</strong>
               </div>
             </div>
 
@@ -1655,14 +1890,14 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
               </div>
               <div className="route-stat-content">
                 <span className="route-stat-label">Est. Delivery Time</span>
-                <strong className="route-stat-value">{selectedRoute.routes?.length ? Math.ceil(selectedRoute.routes.length / 5) : 0} days</strong>
+                <strong className="route-stat-value">{combinedRouteStats.estDeliveryDays} days</strong>
               </div>
             </div>
           </div>
         </div>
-      ) : (
-        <p className="form-hint">Save a route in the Routes section to preview its details.</p>
-      )}
+      ) : selectedRouteIds.length === 0 ? (
+        <p className="form-hint">Select one or more routes above to see combined statistics.</p>
+      ) : null}
     </div>
   );
 
@@ -1859,26 +2094,29 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     </div>
   );
 
-  const steps = ['Templates', 'Pricing', 'Niches', 'Route', 'Contacts'];
+  const steps = ['Basic Info', 'Templates', 'Pricing', 'Niches', 'Route', 'Contacts'];
   const stepContents = [
+    basicInfoStepContent,
     templateStepContent,
     pricingStepContent,
     nicheStepContent,
     routeStepContent,
     communicationsStepContent
   ];
+  const isBasicInfoStepComplete = Boolean(formData.name?.trim());
   const isTemplateStepComplete = Boolean(
-    formData.name?.trim() && formData.front_design_id && formData.back_design_id
+    formData.front_design_id && formData.back_design_id
   );
   const isNicheStepComplete = 
     formData.niche_restriction_type === 'any' || 
     (formData.niche_restriction_type === 'one_per_campaign' && (formData.allowed_niches || []).length === totalCampaignSlots);
-  const isRouteStepComplete = Boolean(formData.saved_route_id);
+  const isRouteStepComplete = Boolean(formData.saved_route_ids && formData.saved_route_ids.length > 0);
 
   const canAdvanceFromStep = (stepIndex) => {
-    if (stepIndex === 0) return isTemplateStepComplete;
-    if (stepIndex === 2) return isNicheStepComplete;
-    if (stepIndex === 3) return isRouteStepComplete;
+    if (stepIndex === 0) return isBasicInfoStepComplete; // Basic Info step
+    if (stepIndex === 1) return isTemplateStepComplete; // Templates step
+    if (stepIndex === 3) return isNicheStepComplete; // Niches step
+    if (stepIndex === 4) return isRouteStepComplete; // Route step
     return true;
   };
 
@@ -1889,13 +2127,13 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   };
 
   const handlePrevStep = () => {
-    // If on templates step and viewing back templates, go back to front templates
-    if (activeStep === 0 && templateSubStep === 'back') {
+    // If on templates step (step 1) and viewing back templates, go back to front templates
+    if (activeStep === 1 && templateSubStep === 'back') {
       setTemplateSubStep('front');
       return;
     }
     // If going back to templates step from another step, reset to front selection
-    if (activeStep > 0) {
+    if (activeStep === 1 || (activeStep > 1 && activeStep <= 6)) {
       setTemplateSubStep('front');
     }
     setActiveStep((prev) => Math.max(prev - 1, 0));
@@ -1945,7 +2183,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
               type="button"
               className="btn-back"
               onClick={handlePrevStep}
-              disabled={activeStep === 0 && templateSubStep === 'front'}
+              disabled={activeStep === 0}
             >
               Back
             </button>
