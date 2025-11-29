@@ -43,35 +43,3 @@
   color: #94a3b8;
 }
 
-.process-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  color: white;
-  border: none;
-  border-radius: 999px;
-  font-size: 0.875rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  box-shadow: 0 12px 24px rgba(124, 58, 237, 0.3);
-  letter-spacing: 0.01em;
-}
-
-.process-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 32px rgba(124, 58, 237, 0.4);
-}
-
-.process-button:active {
-  transform: translateY(-1px);
-}
-
-.process-button svg {
-  width: 14px;
-  height: 14px;
-}
-

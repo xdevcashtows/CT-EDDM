@@ -19,13 +19,14 @@
 }
 
 .data-table th {
-  padding: 1rem 1.125rem;
+  padding: 1.125rem 1.125rem;
   text-align: left;
   font-size: 0.75rem;
   font-weight: 700;
   color: #64748b;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  vertical-align: top;
 }
 
 .data-table th.sortable {
@@ -39,15 +40,21 @@
 }
 
 .data-table th.sortable:hover .th-metric {
-  color: #7c3aed;
+  color: #6d28d9;
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%);
+  border-color: rgba(124, 58, 237, 0.3);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.15);
 }
 
 .th-content {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-height: 42px;
-  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  justify-content: flex-start;
+  align-items: flex-start;
+  width: 100%;
 }
 
 .th-label {
@@ -61,29 +68,39 @@
 }
 
 .th-metric {
-  display: block;
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: #1f2a44;
-  letter-spacing: -0.01em;
+  display: inline-block;
+  font-size: 1.625rem;
+  font-weight: 800;
+  color: #6d28d9;
+  letter-spacing: -0.03em;
   text-transform: none;
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   line-height: 1.2;
+  margin-bottom: 0;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.625rem;
+  border: 1.5px solid rgba(124, 58, 237, 0.25);
+  min-width: fit-content;
+  box-shadow: 0 2px 4px rgba(124, 58, 237, 0.1);
+  font-variant-numeric: tabular-nums;
+}
+
+.th-label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
 }
 
 .sort-icon {
   font-size: 10px;
   color: #94a3b8;
-  margin-left: 4px;
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  right: 8px;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .data-table th.sortable {
   position: relative;
-  padding-right: 28px;
 }
 
 .data-table tbody tr {
