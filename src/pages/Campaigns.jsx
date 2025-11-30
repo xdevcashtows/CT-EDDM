@@ -22,6 +22,7 @@ import { ViewToggle } from '../components/campaign/ViewToggle';
 import CampaignDetailView from '../components/campaign/CampaignDetailView';
 import ImageUploader from '../components/ImageUploader';
 import PageLayout from '../components/PageLayout';
+import ContactPicker from '../components/campaign/ContactPicker';
 
 
 const cloneLayout = (layout = getDefaultMockLayout('9x12')) => ({
@@ -61,6 +62,7 @@ const getEmptyCampaignFormData = () => ({
   price_small: 0,
   price_medium: 0,
   price_large: 0,
+  production_cost: 0, // Cost of postcard production plus shipping
   unique_niche_per_slot: true,
   niche_restriction_type: 'any', // 'any' or 'one_per_campaign'
   allowed_niches: [], // array of niche IDs for selected niches (only used for 'one_per_campaign' mode)
@@ -503,7 +505,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   const defaultMockLayout = getDefaultMockLayout('9x12');
   const [mockDisplayCounts, setMockDisplayCounts] = useState(cloneLayout(defaultMockLayout));
   const [slotDiscounts, setSlotDiscounts] = useState({});
-  const [contactsTabIndex, setContactsTabIndex] = useState(0); // 0: recipients, 1: template, 2: schedule
 
   const [savedRoutes, setSavedRoutes] = useState([]);
   const [designs, setDesigns] = useState([]);
@@ -538,7 +539,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   useEffect(() => {
     const mappedData = mapCampaignToFormData(campaign);
     setFormData(mappedData);
-    setContactsTabIndex(0); // Reset to first tab when modal opens
     // Both new and editing campaigns start at basic info step
     setActiveStep(0);
     setTemplateSubStep('front');
@@ -601,7 +601,6 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   }, [layoutCaps]);
   
   const selectableContacts = contacts
-    .filter(contact => contact.email)
     .sort((a, b) => (a.business_name || '').localeCompare(b.business_name || ''));
 
   // Smart filtering for contacts: checked contacts always show, unchecked contacts filtered by multiple fields
@@ -816,10 +815,10 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         ...prev,
         back_design_id: designId
       }));
-      // Auto-advance to pricing step (step 1) after both templates selected
+      // Auto-advance to Route step after both templates selected
       setTimeout(() => {
-        if (activeStep === 0 && canAdvanceFromStep(0)) {
-          setActiveStep(1); // Move to pricing step
+        if (activeStep === 1 && canAdvanceFromStep(1)) {
+          setActiveStep(2); // Move to Route step (step index 2)
         }
       }, 600);
     }
@@ -1151,45 +1150,70 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     return count ? `${count} slots` : 'Slots pending';
   };
 
+  // Calculate total households for price per piece calculation
+  const totalHouseholds = useMemo(() => {
+    if (selectedRoutes.length === 0) return 0;
+    return selectedRoutes.reduce((sum, route) => sum + (route.total_households || 0), 0);
+  }, [selectedRoutes]);
+
   const pricingStepContent = (
     <div className="form-section">
       <div className="pricing-panel__header">
         <h3>Set Ad Slot Prices</h3>
         <p>Assign a price for each ad slot size. These rates will be offered to your clients.</p>
+        {totalHouseholds > 0 && (
+          <p style={{ fontSize: '14px', color: '#64748b', marginTop: '8px' }}>
+            Total pieces: {totalHouseholds.toLocaleString()} • Price per piece shown below
+          </p>
+        )}
       </div>
 
       <div className="ad-slot-pricing-grid">
-        {adSlotPricingOptions.map(slot => (
-          <div 
-            key={slot.id} 
-            className="ad-slot-pricing-card"
-            style={{ 
-              background: slot.color,
-              borderColor: slot.color 
-            }}
-          >
-            <div className="ad-slot-pricing-info">
-              <div 
-                className="ad-slot-pricing-badge"
-                style={{ background: slot.color }}
-              >
-                <span className="ad-slot-number">{slot.slots}</span>
+        {adSlotPricingOptions.map(slot => {
+          const slotPrice = parseFloat(slotPrices[slot.id]) || 0;
+          const pricePerPiece = totalHouseholds > 0 && slotPrice > 0 
+            ? slotPrice / totalHouseholds 
+            : 0;
+          
+          return (
+            <div 
+              key={slot.id} 
+              className="ad-slot-pricing-card"
+              style={{ 
+                background: slot.color,
+                borderColor: slot.color 
+              }}
+            >
+              <div className="ad-slot-pricing-info">
+                <div 
+                  className="ad-slot-pricing-badge"
+                  style={{ background: slot.color }}
+                >
+                  <span className="ad-slot-number">{slot.slots}</span>
+                </div>
+                <span className="ad-slot-pricing-label">{slot.label}</span>
               </div>
-              <span className="ad-slot-pricing-label">{slot.label}</span>
+              <div className="ad-slot-pricing-price-section">
+                <div className="price-input">
+                  <span>$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={slotPrices[slot.id] || ''}
+                    onChange={(e) => updateSlotPrice(slot.id, e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                {totalHouseholds > 0 && slotPrice > 0 && (
+                  <div className="price-per-piece">
+                    ${pricePerPiece.toFixed(4)} per piece
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="price-input">
-              <span>$</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={slotPrices[slot.id] || ''}
-                onChange={(e) => updateSlotPrice(slot.id, e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -1402,99 +1426,24 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     </div>
   );
 
-  const contactsStepContent = (
-    <div className="contacts-redesign">
-      {/* Recipient Selection Card */}
-      <div className="contacts-card" style={{ borderLeft: '4px solid #3b82f6' }}>
-        <div className="contacts-card-header">
-          <div className="contacts-card-icon" style={{ background: '#dbeafe' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e40af" strokeWidth="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <polyline points="23 11 17 11"/>
-            </svg>
-          </div>
-          <div>
-            <h4>Select Contacts</h4>
-            <p>Choose contacts to include in this campaign</p>
-          </div>
-        </div>
-        
-        {/* Tag Filter Input */}
-        <div className="contacts-input-section">
-          <label className="contacts-label">Filter Contacts (comma-separated)</label>
-          <input
-            type="text"
-            placeholder="e.g. plumber, warm, chicago, lead, window cleaning"
-            value={contactTagFilter}
-            onChange={(e) => setContactTagFilter(e.target.value)}
-            className="contacts-input"
-          />
-          <p className="form-hint" style={{ marginTop: '8px', fontSize: '12px' }}>
-            ℹ️ Search by business name, tags, niche, temperature, or city. Checked contacts always show.
-          </p>
-        </div>
+  const handleContactSelectionChange = (selectedContactIds) => {
+    setEmailForm(prev => ({
+      ...prev,
+      selectedContacts: selectedContactIds
+    }));
+  };
 
-        {/* Contacts List */}
-        <div className="contacts-input-section">
-          {filteredSelectableContacts.length > 0 ? (
-            <>
-              <div className="contacts-list-redesign" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {filteredSelectableContacts.map(contact => (
-                  <label key={contact.id} className="contact-card-item">
-                    <input
-                      type="checkbox"
-                      value={contact.id}
-                      checked={emailForm.selectedContacts.includes(contact.id)}
-                      onChange={() => toggleEmailContact(contact.id)}
-                    />
-                    <div className="contact-card-content">
-                      <div className="contact-info">
-                        <strong>{contact.business_name}</strong>
-                        <span>
-                          {contact.email}
-                          {contact.tags && contact.tags.length > 0 && (
-                            <span style={{ color: '#94a3b8', fontSize: '11px', marginLeft: '8px' }}>
-                              {contact.tags.slice(0, 3).join(', ')}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-              {emailForm.selectedContacts.length > 0 && (
-                <div className="contacts-selected-count" style={{ marginTop: '12px' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                  <span>{emailForm.selectedContacts.length} contact{emailForm.selectedContacts.length === 1 ? '' : 's'} selected</span>
-                </div>
-              )}
-            </>
-          ) : selectableContacts.length === 0 ? (
-            <div className="contacts-empty-state">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-              </svg>
-              <p>No contacts with email addresses available.</p>
-            </div>
-          ) : (
-            <div className="contacts-empty-state">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="16" x2="12" y2="16"/>
-                <line x1="12" y1="12" x2="12" y2="8"/>
-              </svg>
-              <p>No contacts match the current tag filter.</p>
-              <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '8px' }}>
-                Try different tags or clear the filter.
-              </p>
-            </div>
-          )}
-        </div>
+  const contactsStepContent = (
+    <div className="contact-picker-modal">
+      <div className="contact-picker-modal-header">
+        <h3>Select Recipients</h3>
+      </div>
+      <div className="contact-picker-modal-content">
+        <ContactPicker
+          allContacts={contacts}
+          selectedContactIds={emailForm.selectedContacts}
+          onSelectionChange={handleContactSelectionChange}
+        />
       </div>
     </div>
   );
@@ -1637,7 +1586,7 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
         </div>
 
         {/* Row 2: City (Grow) & State (Fixed) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '12px', marginBottom: '12px' }}>
           <div className="form-group">
             <label>Target City <span style={{fontWeight: 'normal', color: '#94a3b8'}}>(Optional)</span></label>
             <input
@@ -1662,6 +1611,28 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
             </select>
           </div>
         </div>
+
+        {/* Row 3: Production Cost */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+          <div className="form-group">
+            <label>Production Cost + Shipping <span style={{fontWeight: 'normal', color: '#94a3b8'}}>(Optional)</span></label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ color: '#64748b' }}>$</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.production_cost || ''}
+                onChange={(e) => setFormData({ ...formData, production_cost: parseFloat(e.target.value) || 0 })}
+                placeholder="0.00"
+                style={{ flex: 1 }}
+              />
+            </div>
+            <p className="form-hint" style={{ marginTop: '4px', fontSize: '12px' }}>
+              Total cost of postcard production and shipping
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1670,11 +1641,17 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     <div className="form-section">
       {templateSubStep === 'front' && (
         <>
-          <div className="section-heading" style={{ marginBottom: '12px' }}>
+          <div className="section-heading" style={{ marginBottom: '12px', display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h3>Select Front Template</h3>
               <p>Choose a template for the front of your campaign mailer.</p>
             </div>
+            {totalCampaignSlots > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '14px' }}>
+                <span>Total Slots:</span>
+                <strong style={{ color: '#0f172a', fontWeight: '600' }}>{totalCampaignSlots.toLocaleString()}</strong>
+              </div>
+            )}
           </div>
           {renderTemplateGrid(frontTemplates, 'front', formData.front_design_id)}
         </>
@@ -1682,11 +1659,17 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
       
       {templateSubStep === 'back' && (
         <>
-          <div className="section-heading" style={{ marginBottom: '12px' }}>
+          <div className="section-heading" style={{ marginBottom: '12px', display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h3>Select Back Template</h3>
               <p>Choose a template for the back of your campaign mailer.</p>
             </div>
+            {totalCampaignSlots > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '14px' }}>
+                <span>Total Slots:</span>
+                <strong style={{ color: '#0f172a', fontWeight: '600' }}>{totalCampaignSlots.toLocaleString()}</strong>
+              </div>
+            )}
           </div>
           {renderTemplateGrid(backTemplates, 'back', formData.back_design_id)}
         </>
@@ -1771,7 +1754,11 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
                         <strong>{route.name}</strong>
                         <span>
                           {(route.total_households || 0).toLocaleString()} households
-                          {route.routes?.length && ` • ${route.routes.length} delivery route${route.routes.length === 1 ? '' : 's'}`}
+                          {route.routes?.length > 0 && (() => {
+                            const totalIncome = route.routes.reduce((sum, r) => sum + (r.income || 0), 0);
+                            const avgIncome = totalIncome / route.routes.length;
+                            return ` • Avg Income: $${Math.round(avgIncome).toLocaleString()}`;
+                          })()}
                           {route.total_cost && ` • $${route.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                         </span>
                       </div>
@@ -1897,206 +1884,15 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
     </div>
   );
 
-  const communicationsStepContent = (
-    <div className="contacts-step-with-tabs">
-      {/* Tab Navigation */}
-      <div className="contacts-tabs">
-        <button
-          type="button"
-          className={`contacts-tab ${contactsTabIndex === 0 ? 'active' : ''}`}
-          onClick={() => setContactsTabIndex(0)}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-            <circle cx="9" cy="7" r="4"/>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-          </svg>
-          <span>Select Recipients</span>
-        </button>
-        <button
-          type="button"
-          className={`contacts-tab ${contactsTabIndex === 1 ? 'active' : ''}`}
-          onClick={() => setContactsTabIndex(1)}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-            <polyline points="22,6 12,13 2,6"/>
-          </svg>
-          <span>Email Template</span>
-        </button>
-        <button
-          type="button"
-          className={`contacts-tab ${contactsTabIndex === 2 ? 'active' : ''}`}
-          onClick={() => setContactsTabIndex(2)}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10"/>
-            <polyline points="12 6 12 12 16 14"/>
-          </svg>
-          <span>Send Schedule</span>
-        </button>
-      </div>
+  const communicationsStepContent = contactsStepContent;
 
-      {/* Tab Content */}
-      <div className="contacts-tab-content">
-        {contactsTabIndex === 0 && contactsStepContent}
-        {contactsTabIndex === 1 && (
-          <div className="contacts-redesign">
-            <div className="contacts-card" style={{ borderLeft: '4px solid #8b5cf6' }}>
-              <div className="contacts-card-header">
-                <div className="contacts-card-icon" style={{ background: '#ede9fe' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b21a8" strokeWidth="2">
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                    <polyline points="22,6 12,13 2,6"/>
-                  </svg>
-                </div>
-                <div>
-                  <h4>Email Template</h4>
-                  <p>Select and customize your email message</p>
-                </div>
-              </div>
-
-              <div className="contacts-input-section">
-                <label className="contacts-label">Choose Template</label>
-                {emailTemplates.length ? (
-                  <select
-                    value={emailForm.templateId}
-                    onChange={(e) => handleTemplateChange(e.target.value)}
-                    className="contacts-select"
-                  >
-                    <option value="">Select an email template...</option>
-                    {emailTemplates.map(template => (
-                      <option key={template.id} value={template.id}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="contacts-empty-state">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
-                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                      <polyline points="22,6 12,13 2,6"/>
-                    </svg>
-                    <p>No email templates available. Create one in Email Marketing.</p>
-                  </div>
-                )}
-              </div>
-
-              {emailForm.templateId && (
-                <>
-                  <div className="contacts-input-section">
-                    <label className="contacts-label">Subject Line</label>
-                    <input
-                      type="text"
-                      value={emailForm.subject}
-                      onChange={(e) => setEmailForm(prev => ({ ...prev, subject: e.target.value }))}
-                      placeholder="Enter email subject..."
-                      className="contacts-input"
-                    />
-                  </div>
-                  <div className="contacts-input-section">
-                    <label className="contacts-label">Email Message</label>
-                    <textarea
-                      rows={4}
-                      value={emailForm.body_html}
-                      onChange={(e) => setEmailForm(prev => ({ ...prev, body_html: e.target.value }))}
-                      placeholder="Customize your email message..."
-                      className="contacts-textarea"
-                    />
-                    <p className="contacts-hint">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="16" x2="12" y2="12"/>
-                        <line x1="12" y1="8" x2="12.01" y2="8"/>
-                      </svg>
-                      Changes only apply to this campaign
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-        {contactsTabIndex === 2 && (
-          <div className="contacts-redesign">
-            <div className="contacts-card" style={{ borderLeft: '4px solid #f59e0b' }}>
-              <div className="contacts-card-header">
-                <div className="contacts-card-icon" style={{ background: '#fef3c7' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <polyline points="12 6 12 12 16 14"/>
-                  </svg>
-                </div>
-                <div>
-                  <h4>Send Schedule</h4>
-                  <p>Choose when to send the email</p>
-                </div>
-              </div>
-
-              <div className="contacts-selection-method">
-                <button
-                  type="button"
-                  className={`selection-method-btn ${emailForm.sendNow ? 'active' : ''}`}
-                  onClick={() => handleWhenToSendChange('send_now')}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <polyline points="12 6 12 12 16 14"/>
-                  </svg>
-                  <span>Send Now</span>
-                </button>
-                <button
-                  type="button"
-                  className={`selection-method-btn ${!emailForm.sendNow ? 'active' : ''}`}
-                  onClick={() => handleWhenToSendChange('schedule')}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="8" y1="2" x2="8" y2="6"/>
-                    <line x1="3" y1="10" x2="21" y2="10"/>
-                  </svg>
-                  <span>Schedule</span>
-                </button>
-              </div>
-
-              {!emailForm.sendNow && (
-                <div className="contacts-input-section">
-                  <label className="contacts-label">Date & Time</label>
-                  <input
-                    type="datetime-local"
-                    min={scheduleMinValue}
-                    value={emailForm.scheduledAt}
-                    onChange={(e) => handleScheduleChange(e.target.value)}
-                    className="contacts-input"
-                  />
-                  {!emailForm.scheduledAt && (
-                    <p className="contacts-hint">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="16" x2="12" y2="12"/>
-                        <line x1="12" y1="8" x2="12.01" y2="8"/>
-                      </svg>
-                      Select when the email should be sent
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  const steps = ['Basic Info', 'Templates', 'Pricing', 'Niches', 'Route', 'Contacts'];
+  const steps = ['Basic Info', 'Templates', 'Route', 'Pricing', 'Niches', 'Contacts'];
   const stepContents = [
     basicInfoStepContent,
     templateStepContent,
+    routeStepContent,
     pricingStepContent,
     nicheStepContent,
-    routeStepContent,
     communicationsStepContent
   ];
   const isBasicInfoStepComplete = Boolean(formData.name?.trim());
@@ -2111,8 +1907,8 @@ function CampaignModal({ campaign, userId, onClose, onSave }) {
   const canAdvanceFromStep = (stepIndex) => {
     if (stepIndex === 0) return isBasicInfoStepComplete; // Basic Info step
     if (stepIndex === 1) return isTemplateStepComplete; // Templates step
-    if (stepIndex === 3) return isNicheStepComplete; // Niches step
-    if (stepIndex === 4) return isRouteStepComplete; // Route step
+    if (stepIndex === 2) return isRouteStepComplete; // Route step
+    if (stepIndex === 4) return isNicheStepComplete; // Niches step
     return true;
   };
 

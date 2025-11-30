@@ -785,7 +785,8 @@
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: white;
-  min-width: 180px;
+  width: 100%;
+  min-width: 140px;
 }
 
 .price-input span {
@@ -1768,8 +1769,8 @@
   padding: 16px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 16px;
   transition: all 0.2s;
   background: white;
 }
@@ -1806,6 +1807,22 @@
   font-size: 15px;
   font-weight: 600;
   color: #0f172a;
+}
+
+.ad-slot-pricing-price-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 140px;
+}
+
+.price-per-piece {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  text-align: right;
+  white-space: nowrap;
 }
 
 /* Contacts Step Tabs */
