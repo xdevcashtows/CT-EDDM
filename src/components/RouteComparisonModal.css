@@ -1,0 +1,385 @@
+.route-comparison-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.route-comparison-modal {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 250, 255, 0.95));
+  border-radius: 1.5rem;
+  box-shadow: 0 28px 50px rgba(15, 23, 42, 0.2);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  max-width: 1200px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.route-comparison-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.route-comparison-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.route-comparison-modal-close {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  cursor: pointer;
+  padding: 10px;
+  border-radius: 10px;
+  color: #64748b;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+.route-comparison-modal-close:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1f2a44;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+}
+
+.route-comparison-modal-content {
+  padding: 28px;
+  overflow-y: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+.route-comparison-modal-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.route-comparison-modal-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.route-comparison-modal-content::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 3px;
+}
+
+.route-comparison-modal-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+.route-comparison-selection {
+  margin-bottom: 28px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 1rem;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+.route-comparison-selection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+.route-comparison-select-all {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(124, 58, 237, 0.05) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  cursor: pointer;
+  padding: 10px 16px;
+  border-radius: 10px;
+  color: #7c3aed;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.route-comparison-select-all:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(124, 58, 237, 0.1) 100%);
+  border-color: rgba(139, 92, 246, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15);
+}
+
+.route-comparison-selection-count {
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+  padding: 8px 12px;
+  background: rgba(248, 250, 252, 0.8);
+  border-radius: 8px;
+}
+
+.route-comparison-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.route-comparison-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  transition: all 0.2s ease;
+}
+
+.route-comparison-checkbox-item:hover {
+  background: rgba(248, 250, 252, 0.9);
+  border-color: rgba(139, 92, 246, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.route-comparison-checkbox-item.checked {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(124, 58, 237, 0.05) 100%);
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15);
+}
+
+.route-comparison-checkbox-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #8b5cf6;
+  flex-shrink: 0;
+}
+
+.route-comparison-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9375rem;
+  color: #1f2a44;
+  font-weight: 500;
+  flex: 1;
+}
+
+.locked-badge-small {
+  display: inline-flex;
+  padding: 3px 8px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(146, 64, 14, 0.1);
+}
+
+.route-comparison-table-wrapper {
+  overflow-x: auto;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+.route-comparison-table-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.route-comparison-table-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.route-comparison-table-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 3px;
+}
+
+.route-comparison-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: transparent;
+}
+
+.route-comparison-table thead {
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(241, 245, 249, 0.9));
+  border-bottom: 2px solid rgba(226, 232, 240, 0.8);
+}
+
+.route-comparison-table th {
+  padding: 16px 20px;
+  text-align: left;
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  position: relative;
+}
+
+.route-comparison-table th:first-child {
+  position: sticky;
+  left: 0;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(241, 245, 249, 0.9));
+  z-index: 2;
+  border-right: 1px solid rgba(226, 232, 240, 0.6);
+  padding-left: 24px;
+}
+
+.route-comparison-table th:not(:first-child) {
+  border-left: 1px solid rgba(226, 232, 240, 0.4);
+}
+
+.route-comparison-table tbody tr {
+  border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.route-comparison-table tbody tr:hover {
+  background: rgba(248, 250, 252, 0.8);
+  transform: scale(1.001);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.route-comparison-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.route-comparison-table td {
+  padding: 16px 20px;
+  font-size: 0.9375rem;
+  color: #1f2a44;
+  font-weight: 500;
+}
+
+.route-comparison-table td:first-child {
+  position: sticky;
+  left: 0;
+  background: rgba(255, 255, 255, 0.5);
+  z-index: 1;
+  font-weight: 600;
+  color: #475569;
+  padding-left: 24px;
+  border-right: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+.route-comparison-table tbody tr:hover td:first-child {
+  background: rgba(248, 250, 252, 0.8);
+}
+
+.route-comparison-table td:not(:first-child) {
+  border-left: 1px solid rgba(226, 232, 240, 0.3);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-label {
+  font-weight: 600;
+  color: #475569;
+  font-size: 0.9375rem;
+}
+
+.route-comparison-empty {
+  text-align: center;
+  padding: 80px 20px;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 1rem;
+  border: 2px dashed rgba(226, 232, 240, 0.8);
+}
+
+.route-comparison-empty p {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+@media (max-width: 768px) {
+  .route-comparison-modal {
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .route-comparison-modal-header {
+    padding: 20px;
+  }
+
+  .route-comparison-modal-content {
+    padding: 20px;
+  }
+
+  .route-comparison-checkboxes {
+    grid-template-columns: 1fr;
+  }
+
+  .route-comparison-table {
+    font-size: 0.875rem;
+  }
+
+  .route-comparison-table th,
+  .route-comparison-table td {
+    padding: 12px 16px;
+  }
+
+  .route-comparison-selection-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
+

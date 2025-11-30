@@ -181,7 +181,7 @@ function Contacts() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStages, setSelectedStages] = useState(new Set());
-  const [nicheFilter, setNicheFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [tagFilter, setTagFilter] = useState('all');
   const [temperatureFilter, setTemperatureFilter] = useState('all');
   const [sortBy, setSortBy] = useState('name');
@@ -355,7 +355,16 @@ function Contacts() {
       // If no stages selected, show all. Otherwise, only show contacts whose stage is selected
       const matchesStage = selectedStages.size === 0 || selectedStages.has(contact.stage);
       
-      const matchesNiche = nicheFilter === 'all' || contact.niche_id === nicheFilter;
+      const matchesCategory = categoryFilter === 'all' || (() => {
+        if (!contact.niche_id) return false;
+        // Check if contact.niche has category (from API), otherwise look it up in niches array
+        if (contact.niche?.category) {
+          return contact.niche.category === categoryFilter;
+        }
+        // Fallback: find the niche from the niches array to get its category
+        const niche = niches.find(n => n.id === contact.niche_id);
+        return niche?.category === categoryFilter;
+      })();
       
       // Tag matching logic
       const matchesTag = tagFilter === 'all' || (() => {
@@ -371,7 +380,7 @@ function Contacts() {
       const matchesTemperature = temperatureFilter === 'all' || 
         (contact.temperature || 'warm') === temperatureFilter;
       
-      return matchesSearch && matchesStage && matchesNiche && matchesTag && matchesTemperature;
+      return matchesSearch && matchesStage && matchesCategory && matchesTag && matchesTemperature;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -858,7 +867,7 @@ function Contacts() {
   const handleClearFilters = () => {
     setSearchTerm('');
     setSelectedStages(new Set());
-    setNicheFilter('all');
+    setCategoryFilter('all');
     setTagFilter('all');
     setTemperatureFilter('all');
     setSortBy('name');
@@ -889,7 +898,7 @@ function Contacts() {
   const hasActiveFilters = 
     searchTerm !== '' || 
     selectedStages.size > 0 || 
-    nicheFilter !== 'all' || 
+    categoryFilter !== 'all' || 
     tagFilter !== 'all' || 
     temperatureFilter !== 'all' ||
     sortBy !== 'name';
@@ -1010,20 +1019,31 @@ function Contacts() {
       // Add existing niches to map
       niches.forEach(n => nichesMap.set(n.name.toLowerCase(), n));
       
-      // Create new niches
+      // Track niches being created to prevent duplicate creation attempts
+      const nichesBeingCreated = new Set();
+      
+      // Fetch all existing niches first to avoid race conditions
+      const { data: allExistingNiches } = await nichesAPI.getAll();
+      if (allExistingNiches) {
+        allExistingNiches.forEach(n => nichesMap.set(n.name.toLowerCase(), n));
+      }
+      
+      // Create new niches (only create if not already in map and not being created)
       for (const nicheName of uniqueNichesInCSV) {
         const lowerName = nicheName.toLowerCase();
-        if (!nichesMap.has(lowerName)) {
+        if (!nichesMap.has(lowerName) && !nichesBeingCreated.has(lowerName)) {
+          nichesBeingCreated.add(lowerName);
           try {
             const { data: newNiche, error: nicheError } = await nichesAPI.create(nicheName, user.id);
             if (!nicheError && newNiche) {
               nichesMap.set(lowerName, newNiche);
             } else if (nicheError) {
-              // If it's a unique constraint error, try to fetch it (might have been created by another process)
-              if (nicheError.code === '23505') {
-                const existingNiches = await nichesAPI.getAll();
-                if (existingNiches.data) {
-                  const existing = existingNiches.data.find(n => n.name.toLowerCase() === lowerName);
+              // If it's a unique constraint error (409 Conflict), fetch the existing niche
+              if (nicheError.code === '23505' || nicheError.status === 409) {
+                // Try to fetch it - it might have been created by another process or concurrent request
+                const { data: existingNiches } = await nichesAPI.getAll();
+                if (existingNiches) {
+                  const existing = existingNiches.find(n => n.name.toLowerCase() === lowerName);
                   if (existing) {
                     nichesMap.set(lowerName, existing);
                   }
@@ -1033,7 +1053,20 @@ function Contacts() {
               }
             }
           } catch (err) {
+            // On exception, try to fetch existing niche one more time
+            const { data: existingNiches } = await nichesAPI.getAll();
+            if (existingNiches) {
+              const existing = existingNiches.find(n => n.name.toLowerCase() === lowerName);
+              if (existing) {
+                nichesMap.set(lowerName, existing);
+              } else {
             errors.push(`Exception creating niche "${nicheName}": ${err.message}`);
+          }
+            } else {
+              errors.push(`Exception creating niche "${nicheName}": ${err.message}`);
+            }
+          } finally {
+            nichesBeingCreated.delete(lowerName);
           }
         }
       }
@@ -1182,16 +1215,25 @@ function Contacts() {
 
               {/* Quick Filters */}
               <div className="quick-filters-v2">
-                <div className={`quick-filter-item ${nicheFilter !== 'all' ? 'active' : ''}`}>
+                <div className={`quick-filter-item ${categoryFilter !== 'all' ? 'active' : ''}`}>
                   <select
-                    value={nicheFilter}
-                    onChange={(e) => setNicheFilter(e.target.value)}
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
                     className="quick-filter-select"
                   >
-                    <option value="all">All Niches</option>
-                    {niches.map(niche => (
-                      <option key={niche.id} value={niche.id}>{niche.name}</option>
-                    ))}
+                    <option value="all">All Categories</option>
+                    {(() => {
+                      // Extract unique categories from niches
+                      const categories = new Set();
+                      niches.forEach(niche => {
+                        if (niche.category) {
+                          categories.add(niche.category);
+                        }
+                      });
+                      return Array.from(categories).sort().map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ));
+                    })()}
                   </select>
                 </div>
 
@@ -1217,11 +1259,11 @@ function Contacts() {
                     All
                   </button>
                   <button
-                    className={`temp-btn-v2 hot ${temperatureFilter === 'hot' ? 'active' : ''}`}
-                    onClick={() => setTemperatureFilter('hot')}
-                    title="Hot leads"
+                    className={`temp-btn-v2 cold ${temperatureFilter === 'cold' ? 'active' : ''}`}
+                    onClick={() => setTemperatureFilter('cold')}
+                    title="Cold leads"
                   >
-                    🔥
+                    ❄️
                   </button>
                   <button
                     className={`temp-btn-v2 warm ${temperatureFilter === 'warm' ? 'active' : ''}`}
@@ -1231,11 +1273,11 @@ function Contacts() {
                     ☀️
                   </button>
                   <button
-                    className={`temp-btn-v2 cold ${temperatureFilter === 'cold' ? 'active' : ''}`}
-                    onClick={() => setTemperatureFilter('cold')}
-                    title="Cold leads"
+                    className={`temp-btn-v2 hot ${temperatureFilter === 'hot' ? 'active' : ''}`}
+                    onClick={() => setTemperatureFilter('hot')}
+                    title="Hot leads"
                   >
-                    ❄️
+                    🔥
                   </button>
                 </div>
 

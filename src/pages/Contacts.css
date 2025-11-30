@@ -622,6 +622,8 @@
   /* Hide scrollbar */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
+  /* Prevent nested scroll container detection */
+  position: relative;
 }
 
 .contacts-kanban-board::-webkit-scrollbar {
@@ -698,6 +700,10 @@
   /* Hide scrollbar */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
+  /* Explicitly mark as scroll container for drag-and-drop */
+  position: relative;
+  /* Ensure this is the only scroll container detected */
+  contain: layout style;
 }
 
 .contacts-kanban-column-body::-webkit-scrollbar {

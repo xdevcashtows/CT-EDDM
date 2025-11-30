@@ -101,7 +101,7 @@ export const contacts = {
     if (nicheIds.length > 0) {
       const { data: nichesData, error: nichesError } = await supabase
         .from('niches')
-        .select('id, name')
+        .select('id, name, category')
         .in('id', nicheIds);
 
       if (nichesError) {
@@ -122,7 +122,7 @@ export const contacts = {
         ...contact,
         stage: contact.stage || 'lead',
         temperature: contact.temperature || 'cold',
-        niche: niche
+        niche: niche ? { ...niche, category: niche.category || null } : null
       };
     });
 

@@ -4,6 +4,7 @@ import './Routes.css';
 import ImportPanel from '../components/ImportPanel';
 import DataTable from '../components/DataTable';
 import SavedRoutes from '../components/SavedRoutes';
+import RouteComparisonModal from '../components/RouteComparisonModal';
 import { optimizeRoutes } from '../utils/optimizeRoutes';
 import {
   campaigns as campaignsAPI,
@@ -377,6 +378,7 @@ function Routes() {
   const printTimestampRef = useRef(new Date().toLocaleString());
   const printConfigRef = useRef(null);
   const [showPrintConfig, setShowPrintConfig] = useState(false);
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
   const [isDataManagementCollapsed, setIsDataManagementCollapsed] = useState(false);
   const [printColumns, setPrintColumns] = useState({
     route: true,
@@ -440,6 +442,8 @@ function Routes() {
     const avgAge = totalRoutes > 0 ? totalAge / totalRoutes : 0;
     const mix = residential + business;
     const residentialShare = mix > 0 ? (residential / mix) * 100 : 0;
+    // Extract age range from selected data (should be the same for all routes from same import)
+    const ageRange = selectedData.length > 0 && selectedData[0]?.ageRange ? selectedData[0].ageRange : null;
 
     return {
       residential,
@@ -449,7 +453,8 @@ function Routes() {
       avgAge,
       avgSize,
       avgIncome,
-      totalCost
+      totalCost,
+      ageRange
     };
   }, [selectedData]);
 
@@ -491,6 +496,7 @@ function Routes() {
                   onLoad={handleLoadSavedRoute}
                   onDelete={handleDeleteSavedRoute}
                   onRename={handleRenameSavedRoute}
+                  onCompare={() => setShowComparisonModal(true)}
                   loading={loading}
                 />
               </div>
@@ -786,7 +792,7 @@ function Routes() {
           )}
           {printColumns.age && (
             <div className="print-detail-stat">
-              <p className="print-stat-label">Age 30-65</p>
+              <p className="print-stat-label">{printSummaryStats.ageRange ? `Age ${printSummaryStats.ageRange}` : 'Age'}</p>
               <p className="print-stat-value">{printSummaryStats.avgAge.toFixed(1)}%</p>
             </div>
           )}
@@ -812,7 +818,7 @@ function Routes() {
                 {printColumns.business && <th>Bus</th>}
                 {printColumns.resShare && <th>Res %</th>}
                 {printColumns.total && <th>Total</th>}
-                {printColumns.age && <th>Age %</th>}
+                {printColumns.age && <th>{printSummaryStats.ageRange ? `Age ${printSummaryStats.ageRange}` : 'Age %'}</th>}
                 {printColumns.size && <th>Size</th>}
                 {printColumns.income && <th>Income</th>}
                 {printColumns.cost && <th>Cost</th>}
@@ -844,6 +850,11 @@ function Routes() {
         </div>
       </div>
       </div>
+      <RouteComparisonModal
+        routes={savedRoutes}
+        isOpen={showComparisonModal}
+        onClose={() => setShowComparisonModal(false)}
+      />
     </PageLayout>
   )
 }

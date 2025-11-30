@@ -1,9 +1,23 @@
-import { Trash2, Edit3 } from 'lucide-react';
+import { Trash2, Edit3, GitCompare } from 'lucide-react';
 import './SavedRoutes.css';
 
-function SavedRoutes({ routes = [], onLoad, onDelete, onRename, loading = false }) {
+function SavedRoutes({ routes = [], onLoad, onDelete, onRename, onCompare, loading = false }) {
   return (
     <div className="saved-routes">
+      {routes.length > 0 && onCompare && (
+        <div className="saved-routes-header">
+          <h3>Saved Routes</h3>
+          <button
+            type="button"
+            onClick={onCompare}
+            className="compare-button"
+            title="Compare saved routes"
+          >
+            <GitCompare size={16} />
+            Compare
+          </button>
+        </div>
+      )}
       <div className="saved-routes-body">
         {loading ? (
           <p className="loading-message">Loading...</p>
@@ -20,6 +34,25 @@ function SavedRoutes({ routes = [], onLoad, onDelete, onRename, loading = false 
                   onLoad(route.id);
                 }
               };
+              
+              // Extract unique zip codes from route data
+              const extractZipCodes = () => {
+                if (!route.routes || route.routes.length === 0) return [];
+                const zipCodes = new Set();
+                route.routes.forEach(r => {
+                  if (r.route) {
+                    // Extract 5-digit zip code from route string (e.g., "56379-PBOX" -> "56379")
+                    const match = r.route.match(/^(\d{5})/);
+                    if (match) {
+                      zipCodes.add(match[1]);
+                    }
+                  }
+                });
+                return Array.from(zipCodes).sort();
+              };
+              
+              const zipCodes = extractZipCodes();
+              
               return (
                 <div
                   key={route.id}
@@ -32,6 +65,9 @@ function SavedRoutes({ routes = [], onLoad, onDelete, onRename, loading = false 
                   <div className="saved-route-content">
                     <div className="saved-route-name">{route.name}</div>
                     <div className="saved-route-info">
+                      {zipCodes.length > 0 && (
+                        <span className="saved-route-zip">{zipCodes.join(', ')}</span>
+                      )}
                       {route.routes?.length || 0} routes • {route.total_households || 0} households
                       {route.is_locked && <span className="locked-badge">Locked</span>}
                     </div>

@@ -14,6 +14,9 @@ function DataTable({ data = [], selectedRoutes = new Set(), onRouteToggle, onSel
 
   const safeData = Array.isArray(data) ? data : []
   
+  // Extract age range from data (should be the same for all routes from same import)
+  const ageRange = safeData.length > 0 && safeData[0]?.ageRange ? safeData[0].ageRange : null
+  
   // Calculate residential percentage for each route
   const dataWithPercent = safeData.map(route => ({
     ...route,
@@ -140,7 +143,7 @@ function DataTable({ data = [], selectedRoutes = new Set(), onRouteToggle, onSel
               <div className="th-content">
                 <span className="th-metric">{metrics.ageAvg}%</span>
                 <div className="th-label-row">
-                  <span className="th-label">AGE %</span>
+                  <span className="th-label">{ageRange ? `Age ${ageRange}` : 'AGE %'}</span>
                   <SortIcon columnKey="age" />
                 </div>
               </div>

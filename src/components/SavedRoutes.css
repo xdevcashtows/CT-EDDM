@@ -17,20 +17,58 @@
   justify-content: space-between;
   gap: 0.75rem;
   flex-wrap: wrap;
+  margin-bottom: 0.5rem;
 }
 
 .saved-routes-header h3 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  color: #0f172a;
+  color: #1f2a44;
+}
+
+.compare-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}
+
+.compare-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.4);
+}
+
+.compare-button:active {
+  transform: translateY(0);
 }
 
 .saved-routes-body {
   flex: 1;
   overflow-y: auto;
-  padding-right: 6px;
-  min-height: 280px;
+  padding-right: 0;
+  /* Limit height to show exactly 3 routes */
+  /* Each route item: ~85px (padding 32px + content ~53px) + gap 12px = ~97px per item */
+  /* 3 items: (85px * 3) + (12px * 2 gaps) = 255px + 24px = 279px */
+  max-height: 280px;
+  /* Smooth scrolling */
+  scroll-behavior: smooth;
+  /* Hide scrollbars */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.saved-routes-body::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .loading-message,
@@ -89,6 +127,17 @@
   align-items: center;
   gap: 0.5rem;
   font-weight: 500;
+  flex-wrap: wrap;
+}
+
+.saved-route-zip {
+  font-weight: 600;
+  color: #1f2a44;
+  background: rgba(139, 92, 246, 0.1);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
 }
 
 .locked-badge {
