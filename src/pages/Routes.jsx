@@ -135,8 +135,6 @@ function Routes() {
           assignedBatch = 3;
         }
         
-        console.log('  Assigning to Batch', assignedBatch, '- Current batch totals:', batchTotals, '+ new pieces:', piecesForRoute);
-        
         // Assign to appropriate batch
         setRouteData(prevData =>
           prevData.map(route =>
@@ -236,8 +234,6 @@ function Routes() {
         currentBatchTotal += pieces;
       });
       
-      console.log('  Batch assignments for Select All:', batchAssignments);
-      
       // Apply batch assignments
       setRouteData(prevData =>
         prevData.map(route => 
@@ -260,9 +256,6 @@ function Routes() {
 
   const selectedData = useMemo(() => {
     const result = filteredData.filter(route => selectedRoutes.has(route.id));
-    console.log('🟩 selectedData recalculated - length:', result.length);
-    console.log('  Routes WITH batch numbers:', result.filter(r => r.batchNumber).map(r => ({ id: r.id, route: r.route, batch: r.batchNumber })));
-    console.log('  Routes WITHOUT batch numbers:', result.filter(r => !r.batchNumber).map(r => ({ id: r.id, route: r.route })));
     return result;
   }, [filteredData, selectedRoutes]);
 
@@ -558,8 +551,6 @@ function Routes() {
             </div>
             {(() => {
                 const safeSelectedData = Array.isArray(selectedData) ? selectedData : [];
-                console.log('📊 BATCH CALCULATIONS RUNNING');
-                console.log('  safeSelectedData.length:', safeSelectedData.length);
                 
                 // Calculate batch totals (same logic as RouteAnalysisSummary)
                 const batch1Data = safeSelectedData.filter(r => r.batchNumber === 1);
@@ -569,7 +560,6 @@ function Routes() {
                   return sum + (residentialOnly ? (r.residential || 0) : (r.total || 0));
                 }, 0);
                 const batch1Routes = batch1Data.length;
-                console.log('  Batch 1:', batch1, 'pieces,', batch1Routes, 'routes');
                 
                 const batch2Data = safeSelectedData.filter(r => r.batchNumber === 2);
                 const batch2 = batch2Data.reduce((sum, r) => {
@@ -578,7 +568,6 @@ function Routes() {
                   return sum + (residentialOnly ? (r.residential || 0) : (r.total || 0));
                 }, 0);
                 const batch2Routes = batch2Data.length;
-                console.log('  Batch 2:', batch2, 'pieces,', batch2Routes, 'routes');
                 
                 const batch3Data = safeSelectedData.filter(r => r.batchNumber === 3);
                 const batch3 = batch3Data.reduce((sum, r) => {
@@ -587,7 +576,6 @@ function Routes() {
                   return sum + (residentialOnly ? (r.residential || 0) : (r.total || 0));
                 }, 0);
                 const batch3Routes = batch3Data.length;
-                console.log('  Batch 3:', batch3, 'pieces,', batch3Routes, 'routes');
 
                 const batches = [
                   { number: 1, pieces: batch1, routes: batch1Routes },

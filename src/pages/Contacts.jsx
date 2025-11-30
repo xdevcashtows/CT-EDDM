@@ -3258,13 +3258,36 @@ function ContactsSpreadsheetView({
 
   // Handle column resize start
   const handleResizeStart = (e, columnKey) => {
+    console.log('🔧 [Column Resize] handleResizeStart called', {
+      columnKey,
+      eventType: e.type,
+      target: e.target,
+      currentTarget: e.currentTarget,
+      clientX: e.clientX,
+      timestamp: new Date().toISOString()
+    });
+    
     e.preventDefault();
     e.stopPropagation();
+    
     const column = columns.find(col => col.key === columnKey);
+    console.log('🔧 [Column Resize] Column found:', {
+      column,
+      allColumns: columns.map(c => ({ key: c.key, width: c.width })),
+      columnKey
+    });
+    
     if (column) {
+      console.log('🔧 [Column Resize] Setting resize state', {
+        columnKey,
+        startX: e.clientX,
+        startWidth: column.width
+      });
       setResizingColumn(columnKey);
       setResizeStartX(e.clientX);
       setResizeStartWidth(column.width);
+    } else {
+      console.warn('🔧 [Column Resize] Column not found for key:', columnKey);
     }
   };
 
@@ -3275,30 +3298,67 @@ function ContactsSpreadsheetView({
 
   // Handle column resize
   useEffect(() => {
-    if (!resizingColumn) return;
+    console.log('🔧 [Column Resize] useEffect triggered', {
+      resizingColumn,
+      resizeStartX,
+      resizeStartWidth,
+      hasResizingColumn: !!resizingColumn
+    });
+
+    if (!resizingColumn) {
+      console.log('🔧 [Column Resize] No resizing column, skipping effect');
+      return;
+    }
+
+    console.log('🔧 [Column Resize] Setting up mouse event listeners');
 
     const handleMouseMove = (e) => {
       const diff = e.clientX - resizeStartX;
       const newWidth = Math.max(80, resizeStartWidth + diff);
+      
+      console.log('🔧 [Column Resize] handleMouseMove', {
+        clientX: e.clientX,
+        resizeStartX,
+        diff,
+        resizeStartWidth,
+        newWidth,
+        resizingColumn
+      });
+      
       setColumns(prevColumns => {
         const newColumns = prevColumns.map(col =>
           col.key === resizingColumn ? { ...col, width: newWidth } : col
         );
+        console.log('🔧 [Column Resize] Updating columns', {
+          resizingColumn,
+          oldWidth: prevColumns.find(c => c.key === resizingColumn)?.width,
+          newWidth,
+          allColumnWidths: newColumns.map(c => ({ key: c.key, width: c.width }))
+        });
         columnsRef.current = newColumns;
         return newColumns;
       });
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e) => {
+      console.log('🔧 [Column Resize] handleMouseUp', {
+        resizingColumn,
+        finalColumns: columnsRef.current.map(c => ({ key: c.key, width: c.width }))
+      });
       // Save the latest columns state from ref
       saveColumnPreferences(columnsRef.current);
       setResizingColumn(null);
+      setResizeStartX(0);
+      setResizeStartWidth(0);
     };
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
 
+    console.log('🔧 [Column Resize] Event listeners attached');
+
     return () => {
+      console.log('🔧 [Column Resize] Cleaning up event listeners');
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -3522,11 +3582,23 @@ function ContactsSpreadsheetView({
                     <div
                       className="spreadsheet-column-resizer"
                       onMouseDown={(e) => {
+                        console.log('🔧 [Column Resize] Resizer onMouseDown', {
+                          columnKey: column.key,
+                          eventType: e.type,
+                          target: e.target,
+                          currentTarget: e.currentTarget,
+                          clientX: e.clientX,
+                          className: e.target.className
+                        });
                         e.preventDefault();
                         e.stopPropagation();
                         handleResizeStart(e, column.key);
                       }}
                       onClick={(e) => {
+                        console.log('🔧 [Column Resize] Resizer onClick', {
+                          columnKey: column.key,
+                          eventType: e.type
+                        });
                         e.preventDefault();
                         e.stopPropagation();
                       }}

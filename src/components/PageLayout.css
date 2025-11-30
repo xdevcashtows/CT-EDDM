@@ -45,18 +45,6 @@
   line-height: 1.4;
 }
 
-.page-shell-tip {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #0f172a;
-  background: #e0e7ff;
-  border: 1px solid #c7d2fe;
-  margin: 0 0 8px;
-}
 
 .page-shell-actions {
   display: flex;

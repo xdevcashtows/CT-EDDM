@@ -1,12 +1,11 @@
 import React from 'react'
 import './PageLayout.css'
 
-function PageLayout({ title, subtitle, tip, actions, children, className = '' }) {
+function PageLayout({ title, subtitle, actions, children, className = '' }) {
   return (
     <section className={`page-shell ${className}`}>
       <header className="page-shell-header">
         <div className="page-shell-title-block">
-          {tip && <p className="page-shell-tip">{tip}</p>}
           <h1>{title}</h1>
           {subtitle && <p className="page-shell-subtitle">{subtitle}</p>}
         </div>

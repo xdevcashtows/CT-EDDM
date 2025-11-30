@@ -172,24 +172,40 @@
 
 .template-tabs {
   display: flex;
-  gap: 12px;
-}
-
-.template-tab-button {
+  gap: 8px;
+  padding: 8px;
+  background: #f8fafc;
+  border-radius: 12px;
   border: 1px solid #e2e8f0;
-  background: white;
-  border-radius: 999px;
-  padding: 6px 16px;
-  font-weight: 600;
-  color: #475569;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 
-.template-tab-button.active {
-  background: #1e3a8a;
-  border-color: #1e3a8a;
-  color: white;
+.designs-tab-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.designs-tab-button:hover {
+  background: white;
+  color: #475569;
+}
+
+.designs-tab-button--active {
+  background: white;
+  border-color: #3b82f6;
+  color: #1e40af;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
 }
 
 .template-footer-actions {

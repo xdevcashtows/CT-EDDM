@@ -21,6 +21,7 @@ import { StatusFilter } from '../components/campaign/StatusFilter';
 import { ViewToggle } from '../components/campaign/ViewToggle';
 import CampaignDetailView from '../components/campaign/CampaignDetailView';
 import ImageUploader from '../components/ImageUploader';
+import PageLayout from '../components/PageLayout';
 
 
 const cloneLayout = (layout = getDefaultMockLayout('9x12')) => ({
@@ -276,43 +277,43 @@ function Campaigns() {
 
   if (loading) {
     return (
-      <div className="p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-            <p className="mt-4 text-gray-600">Loading campaigns...</p>
-          </div>
+      <PageLayout
+        title="Campaigns"
+        subtitle="EDDM postcard mailer campaigns with status tracking"
+        className="page-shell--fullwidth"
+      >
+        <div className="campaigns-loading">
+          <div className="campaigns-loading-spinner"></div>
+          <p>Loading campaigns...</p>
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
+  const layoutActions = (
+    <div className="campaigns-header-actions">
+      <button 
+        className="campaigns-new-button"
+        onClick={handleCreateCampaign}
+      >
+        <Plus size={20} />
+        New Campaign
+      </button>
+      <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+    </div>
+  );
+
   return (
-    <div className="p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Campaign Cards
-              </h1>
-              <p className="text-gray-600">
-                EDDM postcard mailer campaigns with status tracking
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button 
-                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                onClick={handleCreateCampaign}
-              >
-                <Plus size={20} />
-                New Campaign
-              </button>
-              <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
-            </div>
-          </div>
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm font-medium text-gray-700">
+    <PageLayout
+      title="Campaigns"
+      subtitle="EDDM postcard mailer campaigns with status tracking"
+      actions={layoutActions}
+      className="page-shell--fullwidth"
+    >
+      <div className="campaigns-page">
+        <div className="campaigns-filters">
+          <div className="campaigns-filters-header">
+            <span className="campaigns-filters-label">
               Filter by status:
             </span>
             <StatusFilter
@@ -321,15 +322,15 @@ function Campaigns() {
               onClearFilters={handleClearFilters}
             />
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="campaigns-count">
             Showing {filteredCampaigns.length} of {campaigns.length} campaigns
           </p>
         </div>
         <div
           className={
             viewMode === 'grid'
-              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-              : 'flex flex-col gap-4'
+              ? 'campaigns-grid'
+              : 'campaigns-list'
           }
         >
           {filteredCampaigns.map((campaign) => (
@@ -341,10 +342,8 @@ function Campaigns() {
           ))}
         </div>
         {filteredCampaigns.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">
-              No campaigns match the selected filters
-            </p>
+          <div className="campaigns-empty">
+            <p>No campaigns match the selected filters</p>
           </div>
         )}
       </div>
@@ -369,7 +368,7 @@ function Campaigns() {
           onTabChange={setDetailViewActiveTab}
         />
       )}
-    </div>
+    </PageLayout>
   );
 }
 

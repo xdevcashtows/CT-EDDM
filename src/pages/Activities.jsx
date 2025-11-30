@@ -20,14 +20,12 @@ function Activities() {
     setLoading(false);
   };
 
-  const layoutProps = {
-    title: 'Activities',
-    subtitle: 'Manage your contact activities and follow-ups.',
-    tip: 'Keep track of tasks, meetings, and follow-ups with your contacts.'
-  };
-
   return (
-    <PageLayout {...layoutProps}>
+    <PageLayout
+      title="Activities"
+      subtitle="Manage your contact activities and follow-ups."
+      className="page-shell--fullwidth"
+    >
       <div className="activities-page">
         {loading ? (
           <div className="activities-loading">

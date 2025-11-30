@@ -21,7 +21,6 @@ function Settings() {
     <PageLayout
       title="Settings"
       subtitle="Configure your CRM preferences and account settings."
-      tip="Customize your experience"
       className="page-shell--fullwidth"
     >
       <div className="settings-container">

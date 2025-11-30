@@ -526,9 +526,8 @@ const addCellToPlacement = (placementId, cellId) => {
 
   return (
     <PageLayout
-      title="Build Custom Template"
+      title="Build Custom Card"
       subtitle="Create a 9x12 postcard template with ad slots."
-      tip="Drag from the slot list, tweak the price, name it, and save for future campaigns."
       className="page-shell--fullwidth"
     >
       <div className="design-builder">
@@ -603,14 +602,14 @@ const addCellToPlacement = (placementId, cellId) => {
               <div className="template-tabs">
                 <button
                   type="button"
-                  className={`template-tab-button ${templateTab === 'canvas' ? 'active' : ''}`}
+                  className={`designs-tab-button ${templateTab === 'canvas' ? 'designs-tab-button--active' : ''}`}
                   onClick={() => setTemplateTab('canvas')}
                 >
                   Canvas
                 </button>
                 <button
                   type="button"
-                  className={`template-tab-button ${templateTab === 'saved' ? 'active' : ''}`}
+                  className={`designs-tab-button ${templateTab === 'saved' ? 'designs-tab-button--active' : ''}`}
                   onClick={() => setTemplateTab('saved')}
                 >
                   Saved Templates
