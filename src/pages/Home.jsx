@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
   Users, 
@@ -17,6 +18,7 @@ import PageLayout from '../components/PageLayout';
 
 function Home() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [recentCampaigns, setRecentCampaigns] = useState([]);
@@ -195,7 +197,11 @@ function Home() {
             ) : (
               <div className="campaigns-list">
                 {recentCampaigns.map(campaign => (
-                  <div key={campaign.id} className="campaign-item">
+                  <div 
+                    key={campaign.id} 
+                    className="campaign-item"
+                    onClick={() => navigate(`/campaigns?campaign=${campaign.id}`)}
+                  >
                     <div className="campaign-info">
                       <div className="campaign-name">{campaign.name}</div>
                       <div className="campaign-meta">

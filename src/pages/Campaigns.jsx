@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import './Campaigns.css';
 import { 
@@ -132,6 +133,7 @@ const resolveDesignSideLayout = (design, side) => {
 
 function Campaigns() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -141,6 +143,7 @@ function Campaigns() {
   const [showDetailView, setShowDetailView] = useState(false);
   const [detailViewCampaign, setDetailViewCampaign] = useState(null);
   const [detailViewActiveTab, setDetailViewActiveTab] = useState('settings');
+  const [hasCheckedUrlParam, setHasCheckedUrlParam] = useState(false);
   
   const renderCountRef = useRef(0);
   renderCountRef.current += 1;
@@ -205,6 +208,25 @@ function Campaigns() {
     // Always open to settings tab when clicking on a campaign
     setDetailViewActiveTab('settings');
   };
+
+  // Check for campaign ID in URL params and open that campaign
+  useEffect(() => {
+    if (!loading && campaigns.length > 0 && !hasCheckedUrlParam) {
+      const campaignId = searchParams.get('campaign');
+      if (campaignId) {
+        const campaign = campaigns.find(c => c.id === parseInt(campaignId));
+        if (campaign) {
+          handleOpenCampaignDetail(campaign);
+          // Remove the query parameter from URL after opening
+          setSearchParams({}, { replace: true });
+        }
+        setHasCheckedUrlParam(true);
+      } else {
+        setHasCheckedUrlParam(true);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, campaigns, hasCheckedUrlParam]);
 
   const handleCloseDetailView = async () => {
     console.log('🚪 [Campaigns] Closing detail view');

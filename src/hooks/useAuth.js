@@ -77,7 +77,8 @@ export function useAuth() {
     signIn: auth.signIn,
     signUp: auth.signUp,
     signOut: auth.signOut,
-    resetPassword: auth.resetPassword
+    resetPassword: auth.resetPassword,
+    signInWithGoogle: auth.signInWithGoogle
   };
 }
 

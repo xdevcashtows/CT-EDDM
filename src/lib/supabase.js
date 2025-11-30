@@ -80,6 +80,24 @@ export const auth = {
     return { data, error };
   },
 
+  signInWithGoogle: async (redirectToPath = '/home') => {
+    const redirectTo = typeof window !== 'undefined' 
+      ? `${window.location.origin}${redirectToPath}`
+      : undefined;
+    
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectTo,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      }
+    });
+    return { data, error };
+  },
+
   onAuthStateChange: (callback) => {
     return supabase.auth.onAuthStateChange(callback);
   }
