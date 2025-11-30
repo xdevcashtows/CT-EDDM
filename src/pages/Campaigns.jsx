@@ -142,7 +142,7 @@ function Campaigns() {
   const [viewMode, setViewMode] = useState('grid');
   const [showDetailView, setShowDetailView] = useState(false);
   const [detailViewCampaign, setDetailViewCampaign] = useState(null);
-  const [detailViewActiveTab, setDetailViewActiveTab] = useState('settings');
+  const [detailViewActiveTab, setDetailViewActiveTab] = useState('analytics');
   const [hasCheckedUrlParam, setHasCheckedUrlParam] = useState(false);
   
   const renderCountRef = useRef(0);
@@ -205,8 +205,8 @@ function Campaigns() {
     });
     setDetailViewCampaign(campaign);
     setShowDetailView(true);
-    // Always open to settings tab when clicking on a campaign
-    setDetailViewActiveTab('settings');
+    // Always open to analytics tab when clicking on a campaign
+    setDetailViewActiveTab('analytics');
   };
 
   // Check for campaign ID in URL params and open that campaign
@@ -232,7 +232,7 @@ function Campaigns() {
     console.log('🚪 [Campaigns] Closing detail view');
     setShowDetailView(false);
     setDetailViewCampaign(null);
-    setDetailViewActiveTab('settings');
+    setDetailViewActiveTab('analytics');
     
     // Refresh campaigns list when closing detail view to show any changes
     console.log('🔄 [Campaigns] Refreshing campaigns list after closing detail view');
