@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Search, ChevronDown, ChevronRight, X, CheckCircle2, Circle, Filter } from 'lucide-react';
 import './ContactPicker.css';
 
@@ -8,12 +8,12 @@ const ContactPicker = ({
   onSelectionChange,
   onClose 
 }) => {
-  const [activeTab, setActiveTab] = useState('search');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [expandedNiches, setExpandedNiches] = useState(new Set());
   const [filterMode, setFilterMode] = useState('all'); // 'all', 'recent', 'ideas'
   const [selectedContactIds, setSelectedContactIds] = useState(new Set(initialSelectedIds));
+  const [expandedCartCategories, setExpandedCartCategories] = useState(new Set());
 
   // Organize contacts by category > niche > contacts
   const organizedData = useMemo(() => {
@@ -259,33 +259,74 @@ const ContactPicker = ({
     return allContacts.filter(contact => selectedContactIds.has(contact.id));
   }, [allContacts, selectedContactIds]);
 
+  // Organize selected contacts by category
+  const selectedContactsByCategory = useMemo(() => {
+    const categoryMap = new Map();
+
+    selectedContacts.forEach(contact => {
+      // Get niche info
+      let niche;
+      if (contact.niche) {
+        niche = {
+          id: contact.niche.id || contact.niche_id,
+          name: contact.niche.name || 'Unassigned',
+          category: contact.niche.category || 'Uncategorized'
+        };
+      } else if (contact.niche_id) {
+        niche = {
+          id: contact.niche_id,
+          name: 'Unassigned',
+          category: 'Uncategorized'
+        };
+      } else {
+        niche = {
+          id: null,
+          name: 'Unassigned',
+          category: 'Uncategorized'
+        };
+      }
+      const categoryName = niche.category || 'Uncategorized';
+
+      if (!categoryMap.has(categoryName)) {
+        categoryMap.set(categoryName, []);
+      }
+
+      categoryMap.get(categoryName).push(contact);
+    });
+
+    // Convert to array and sort
+    const categories = Array.from(categoryMap.entries()).map(([name, contacts]) => ({
+      name,
+      contacts: contacts.sort((a, b) => (a.business_name || '').localeCompare(b.business_name || ''))
+    }));
+
+    categories.sort((a, b) => a.name.localeCompare(b.name));
+
+    return categories;
+  }, [selectedContacts]);
+
+  // Toggle cart category expansion
+  const toggleCartCategoryExpansion = (categoryName) => {
+    const newExpanded = new Set(expandedCartCategories);
+    if (newExpanded.has(categoryName)) {
+      newExpanded.delete(categoryName);
+    } else {
+      newExpanded.add(categoryName);
+    }
+    setExpandedCartCategories(newExpanded);
+  };
+
   return (
     <div className="contact-picker">
       <div className="contact-picker-body">
         {/* Main Section - Left Panel */}
         <div className="contact-picker-main-section">
-          {/* Tab Strip */}
-          <div className="contact-picker-tabs">
-            <button
-              className={`contact-picker-tab ${activeTab === 'search' ? 'active' : ''}`}
-              onClick={() => setActiveTab('search')}
-            >
-              Search
-            </button>
-            <button
-              className={`contact-picker-tab ${activeTab === 'browse' ? 'active' : ''}`}
-              onClick={() => setActiveTab('browse')}
-            >
-              Browse
-            </button>
-          </div>
-
           {/* Search Bar */}
           <div className="contact-picker-search-bar">
             <Search size={18} />
             <input
               type="text"
-              placeholder={activeTab === 'search' ? 'Try "motor vehicles"' : 'Search contacts...'}
+              placeholder='Try "motor vehicles"'
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="contact-picker-search-input"
@@ -293,22 +334,20 @@ const ContactPicker = ({
           </div>
 
           {/* Filter Bar */}
-          {activeTab === 'search' && (
-            <div className="contact-picker-filter-bar">
-              <Filter size={16} />
-              <span>Show:</span>
-              <button
-                className="contact-picker-filter-mode"
-                onClick={() => {
-                  const modes = ['all', 'recent', 'ideas'];
-                  const currentIndex = modes.indexOf(filterMode);
-                  setFilterMode(modes[(currentIndex + 1) % modes.length]);
-                }}
-              >
-                {filterMode === 'all' ? 'All' : filterMode === 'recent' ? 'Recent' : 'Ideas'}
-              </button>
-            </div>
-          )}
+          <div className="contact-picker-filter-bar">
+            <Filter size={16} />
+            <span>Show:</span>
+            <button
+              className="contact-picker-filter-mode"
+              onClick={() => {
+                const modes = ['all', 'recent', 'ideas'];
+                const currentIndex = modes.indexOf(filterMode);
+                setFilterMode(modes[(currentIndex + 1) % modes.length]);
+              }}
+            >
+              {filterMode === 'all' ? 'All' : filterMode === 'recent' ? 'Recent' : 'Ideas'}
+            </button>
+          </div>
 
           {/* Select All Header */}
           <div className="contact-picker-select-all-header">
@@ -500,27 +539,60 @@ const ContactPicker = ({
               </div>
             ) : (
               <div className="contact-picker-selected-contacts">
-                {selectedContacts.map((contact) => (
-                  <div key={contact.id} className="contact-picker-selected-contact">
-                    <div className="contact-picker-selected-contact-info">
-                      <div className="contact-picker-selected-contact-name">
-                        {contact.business_name || 'Unnamed Business'}
+                {selectedContactsByCategory.map((category) => {
+                  const isCategoryExpanded = expandedCartCategories.has(category.name);
+                  
+                  return (
+                    <div key={category.name} className="contact-picker-cart-category">
+                      {/* Category Header */}
+                      <div 
+                        className="contact-picker-cart-category-header"
+                        onClick={() => toggleCartCategoryExpansion(category.name)}
+                      >
+                        <button className="contact-picker-cart-expand-btn">
+                          {isCategoryExpanded ? (
+                            <ChevronDown size={14} />
+                          ) : (
+                            <ChevronRight size={14} />
+                          )}
+                        </button>
+                        <span className="contact-picker-cart-category-name">
+                          {category.name}
+                        </span>
+                        <span className="contact-picker-cart-category-count">
+                          ({category.contacts.length})
+                        </span>
                       </div>
-                      {contact.niche && (
-                        <div className="contact-picker-selected-contact-niche">
-                          {contact.niche.name}
+
+                      {/* Category Contacts (when expanded) */}
+                      {isCategoryExpanded && (
+                        <div className="contact-picker-cart-category-contacts">
+                          {category.contacts.map((contact) => (
+                            <div key={contact.id} className="contact-picker-selected-contact">
+                              <div className="contact-picker-selected-contact-info">
+                                <div className="contact-picker-selected-contact-name">
+                                  {contact.business_name || 'Unnamed Business'}
+                                </div>
+                                {contact.niche && (
+                                  <div className="contact-picker-selected-contact-niche">
+                                    {contact.niche.name}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                className="contact-picker-remove-btn"
+                                onClick={() => toggleContact(contact.id)}
+                                title="Remove"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
-                    <button
-                      className="contact-picker-remove-btn"
-                      onClick={() => toggleContact(contact.id)}
-                      title="Remove"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

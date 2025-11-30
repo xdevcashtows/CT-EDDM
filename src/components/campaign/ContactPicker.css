@@ -4,6 +4,7 @@
   display: flex;
   flex-direction: column;
   background: #f9fafb;
+  overflow: hidden;
 }
 
 .contact-picker-body {
@@ -11,11 +12,13 @@
   flex: 1;
   min-height: 0;
   gap: 1rem;
+  overflow: hidden;
 }
 
 /* Main Section - Left Panel */
 .contact-picker-main-section {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: white;
@@ -169,7 +172,9 @@
 /* Categories List */
 .contact-picker-categories-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0.5rem 0;
 }
 
@@ -308,6 +313,7 @@
 .contact-picker-shopping-cart {
   width: 320px;
   flex-shrink: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: white;
@@ -352,7 +358,9 @@
 
 .contact-picker-shopping-cart-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1rem;
 }
 
@@ -368,7 +376,70 @@
 .contact-picker-selected-contacts {
   display: flex;
   flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Cart Category */
+.contact-picker-cart-category {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  overflow: hidden;
+}
+
+.contact-picker-cart-category-header {
+  display: flex;
+  align-items: center;
   gap: 0.5rem;
+  padding: 0.75rem;
+  background: #f9fafb;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.contact-picker-cart-category-header:hover {
+  background: #f3f4f6;
+}
+
+.contact-picker-cart-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.contact-picker-cart-expand-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.contact-picker-cart-category-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #111827;
+  flex: 1;
+}
+
+.contact-picker-cart-category-count {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.contact-picker-cart-category-contacts {
+  background: white;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .contact-picker-selected-contact {
@@ -377,15 +448,17 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.75rem;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.375rem;
+  background: white;
+  border-bottom: 1px solid #f3f4f6;
   transition: all 0.2s;
 }
 
+.contact-picker-selected-contact:last-child {
+  border-bottom: none;
+}
+
 .contact-picker-selected-contact:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
+  background: #f9fafb;
 }
 
 .contact-picker-selected-contact-info {
@@ -492,10 +565,13 @@
   min-height: 0;
   padding: 1.5rem;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .contact-picker-modal-content .contact-picker {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Responsive */
