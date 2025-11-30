@@ -139,3 +139,11 @@
   }
 }
 
+/* Print Styles - Using body class for better control */
+body.is-printing-campaign,
+body.is-printing-campaign * {
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+

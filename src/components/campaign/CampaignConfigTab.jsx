@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, DollarSign, Users, MapPin, Mail, TrendingUp, Package, Edit3, Check, X, Trash2, AlertTriangle, Navigation, Home, Truck, ChevronDown } from 'lucide-react';
+import { Calendar, DollarSign, Users, MapPin, Mail, TrendingUp, Package, Edit3, Check, X, Trash2, AlertTriangle, Navigation, Home, Truck, ChevronDown, Printer } from 'lucide-react';
 import { campaigns as campaignsAPI, cities as citiesAPI } from '../../lib/api';
 import { useAuth } from '../../hooks/useAuth';
 import './CampaignConfigTab.css';
@@ -99,6 +99,19 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose, tab = 'settings
   const [isDeleting, setIsDeleting] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const statusDropdownRef = useRef(null);
+  const [showPrintConfig, setShowPrintConfig] = useState(false);
+  const printConfigRef = useRef(null);
+  const printTimestampRef = useRef(new Date().toLocaleString());
+  const [printColumns, setPrintColumns] = useState({
+    slotFillRate: true,
+    revenue: true,
+    availableSlots: true,
+    totalReach: true,
+    routeInfo: true,
+    totalHouseholds: true,
+    routesCount: true,
+    postageCost: true
+  });
 
   // Update formData when campaign prop changes (after parent refreshes data)
   useEffect(() => {
@@ -124,16 +137,19 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose, tab = 'settings
       if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
         setShowStatusDropdown(false);
       }
+      if (printConfigRef.current && !printConfigRef.current.contains(event.target)) {
+        setShowPrintConfig(false);
+      }
     };
 
-    if (showStatusDropdown) {
+    if (showStatusDropdown || showPrintConfig) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showStatusDropdown]);
+  }, [showStatusDropdown, showPrintConfig]);
 
   // Calculate analytics
   const totalSlots = campaign.total_ad_slots || 0;
@@ -296,13 +312,161 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose, tab = 'settings
     });
   };
 
+  const handlePrintConfigToggle = () => {
+    setShowPrintConfig(!showPrintConfig);
+  };
+
+  const handlePrintColumnToggle = (column) => {
+    setPrintColumns(prev => ({
+      ...prev,
+      [column]: !prev[column]
+    }));
+  };
+
+  const handlePrintSummary = () => {
+    printTimestampRef.current = new Date().toLocaleString();
+    setShowPrintConfig(false);
+    
+    // FORCE the print summary to be visible by adding a class to body
+    document.body.classList.add('is-printing-campaign');
+    
+    // Debug logs
+    const printSummary = document.querySelector('.campaign-print-summary');
+    console.log('🖨️ BEFORE PRINT - Print Summary Element:', printSummary);
+    console.log('🖨️ Campaign Data:', campaign);
+    console.log('🖨️ innerHTML length:', printSummary?.innerHTML.length);
+    
+    if (printSummary) {
+      console.log('✅ Print summary found in DOM');
+      console.log('📏 BEFORE - Display:', window.getComputedStyle(printSummary).display);
+    }
+    
+    // Listen for print events
+    const beforePrintHandler = () => {
+      const printSummaryDuringPrint = document.querySelector('.campaign-print-summary');
+      if (printSummaryDuringPrint) {
+        console.log('🖨️ DURING PRINT - Display:', window.getComputedStyle(printSummaryDuringPrint).display);
+      }
+    };
+    
+    const afterPrintHandler = () => {
+      document.body.classList.remove('is-printing-campaign');
+      window.removeEventListener('beforeprint', beforePrintHandler);
+      window.removeEventListener('afterprint', afterPrintHandler);
+    };
+    
+    window.addEventListener('beforeprint', beforePrintHandler);
+    window.addEventListener('afterprint', afterPrintHandler);
+    
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  };
+
   // Render based on tab prop
   if (tab === 'analytics') {
     return (
       <div className="campaign-config-tab">
         {/* Analytics Section */}
         <div className="config-section analytics-section-sleek">
-          <h3 className="config-section-title-sleek">Campaign Analytics</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 className="config-section-title-sleek" style={{ margin: 0 }}>Campaign Analytics</h3>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div className="print-button-wrapper" ref={printConfigRef}>
+                <button
+                  type="button"
+                  onClick={handlePrintConfigToggle}
+                  className={`saved-action-button saved-action-print ${showPrintConfig ? 'active' : ''}`}
+                  title="Print Preview"
+                >
+                  <Printer size={18} />
+                </button>
+                {showPrintConfig && (
+                <div className="print-config-menu">
+                  <div className="print-config-header">
+                    <h4>Select sections to print</h4>
+                    <p>Choose which analytics to include in your print summary</p>
+                  </div>
+                  <div className="print-config-options">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={printColumns.slotFillRate}
+                        onChange={() => handlePrintColumnToggle('slotFillRate')}
+                      />
+                      Slot Fill Rate
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={printColumns.revenue}
+                        onChange={() => handlePrintColumnToggle('revenue')}
+                      />
+                      Revenue
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={printColumns.availableSlots}
+                        onChange={() => handlePrintColumnToggle('availableSlots')}
+                      />
+                      Available Slots
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={printColumns.totalReach}
+                        onChange={() => handlePrintColumnToggle('totalReach')}
+                      />
+                      Total Reach
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={printColumns.routeInfo}
+                        onChange={() => handlePrintColumnToggle('routeInfo')}
+                      />
+                      Route Information
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={printColumns.totalHouseholds}
+                        onChange={() => handlePrintColumnToggle('totalHouseholds')}
+                      />
+                      Total Households
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={printColumns.routesCount}
+                        onChange={() => handlePrintColumnToggle('routesCount')}
+                      />
+                      Routes Count
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={printColumns.postageCost}
+                        onChange={() => handlePrintColumnToggle('postageCost')}
+                      />
+                      Postage Cost
+                    </label>
+                  </div>
+                  <div className="print-config-footer">
+                    <button
+                      type="button"
+                      onClick={handlePrintSummary}
+                      className="print-confirm-button"
+                    >
+                      Print
+                    </button>
+                  </div>
+                </div>
+              )}
+              </div>
+            </div>
+          </div>
           <div className="analytics-grid-sleek">
             {/* Slot Fill Rate */}
             <div className="analytics-card-sleek">
@@ -456,6 +620,98 @@ export const CampaignConfigTab = ({ campaign, onUpdate, onClose, tab = 'settings
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Print Summary - Hidden until print */}
+        <div className="campaign-print-summary" aria-hidden="true" data-campaign-id={campaign?.id}>
+          <div className="print-summary-header">
+            <div>
+              <p className="print-summary-kicker">Campaign analytics print summary</p>
+              <h3>{campaign?.name || 'Campaign'} Analytics</h3>
+            </div>
+            <div className="print-summary-meta">
+              <span>Printed · {printTimestampRef.current}</span>
+              {campaign.city && (
+                <span>{campaign.city?.name || campaign.city}{campaign.city?.state && `, ${campaign.city.state}`}</span>
+              )}
+            </div>
+          </div>
+          
+          <div className="print-hero-stats">
+            {printColumns.slotFillRate && (
+              <div className="print-hero-stat">
+                <p className="print-hero-label">Slot Fill Rate</p>
+                <p className="print-hero-value">{fillPercentage}%</p>
+              </div>
+            )}
+            {printColumns.revenue && (
+              <div className="print-hero-stat">
+                <p className="print-hero-label">Revenue</p>
+                <p className="print-hero-value">${Math.round(revenueCollected).toLocaleString()}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="print-details-grid">
+            {printColumns.availableSlots && (
+              <div className="print-detail-stat">
+                <p className="print-stat-label">Available Slots</p>
+                <p className="print-stat-value">{availableSlots}</p>
+              </div>
+            )}
+            {printColumns.totalReach && (
+              <div className="print-detail-stat">
+                <p className="print-stat-label">Total Reach</p>
+                <p className="print-stat-value">{(campaign.total_pieces || 0).toLocaleString()}</p>
+              </div>
+            )}
+            {printColumns.totalHouseholds && (
+              <div className="print-detail-stat">
+                <p className="print-stat-label">Total Households</p>
+                <p className="print-stat-value">{(campaign.total_pieces || 0).toLocaleString()}</p>
+              </div>
+            )}
+            {printColumns.routesCount && (
+              <div className="print-detail-stat">
+                <p className="print-stat-label">Routes</p>
+                <p className="print-stat-value">{campaign.route_snapshot?.length || 0}</p>
+              </div>
+            )}
+            {printColumns.postageCost && (
+              <div className="print-detail-stat">
+                <p className="print-stat-label">Postage Cost</p>
+                <p className="print-stat-value">
+                  ${((campaign.total_pieces || 0) * 0.205).toLocaleString(undefined, { 
+                    minimumFractionDigits: 2, 
+                    maximumFractionDigits: 2 
+                  })}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {printColumns.routeInfo && campaign.route_snapshot && campaign.route_snapshot.length > 0 && (
+            <div className="print-route-info-section">
+              <h4 className="print-section-title">Route Information</h4>
+              <div className="print-route-info-grid">
+                <div className="print-route-info-item">
+                  <span className="print-route-label">Route Name</span>
+                  <span className="print-route-value">
+                    {campaign.route_snapshot.length} routes selected
+                  </span>
+                </div>
+                {campaign.city && (
+                  <div className="print-route-info-item">
+                    <span className="print-route-label">City</span>
+                    <span className="print-route-value">
+                      {campaign.city?.name || campaign.city}
+                      {campaign.city?.state && `, ${campaign.city.state}`}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

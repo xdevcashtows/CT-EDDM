@@ -191,3 +191,9 @@
     width: 100%;
   }
 }
+
+@media print {
+  .sidebar {
+    display: none !important;
+  }
+}

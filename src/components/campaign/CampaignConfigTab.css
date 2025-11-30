@@ -1437,3 +1437,532 @@ textarea.form-input {
   }
 }
 
+/* Print Preview Button Styles */
+.print-button-wrapper {
+  position: relative;
+}
+
+.saved-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  font-size: 1.125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  letter-spacing: 0.01em;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  background: rgba(238, 242, 255, 0.8);
+  color: #4338ca;
+  border-color: rgba(199, 210, 254, 0.5);
+}
+
+.saved-action-button svg {
+  display: block;
+}
+
+.saved-action-button:focus-visible {
+  outline: 2px solid rgba(124, 58, 237, 0.8);
+  outline-offset: 2px;
+}
+
+.saved-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.saved-action-print {
+  background: rgba(238, 242, 255, 0.8);
+  color: #4338ca;
+  border-color: rgba(199, 210, 254, 0.5);
+}
+
+.saved-action-print:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(79, 70, 229, 0.2);
+  background: rgba(238, 242, 255, 1);
+}
+
+.saved-action-print.active {
+  background: #e0e7ff;
+  border-color: #a5b4fc;
+  color: #312e81;
+}
+
+.print-config-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  width: 280px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.print-config-header h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.print-config-header p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.print-config-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.print-config-options label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+  padding: 0.25rem 0;
+}
+
+.print-config-options label:hover {
+  color: #0f172a;
+}
+
+.print-config-options input[type="checkbox"] {
+  accent-color: #4f46e5;
+  width: 1.1rem;
+  height: 1.1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.print-config-footer {
+  padding-top: 0.75rem;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.print-confirm-button {
+  flex: 1;
+  padding: 0.65rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  letter-spacing: 0.01em;
+}
+
+.print-confirm-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.4);
+}
+
+.print-preview-button {
+  flex: 1;
+  padding: 0.65rem;
+  background: white;
+  color: #475569;
+  border: 2px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.print-preview-button:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #eff6ff;
+}
+
+/* Print Summary - Hidden until print */
+.campaign-print-summary {
+  display: none;
+}
+
+/* Campaign Print Media Styles */
+@media print {
+  /* Hide everything except the print summary */
+  .page-shell-header,
+  .page-shell-sidebar,
+  .campaigns-page,
+  .campaigns-page > *,
+  .campaign-detail-backdrop {
+    display: none !important;
+  }
+
+  /* Make campaign detail panel static and full-width */
+  .campaign-detail-panel {
+    position: static !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    background: white !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Hide campaign UI elements */
+  .campaign-detail-header,
+  .campaign-detail-tabs,
+  .print-button-wrapper,
+  .saved-action-button {
+    display: none !important;
+  }
+
+  /* Hide all campaign tab content except print summary */
+  .campaign-config-tab > *:not(.campaign-print-summary),
+  .config-section,
+  .analytics-section-sleek,
+  .route-info-section-sleek {
+    display: none !important;
+  }
+
+  /* Show and style the campaign print summary */
+  .campaign-print-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    font-size: 9pt;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #1e293b;
+    width: 100%;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    padding: 0.5in;
+  }
+
+  .campaign-print-summary .print-summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .campaign-print-summary .print-summary-kicker {
+    display: none;
+  }
+
+  .campaign-print-summary .print-summary-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.03em;
+  }
+
+  .campaign-print-summary .print-summary-meta {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .campaign-print-summary .print-summary-meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .campaign-print-summary .print-summary-meta span::before {
+    content: '';
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: #cbd5e1;
+  }
+
+  .campaign-print-summary .print-summary-meta span:first-child::before {
+    display: none;
+  }
+
+  /* Hero Stats Section */
+  .campaign-print-summary .print-hero-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .campaign-print-summary .print-hero-stat {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    padding: 1rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .campaign-print-summary .print-hero-label {
+    margin: 0 0 0.2rem 0;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    color: #64748b !important;
+  }
+
+  .campaign-print-summary .print-hero-value {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: #0f172a !important;
+  }
+
+  /* Details Grid */
+  .campaign-print-summary .print-details-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+
+  .campaign-print-summary .print-detail-stat {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .campaign-print-summary .print-stat-label {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .campaign-print-summary .print-stat-value {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #334155;
+    letter-spacing: -0.01em;
+  }
+
+  /* Route Info Section */
+  .campaign-print-summary .print-route-info-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .campaign-print-summary .print-section-title {
+    margin: 0 0 0.75rem 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .campaign-print-summary .print-route-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .campaign-print-summary .print-route-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .campaign-print-summary .print-route-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .campaign-print-summary .print-route-value {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  @page {
+    size: Letter;
+    margin: 0.5in;
+  }
+}
+
+/* Print Preview Modal */
+.print-preview-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 2000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.print-preview-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 900px;
+  max-height: 90vh;
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  z-index: 2001;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -45%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.print-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 0.75rem 0.75rem 0 0;
+}
+
+.print-preview-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.print-preview-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.print-preview-print-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}
+
+.print-preview-print-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.4);
+}
+
+.print-preview-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  background: #f1f5f9;
+  color: #64748b;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.print-preview-close-btn:hover {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.print-preview-content {
+  padding: 2rem;
+  overflow-y: auto;
+  flex: 1;
+  background: #f8fafc;
+}
+
+.campaign-print-preview {
+  display: block !important;
+  background: white;
+  padding: 2rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  max-width: 8.5in;
+  margin: 0 auto;
+}
+
+.campaign-print-preview .print-summary-kicker {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.25rem;
+}
+
