@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, 
   Search, 
@@ -24,7 +24,10 @@ import {
   Save,
   XCircle,
   Tag,
-  Table
+  Table,
+  Eye,
+  EyeOff,
+  GripVertical as ResizeHandle
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import './Contacts.css';
@@ -90,7 +93,7 @@ const sanitizeContactPayload = (contact = {}) => {
 };
 
 const formatTemperatureLabel = (value) => {
-  if (!value) return 'Warm';
+  if (!value) return 'Cold';
   return value.charAt(0).toUpperCase() + value.slice(1);
 };
 
@@ -299,8 +302,16 @@ function Contacts() {
       nichesAPI.getAll()
     ]);
 
-    if (!contactsRes.error) setContacts(contactsRes.data || []);
-    if (!nichesRes.error) setNiches(nichesRes.data || []);
+    if (contactsRes.error) {
+      console.error('Failed to load contacts:', contactsRes.error);
+    } else {
+      setContacts(contactsRes.data || []);
+    }
+    if (nichesRes.error) {
+      console.error('Failed to load niches:', nichesRes.error);
+    } else {
+      setNiches(nichesRes.data || []);
+    }
     setLoading(false);
   };
 
@@ -397,7 +408,7 @@ function Contacts() {
       zip: '',
       niche_id: null,
       stage: 'lead',
-      temperature: 'warm',
+      temperature: 'cold',
       notes: ''
     });
     setContactAds([]);
@@ -922,7 +933,60 @@ function Contacts() {
       
       let successCount = 0;
       let errorCount = 0;
+      const errors = [];
 
+      // Pre-process to collect unique niches from CSV
+      const uniqueNichesInCSV = new Set();
+      for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        const contactData = {};
+        headers.forEach((header, index) => {
+          if (values[index]) {
+            contactData[header] = values[index].trim();
+          }
+        });
+        if (contactData.niche) {
+          uniqueNichesInCSV.add(contactData.niche.trim());
+        }
+      }
+
+      // Create all missing niches first (batch operation)
+      const nichesMap = new Map();
+      // Add existing niches to map
+      niches.forEach(n => nichesMap.set(n.name.toLowerCase(), n));
+      
+      // Create new niches
+      for (const nicheName of uniqueNichesInCSV) {
+        const lowerName = nicheName.toLowerCase();
+        if (!nichesMap.has(lowerName)) {
+          try {
+            const { data: newNiche, error: nicheError } = await nichesAPI.create(nicheName, user.id);
+            if (!nicheError && newNiche) {
+              nichesMap.set(lowerName, newNiche);
+            } else if (nicheError) {
+              // If it's a unique constraint error, try to fetch it (might have been created by another process)
+              if (nicheError.code === '23505') {
+                const existingNiches = await nichesAPI.getAll();
+                if (existingNiches.data) {
+                  const existing = existingNiches.data.find(n => n.name.toLowerCase() === lowerName);
+                  if (existing) {
+                    nichesMap.set(lowerName, existing);
+                  }
+                }
+              } else {
+                errors.push(`Failed to create niche "${nicheName}": ${nicheError.message || 'Unknown error'}`);
+              }
+            }
+          } catch (err) {
+            errors.push(`Exception creating niche "${nicheName}": ${err.message}`);
+          }
+        }
+      }
+
+      // Update local niches state
+      setNiches(Array.from(nichesMap.values()));
+
+      // Now import contacts
       for (let i = 1; i < lines.length; i++) {
         const values = parseCSVLine(lines[i]);
         const contactData = {};
@@ -935,23 +999,25 @@ function Contacts() {
 
         if (!contactData.business_name) {
           errorCount++;
+          errors.push(`Row ${i + 1}: Missing business name`);
           continue;
         }
 
         // Map niche name to niche_id
         if (contactData.niche && !contactData.niche_id) {
-          const niche = niches.find(n => 
-            n.name.toLowerCase() === contactData.niche.toLowerCase()
-          );
-          if (niche) {
-            contactData.niche_id = niche.id;
+          const nicheName = contactData.niche.trim();
+          if (nicheName) {
+            const niche = nichesMap.get(nicheName.toLowerCase());
+            if (niche) {
+              contactData.niche_id = niche.id;
+            }
           }
           delete contactData.niche;
         }
 
         // Set defaults
         if (!contactData.stage) contactData.stage = 'lead';
-        if (!contactData.temperature) contactData.temperature = 'warm';
+        if (!contactData.temperature) contactData.temperature = 'cold';
 
         // Convert tags from comma-separated string to array
         if (contactData.tags && typeof contactData.tags === 'string') {
@@ -963,6 +1029,7 @@ function Contacts() {
         
         if (error) {
           errorCount++;
+          errors.push(`Row ${i + 1} (${contactData.business_name}): ${error.message || 'Unknown error'}`);
         } else {
           successCount++;
         }
@@ -974,7 +1041,17 @@ function Contacts() {
       setUploadPreview([]);
       setUploadErrors([]);
       
-      alert(`Import complete!\nSuccessfully imported: ${successCount}\nFailed: ${errorCount}`);
+      // Show results
+      let message = `Import complete!\n✓ Successfully imported: ${successCount}\n✗ Failed: ${errorCount}`;
+      
+      if (errors.length > 0 && errors.length <= 10) {
+        message += '\n\nErrors:\n' + errors.slice(0, 10).join('\n');
+      } else if (errors.length > 10) {
+        message += '\n\nShowing first 10 errors:\n' + errors.slice(0, 10).join('\n');
+        console.error('All import errors:', errors);
+      }
+      
+      alert(message);
       loadData();
     };
 
@@ -2141,7 +2218,7 @@ function ContactModal({
                           key={option.value}
                           type="button"
                           className={`temperature-option temperature-option--${option.value} ${
-                            (formData.temperature || 'warm') === option.value ? 'active' : ''
+                            (formData.temperature || 'cold') === option.value ? 'active' : ''
                           }`}
                           onClick={() => setFormData({ ...formData, temperature: option.value })}
                         >
@@ -2341,7 +2418,7 @@ function UploadContactsModal({
     { name: 'zip', required: false, description: 'ZIP code', category: 'location' },
     { name: 'niche', required: false, description: 'Industry/niche name (must match existing niche)', category: 'sales' },
     { name: 'stage', required: false, description: 'Pipeline stage: lead, contacted, qualified, proposal_sent, negotiating, won, active, past, lost', category: 'sales' },
-    { name: 'temperature', required: false, description: 'Lead temperature: hot, warm, or cold (defaults to warm)', category: 'sales' },
+    { name: 'temperature', required: false, description: 'Lead temperature: hot, warm, or cold (defaults to cold)', category: 'sales' },
     { name: 'tags', required: false, description: 'Comma-separated tags (e.g., "VIP,Priority,Follow Up")', category: 'sales' },
     { name: 'notes', required: false, description: 'Additional notes or comments', category: 'sales' }
   ];
@@ -2461,7 +2538,7 @@ function UploadContactsModal({
               <ul className="tips-list">
                 <li><strong>Niche:</strong> Must match an existing niche name in your account (case-insensitive)</li>
                 <li><strong>Stage:</strong> Use one of the predefined stages or it will default to "lead"</li>
-                <li><strong>Temperature:</strong> Use "hot", "warm", or "cold" (defaults to "warm" if empty)</li>
+                <li><strong>Temperature:</strong> Use "hot", "warm", or "cold" (defaults to "cold" if empty)</li>
                 <li><strong>Tags:</strong> Separate multiple tags with commas (e.g., "VIP,Priority,Follow Up")</li>
                 <li><strong>Quotes:</strong> Use quotes around values containing commas (e.g., "Smith, John")</li>
               </ul>
@@ -2723,11 +2800,156 @@ function ContactsSpreadsheetView({
   onContactClick,
   onUpdateContact
 }) {
+  // Default columns configuration
+  const defaultColumns = [
+    { key: 'business_name', label: 'Business Name', width: 200, visible: true },
+    { key: 'owner_name', label: 'Owner', width: 150, visible: true },
+    { key: 'email', label: 'Email', width: 200, visible: true },
+    { key: 'phone', label: 'Phone', width: 130, visible: true },
+    { key: 'website', label: 'Website', width: 180, visible: false },
+    { key: 'city', label: 'City', width: 120, visible: true },
+    { key: 'state', label: 'State', width: 80, visible: true },
+    { key: 'zip', label: 'ZIP', width: 80, visible: false },
+    { key: 'niche_id', label: 'Niche', width: 150, visible: true },
+    { key: 'stage', label: 'Stage', width: 140, visible: true },
+    { key: 'temperature', label: 'Temperature', width: 120, visible: true },
+    { key: 'tags', label: 'Tags', width: 200, visible: false }
+  ];
+
+  // Load column preferences from localStorage
+  const loadColumnPreferences = () => {
+    try {
+      const saved = localStorage.getItem('contacts-table-columns');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Merge saved preferences with defaults
+        return defaultColumns.map(col => {
+          const savedCol = parsed.find(c => c.key === col.key);
+          return savedCol ? { ...col, ...savedCol } : col;
+        });
+      }
+    } catch (e) {
+      console.error('Failed to load column preferences:', e);
+    }
+    return defaultColumns;
+  };
+
+  const [columns, setColumns] = useState(loadColumnPreferences());
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [resizingColumn, setResizingColumn] = useState(null);
+  const [resizeStartX, setResizeStartX] = useState(0);
+  const [resizeStartWidth, setResizeStartWidth] = useState(0);
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+  const [temperatureDialog, setTemperatureDialog] = useState(null); // { contactId, x, y }
+  const columnsRef = useRef(columns);
+
+  // Save column preferences to localStorage
+  const saveColumnPreferences = (newColumns) => {
+    try {
+      localStorage.setItem('contacts-table-columns', JSON.stringify(newColumns));
+      setColumns(newColumns);
+    } catch (e) {
+      console.error('Failed to save column preferences:', e);
+    }
+  };
+
+  // Toggle column visibility
+  const toggleColumnVisibility = (columnKey) => {
+    const newColumns = columns.map(col =>
+      col.key === columnKey ? { ...col, visible: !col.visible } : col
+    );
+    saveColumnPreferences(newColumns);
+  };
+
+  // Handle column resize start
+  const handleResizeStart = (e, columnKey) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const column = columns.find(col => col.key === columnKey);
+    if (column) {
+      setResizingColumn(columnKey);
+      setResizeStartX(e.clientX);
+      setResizeStartWidth(column.width);
+    }
+  };
+
+  // Update ref when columns change
+  useEffect(() => {
+    columnsRef.current = columns;
+  }, [columns]);
+
+  // Handle column resize
+  useEffect(() => {
+    if (!resizingColumn) return;
+
+    const handleMouseMove = (e) => {
+      const diff = e.clientX - resizeStartX;
+      const newWidth = Math.max(80, resizeStartWidth + diff);
+      setColumns(prevColumns => {
+        const newColumns = prevColumns.map(col =>
+          col.key === resizingColumn ? { ...col, width: newWidth } : col
+        );
+        columnsRef.current = newColumns;
+        return newColumns;
+      });
+    };
+
+    const handleMouseUp = () => {
+      // Save the latest columns state from ref
+      saveColumnPreferences(columnsRef.current);
+      setResizingColumn(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [resizingColumn, resizeStartX, resizeStartWidth]);
+
+  // Close dialogs when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (showColumnMenu && !e.target.closest('.spreadsheet-toolbar')) {
+        setShowColumnMenu(false);
+      }
+      if (temperatureDialog && !e.target.closest('.temperature-dialog')) {
+        setTemperatureDialog(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showColumnMenu, temperatureDialog]);
+
+  // Handle temperature icon click
+  const handleTemperatureClick = (e, contactId) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const contact = contacts.find(c => c.id === contactId);
+    setTemperatureDialog({
+      contactId,
+      currentTemperature: contact?.temperature || 'cold',
+      x: rect.left,
+      y: rect.bottom + 5
+    });
+  };
+
+  // Handle temperature change
+  const handleTemperatureChange = async (contactId, temperature) => {
+    await onUpdateContact(contactId, 'temperature', temperature);
+    setTemperatureDialog(null);
+  };
 
   const handleCellClick = (contactId, field, value) => {
+    // Don't edit temperature cell, open dialog instead
+    if (field === 'temperature') {
+      return;
+    }
     setEditingCell({ contactId, field });
     setEditValue(value || '');
   };
@@ -2787,20 +3009,8 @@ function ContactsSpreadsheetView({
   const allSelected = contacts.length > 0 && selectedContactIds.size === contacts.length;
   const someSelected = selectedContactIds.size > 0 && selectedContactIds.size < contacts.length;
 
-  const columns = [
-    { key: 'business_name', label: 'Business Name', width: 200 },
-    { key: 'owner_name', label: 'Owner', width: 150 },
-    { key: 'email', label: 'Email', width: 200 },
-    { key: 'phone', label: 'Phone', width: 130 },
-    { key: 'website', label: 'Website', width: 180 },
-    { key: 'city', label: 'City', width: 120 },
-    { key: 'state', label: 'State', width: 80 },
-    { key: 'zip', label: 'ZIP', width: 80 },
-    { key: 'niche_id', label: 'Niche', width: 150 },
-    { key: 'stage', label: 'Stage', width: 140 },
-    { key: 'temperature', label: 'Temperature', width: 120 },
-    { key: 'tags', label: 'Tags', width: 200 }
-  ];
+  // Filter visible columns
+  const visibleColumns = columns.filter(col => col.visible);
 
   const getCellValue = (contact, field) => {
     if (field === 'niche_id') {
@@ -2831,7 +3041,38 @@ function ContactsSpreadsheetView({
 
   return (
     <div className="contacts-spreadsheet-container">
-      <div className="contacts-spreadsheet-wrapper">
+      {/* Column Settings Button */}
+      <div className="spreadsheet-toolbar">
+        <div className="spreadsheet-toolbar-left">
+          <button
+            className="spreadsheet-column-toggle-btn"
+            onClick={() => setShowColumnMenu(!showColumnMenu)}
+            title="Column settings"
+          >
+            <Columns size={16} />
+            Columns
+          </button>
+          {showColumnMenu && (
+            <div className="spreadsheet-column-menu">
+              <div className="spreadsheet-column-menu-header">Show/Hide Columns</div>
+              <div className="spreadsheet-column-menu-list">
+                {columns.map(column => (
+                  <label key={column.key} className="spreadsheet-column-menu-item">
+                    <input
+                      type="checkbox"
+                      checked={column.visible}
+                      onChange={() => toggleColumnVisibility(column.key)}
+                    />
+                    <span>{column.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="contacts-spreadsheet-wrapper" onClick={() => setShowColumnMenu(false)}>
         <table className="contacts-spreadsheet-table">
           <thead>
             <tr>
@@ -2846,15 +3087,36 @@ function ContactsSpreadsheetView({
                 />
               </th>
               <th className="spreadsheet-row-number">#</th>
-              {columns.map(column => (
+              {visibleColumns.map((column, index) => (
                 <th
                   key={column.key}
                   className="spreadsheet-header-cell sortable"
-                  style={{ width: column.width }}
-                  onClick={() => handleSort(column.key)}
+                  style={{ width: column.width, position: 'relative' }}
+                  onClick={(e) => {
+                    // Don't sort if clicking on the resizer
+                    if (e.target.classList.contains('spreadsheet-column-resizer')) {
+                      return;
+                    }
+                    handleSort(column.key);
+                  }}
                 >
                   {column.label}
                   <SortIcon columnKey={column.key} />
+                  {index < visibleColumns.length - 1 && (
+                    <div
+                      className="spreadsheet-column-resizer"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleResizeStart(e, column.key);
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      style={{ cursor: 'col-resize' }}
+                    />
+                  )}
                 </th>
               ))}
             </tr>
@@ -2862,7 +3124,7 @@ function ContactsSpreadsheetView({
           <tbody>
             {sortedContacts.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + 2} className="spreadsheet-empty-state">
+                <td colSpan={visibleColumns.length + 2} className="spreadsheet-empty-state">
                   No contacts found
                 </td>
               </tr>
@@ -2884,7 +3146,7 @@ function ContactsSpreadsheetView({
                     />
                   </td>
                   <td className="spreadsheet-row-number">{index + 1}</td>
-                  {columns.map(column => {
+                  {visibleColumns.map(column => {
                     const isEditing = editingCell?.contactId === contact.id && editingCell?.field === column.key;
                     const cellValue = getCellValue(contact, column.key);
                     
@@ -2910,12 +3172,16 @@ function ContactsSpreadsheetView({
                           />
                         ) : (
                           <span className="spreadsheet-cell-content">
-                            {column.key === 'temperature' && contact.temperature ? (
-                              <span className="spreadsheet-temperature">
+                            {column.key === 'temperature' ? (
+                              <span
+                                className="spreadsheet-temperature clickable"
+                                onClick={(e) => handleTemperatureClick(e, contact.id)}
+                                title="Click to change temperature"
+                              >
                                 {contact.temperature === 'hot' && '🔥'}
                                 {contact.temperature === 'warm' && '☀️'}
                                 {contact.temperature === 'cold' && '❄️'}
-                                {!contact.temperature && '☀️'}
+                                {!contact.temperature && '❄️'}
                               </span>
                             ) : column.key === 'stage' ? (
                               <span
@@ -2942,6 +3208,45 @@ function ContactsSpreadsheetView({
           </tbody>
         </table>
       </div>
+
+      {/* Temperature Dialog */}
+      {temperatureDialog && (
+        <div
+          className="temperature-dialog-overlay"
+          onClick={() => setTemperatureDialog(null)}
+        >
+          <div
+            className="temperature-dialog"
+            style={{
+              position: 'fixed',
+              left: `${temperatureDialog.x}px`,
+              top: `${temperatureDialog.y}px`,
+              transform: 'translateX(-50%)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="temperature-dialog-options">
+              {TEMPERATURE_OPTIONS.map(option => {
+                const isSelected = temperatureDialog.currentTemperature === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    className={`temperature-dialog-option temperature-option--${option.value} ${isSelected ? 'selected' : ''}`}
+                    onClick={() => handleTemperatureChange(temperatureDialog.contactId, option.value)}
+                    title={option.label}
+                  >
+                    <span className="temperature-emoji">
+                      {option.value === 'hot' && '🔥'}
+                      {option.value === 'warm' && '☀️'}
+                      {option.value === 'cold' && '❄️'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

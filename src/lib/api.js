@@ -68,6 +68,7 @@ export const contacts = {
       .eq('status', 'active');
 
     if (membershipError) {
+      console.error('Error fetching account memberships:', membershipError);
       return { data: [], error: membershipError };
     }
 
@@ -77,32 +78,145 @@ export const contacts = {
 
     const targetUserIds = Array.from(new Set([userId, ...ownerIds]));
 
-    const { data, error } = await supabase
+    // Fetch contacts
+    const { data: contactsData, error: contactsError } = await supabase
       .from('contacts')
-      .select('*, niche:niches!contacts_niche_id_fkey(id, name, category)')
+      .select('*')
       .in('user_id', targetUserIds)
       .order('created_at', { ascending: false });
 
-    return { data, error };
+    if (contactsError) {
+      console.error('Error fetching contacts:', contactsError);
+      return { data: [], error: contactsError };
+    }
+
+    if (!contactsData || contactsData.length === 0) {
+      return { data: [], error: null };
+    }
+
+    // Fetch niches for contacts that have niche_id
+    const nicheIds = [...new Set(contactsData.map(c => c.niche_id).filter(Boolean))];
+    let nichesMap = new Map();
+    
+    if (nicheIds.length > 0) {
+      const { data: nichesData, error: nichesError } = await supabase
+        .from('niches')
+        .select('id, name')
+        .in('id', nicheIds);
+
+      if (nichesError) {
+        console.error('Error fetching niches:', nichesError);
+        // Continue without niches rather than failing completely
+      } else if (nichesData) {
+        nichesData.forEach(niche => {
+          nichesMap.set(niche.id, niche);
+        });
+      }
+    }
+
+    // Combine contacts with their niches and normalize data
+    const normalizedData = (contactsData || []).map(contact => {
+      const niche = contact.niche_id ? nichesMap.get(contact.niche_id) || null : null;
+      
+      return {
+        ...contact,
+        stage: contact.stage || 'lead',
+        temperature: contact.temperature || 'cold',
+        niche: niche
+      };
+    });
+
+    return { data: normalizedData, error: null };
   },
 
   getById: async (id) => {
-    const { data, error } = await supabase
+    const { data: contactData, error: contactError } = await supabase
       .from('contacts')
-      .select('*, niche:niches!contacts_niche_id_fkey(id, name, category)')
+      .select('*')
       .eq('id', id)
       .single();
-    return { data, error };
+    
+    if (contactError) {
+      console.error('Error fetching contact by id:', contactError);
+      return { data: null, error: contactError };
+    }
+
+    if (!contactData) {
+      return { data: null, error: null };
+    }
+
+    // Fetch niche if contact has niche_id
+    let niche = null;
+    if (contactData.niche_id) {
+      const { data: nicheData, error: nicheError } = await supabase
+        .from('niches')
+        .select('id, name')
+        .eq('id', contactData.niche_id)
+        .single();
+      
+      if (!nicheError && nicheData) {
+        niche = nicheData;
+      }
+    }
+
+    // Normalize contact data
+    const data = {
+      ...contactData,
+      stage: contactData.stage || 'lead',
+      temperature: contactData.temperature || 'cold',
+      niche: niche
+    };
+
+    return { data, error: null };
   },
 
   getByStage: async (userId, stage) => {
-    const { data, error } = await supabase
+    const { data: contactsData, error: contactsError } = await supabase
       .from('contacts')
-      .select('*, niche:niches!contacts_niche_id_fkey(id, name, category)')
+      .select('*')
       .eq('user_id', userId)
       .eq('stage', stage)
       .order('created_at', { ascending: false });
-    return { data, error };
+    
+    if (contactsError) {
+      console.error('Error fetching contacts by stage:', contactsError);
+      return { data: [], error: contactsError };
+    }
+
+    if (!contactsData || contactsData.length === 0) {
+      return { data: [], error: null };
+    }
+
+    // Fetch niches for contacts that have niche_id
+    const nicheIds = [...new Set(contactsData.map(c => c.niche_id).filter(Boolean))];
+    let nichesMap = new Map();
+    
+    if (nicheIds.length > 0) {
+      const { data: nichesData, error: nichesError } = await supabase
+        .from('niches')
+        .select('id, name')
+        .in('id', nicheIds);
+
+      if (!nichesError && nichesData) {
+        nichesData.forEach(niche => {
+          nichesMap.set(niche.id, niche);
+        });
+      }
+    }
+
+    // Normalize contact data
+    const normalizedData = contactsData.map(contact => {
+      const niche = contact.niche_id ? nichesMap.get(contact.niche_id) || null : null;
+      
+      return {
+        ...contact,
+        stage: contact.stage || 'lead',
+        temperature: contact.temperature || 'cold',
+        niche: niche
+      };
+    });
+
+    return { data: normalizedData, error: null };
   },
 
   create: async (contactData) => {

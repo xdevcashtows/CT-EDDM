@@ -3367,6 +3367,224 @@
   background: #94a3b8;
 }
 
+/* Spreadsheet Toolbar */
+.spreadsheet-toolbar {
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+
+.spreadsheet-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spreadsheet-column-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.spreadsheet-column-toggle-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* Column Menu */
+.spreadsheet-column-menu {
+  position: absolute;
+  top: 100%;
+  left: 12px;
+  margin-top: 4px;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 1000;
+  min-width: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.spreadsheet-column-menu-header {
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.spreadsheet-column-menu-list {
+  padding: 4px 0;
+}
+
+.spreadsheet-column-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.spreadsheet-column-menu-item:hover {
+  background: #f3f4f6;
+}
+
+.spreadsheet-column-menu-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+/* Column Resizer */
+.spreadsheet-column-resizer {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  z-index: 10;
+  background: transparent;
+  transition: background-color 0.2s;
+  user-select: none;
+}
+
+.spreadsheet-column-resizer:hover {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.spreadsheet-header-cell:hover .spreadsheet-column-resizer {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.spreadsheet-header-cell {
+  user-select: none;
+}
+
+/* Clickable Temperature */
+.spreadsheet-temperature.clickable {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: inline-block;
+}
+
+.spreadsheet-temperature.clickable:hover {
+  background: #f3f4f6;
+}
+
+/* Temperature Dialog */
+.temperature-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  background: transparent;
+}
+
+.temperature-dialog {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  z-index: 10001;
+  padding: 3px;
+}
+
+.temperature-dialog-title {
+  display: none;
+}
+
+.temperature-dialog-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.temperature-dialog-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 32px;
+  height: 32px;
+}
+
+.temperature-dialog-option:hover {
+  background: #f3f4f6;
+}
+
+.temperature-dialog-option.selected {
+  background: #e0e7ff;
+  border: 2px solid #6366f1;
+}
+
+.temperature-dialog-option.selected.temperature-option--hot {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #dc2626;
+}
+
+.temperature-dialog-option.selected.temperature-option--warm {
+  background: rgba(250, 204, 21, 0.15);
+  border-color: #ca8a04;
+}
+
+.temperature-dialog-option.selected.temperature-option--cold {
+  background: rgba(96, 165, 250, 0.15);
+  border-color: #2563eb;
+}
+
+.temperature-dialog-option .temperature-emoji {
+  font-size: 18px;
+  line-height: 1;
+  display: block;
+}
+
+.temperature-option--hot:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.temperature-option--warm:hover {
+  background: rgba(250, 204, 21, 0.1);
+  color: #ca8a04;
+}
+
+.temperature-option--cold:hover {
+  background: rgba(96, 165, 250, 0.1);
+  color: #2563eb;
+}
+
 @media (max-width: 1024px) {
   .contacts-spreadsheet-table {
     font-size: 12px;
