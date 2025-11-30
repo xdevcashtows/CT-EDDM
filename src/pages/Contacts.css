@@ -3585,6 +3585,191 @@
   color: #2563eb;
 }
 
+/* Temperature and Stage Dropdown Menus */
+.temperature-dropdown-overlay,
+.stage-dropdown-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: transparent;
+}
+
+.temperature-dropdown-menu,
+.stage-dropdown-menu {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  min-width: 180px;
+  max-width: 250px;
+  z-index: 10000;
+}
+
+/* Icons-only temperature dropdown */
+.temperature-dropdown-menu-icons-only {
+  min-width: auto;
+  max-width: none;
+  padding: 3px;
+}
+
+.temperature-dropdown-menu-icons-only .dropdown-menu-options {
+  padding: 0;
+}
+
+.temperature-options-icons-only {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.temperature-dropdown-menu-icons-only .dropdown-menu-option {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+  min-width: 32px;
+}
+
+.temperature-dropdown-menu-icons-only .temperature-emoji {
+  font-size: 18px;
+  line-height: 1;
+  display: block;
+}
+
+.dropdown-menu-title {
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.dropdown-menu-options {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+
+.dropdown-menu-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  width: 100%;
+  border-left: 3px solid transparent;
+}
+
+.dropdown-menu-option:hover {
+  background: #f3f4f6;
+}
+
+.dropdown-menu-option.selected {
+  background: #eff6ff;
+  font-weight: 600;
+}
+
+.dropdown-menu-label {
+  font-size: 14px;
+  color: #374151;
+  flex: 1;
+}
+
+.dropdown-menu-option.selected .dropdown-menu-label {
+  color: #1e40af;
+}
+
+/* Temperature-specific styles */
+.dropdown-menu-option.temperature-option {
+  justify-content: flex-start;
+}
+
+.dropdown-menu-option.temperature-option .temperature-emoji {
+  font-size: 20px;
+  line-height: 1;
+  width: 24px;
+  text-align: center;
+}
+
+/* Icons-only temperature options */
+.temperature-dropdown-menu-icons-only .dropdown-menu-option.temperature-option {
+  justify-content: center;
+  gap: 0;
+  border-left: none;
+  border-radius: 4px;
+}
+
+.temperature-dropdown-menu-icons-only .dropdown-menu-option.temperature-option.temperature-option--hot.selected {
+  background: rgba(239, 68, 68, 0.15);
+  border: 2px solid #dc2626;
+}
+
+.temperature-dropdown-menu-icons-only .dropdown-menu-option.temperature-option.temperature-option--warm.selected {
+  background: rgba(250, 204, 21, 0.15);
+  border: 2px solid #ca8a04;
+}
+
+.temperature-dropdown-menu-icons-only .dropdown-menu-option.temperature-option.temperature-option--cold.selected {
+  background: rgba(96, 165, 250, 0.15);
+  border: 2px solid #2563eb;
+}
+
+.dropdown-menu-option.temperature-option.temperature-option--hot.selected {
+  background: rgba(239, 68, 68, 0.1);
+  border-left-color: #dc2626;
+}
+
+.dropdown-menu-option.temperature-option.temperature-option--hot.selected .dropdown-menu-label {
+  color: #991b1b;
+}
+
+.dropdown-menu-option.temperature-option.temperature-option--warm.selected {
+  background: rgba(250, 204, 21, 0.1);
+  border-left-color: #ca8a04;
+}
+
+.dropdown-menu-option.temperature-option.temperature-option--warm.selected .dropdown-menu-label {
+  color: #854d0e;
+}
+
+.dropdown-menu-option.temperature-option.temperature-option--cold.selected {
+  background: rgba(96, 165, 250, 0.1);
+  border-left-color: #2563eb;
+}
+
+.dropdown-menu-option.temperature-option.temperature-option--cold.selected .dropdown-menu-label {
+  color: #1e40af;
+}
+
+/* Stage-specific styles */
+.dropdown-menu-option.stage-option {
+  justify-content: flex-start;
+}
+
+.dropdown-menu-option.stage-option .stage-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.dropdown-menu-option.stage-option.selected {
+  background: inherit;
+}
+
 @media (max-width: 1024px) {
   .contacts-spreadsheet-table {
     font-size: 12px;

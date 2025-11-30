@@ -205,6 +205,8 @@ function Contacts() {
   });
   const [pipelineStages, setPipelineStages] = useState([]);
   const [showStageEditor, setShowStageEditor] = useState(false);
+  const [temperatureMenu, setTemperatureMenu] = useState(null); // { contactId, x, y }
+  const [stageMenu, setStageMenu] = useState(null); // { contactId, x, y }
 
   useEffect(() => {
     if (user) {
@@ -680,6 +682,59 @@ function Contacts() {
       }
     }
   };
+
+  // Handle temperature menu
+  const handleTemperatureMenuClick = (e, contactId) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const contact = contacts.find(c => c.id === contactId);
+    setTemperatureMenu({
+      contactId,
+      currentTemperature: contact?.temperature || 'warm',
+      x: rect.left,
+      y: rect.bottom + 5
+    });
+    setStageMenu(null); // Close stage menu if open
+  };
+
+  const handleTemperatureChange = async (contactId, temperature) => {
+    await handleInlineUpdate(contactId, 'temperature', temperature);
+    setTemperatureMenu(null);
+  };
+
+  // Handle stage menu
+  const handleStageMenuClick = (e, contactId) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const contact = contacts.find(c => c.id === contactId);
+    setStageMenu({
+      contactId,
+      currentStage: contact?.stage || null,
+      x: rect.left,
+      y: rect.bottom + 5
+    });
+    setTemperatureMenu(null); // Close temperature menu if open
+  };
+
+  const handleStageChangeFromMenu = async (contactId, stageId) => {
+    await handleStageChange(contactId, stageId);
+    setStageMenu(null);
+  };
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (temperatureMenu && !e.target.closest('.temperature-dropdown-menu')) {
+        setTemperatureMenu(null);
+      }
+      if (stageMenu && !e.target.closest('.stage-dropdown-menu')) {
+        setStageMenu(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [temperatureMenu, stageMenu]);
 
   const handleDragEnd = async (result) => {
     const { source, destination, draggableId } = result;
@@ -1480,6 +1535,12 @@ function Contacts() {
                                             <div className="contact-kanban-business">{contact.business_name}</div>
                                             <div
                                               className={`contact-kanban-temperature contact-temperature--${contact.temperature || 'warm'}`}
+                                              style={{ cursor: 'pointer' }}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleTemperatureMenuClick(e, contact.id);
+                                              }}
+                                              title="Click to change temperature"
                                             >
                                               {contact.temperature === 'hot' && '🔥'}
                                               {contact.temperature === 'warm' && '☀️'}
@@ -1609,7 +1670,9 @@ function Contacts() {
                     {/* Stage Badge */}
                     <span
                       className="contact-stage-badge-redesigned"
-                      style={stageStyle}
+                      style={{ ...stageStyle, cursor: 'pointer' }}
+                      onClick={(e) => handleStageMenuClick(e, contact.id)}
+                      title="Click to change stage"
                     >
                       {stage?.label || contact.stage || 'N/A'}
                     </span>
@@ -1625,8 +1688,11 @@ function Contacts() {
                       className="contact-temperature-icon-redesigned"
                       style={{
                         ...tempConfig.background,
-                        boxShadow: tempConfig.boxShadow
+                        boxShadow: tempConfig.boxShadow,
+                        cursor: 'pointer'
                       }}
+                      onClick={(e) => handleTemperatureMenuClick(e, contact.id)}
+                      title="Click to change temperature"
                     >
                       <span className="temperature-emoji">{tempConfig.icon}</span>
                     </div>
@@ -1778,13 +1844,19 @@ function Contacts() {
                             style={{
                               backgroundColor: `${stageColor}15`,
                               color: stageColor,
-                              borderColor: `${stageColor}40`
+                              borderColor: `${stageColor}40`,
+                              cursor: 'pointer'
                             }}
+                            onClick={(e) => handleStageMenuClick(e, contact.id)}
+                            title="Click to change stage"
                           >
                             {stage?.label || contact.stage || 'N/A'}
                           </span>
                           <div
                             className={`contact-temperature-badge-modern contact-temperature-badge-modern--${contact.temperature || 'warm'}`}
+                            style={{ cursor: 'pointer' }}
+                            onClick={(e) => handleTemperatureMenuClick(e, contact.id)}
+                            title="Click to change temperature"
                           >
                             {contact.temperature === 'hot' && '🔥'}
                             {contact.temperature === 'warm' && '☀️'}
@@ -1799,6 +1871,92 @@ function Contacts() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Temperature Dropdown Menu */}
+      {temperatureMenu && (
+        <div
+          className="temperature-dropdown-overlay"
+          onClick={() => setTemperatureMenu(null)}
+        >
+          <div
+            className="temperature-dropdown-menu temperature-dropdown-menu-icons-only"
+            style={{
+              position: 'fixed',
+              left: `${temperatureMenu.x}px`,
+              top: `${temperatureMenu.y}px`,
+              transform: 'translateX(-50%)',
+              zIndex: 10000
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="dropdown-menu-options temperature-options-icons-only">
+              {TEMPERATURE_OPTIONS.map(option => {
+                const isSelected = temperatureMenu.currentTemperature === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    className={`dropdown-menu-option temperature-option temperature-option--${option.value} ${isSelected ? 'selected' : ''}`}
+                    onClick={() => handleTemperatureChange(temperatureMenu.contactId, option.value)}
+                    title={option.label}
+                  >
+                    <span className="temperature-emoji">
+                      {option.value === 'hot' && '🔥'}
+                      {option.value === 'warm' && '☀️'}
+                      {option.value === 'cold' && '❄️'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stage Dropdown Menu */}
+      {stageMenu && (
+        <div
+          className="stage-dropdown-overlay"
+          onClick={() => setStageMenu(null)}
+        >
+          <div
+            className="stage-dropdown-menu"
+            style={{
+              position: 'fixed',
+              left: `${stageMenu.x}px`,
+              top: `${stageMenu.y}px`,
+              transform: 'translateX(-50%)',
+              zIndex: 10000,
+              maxHeight: '400px',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="dropdown-menu-title">Change Stage</div>
+            <div className="dropdown-menu-options">
+              {pipelineStages.map(stage => {
+                const isSelected = stageMenu.currentStage === stage.id;
+                return (
+                  <button
+                    key={stage.id}
+                    className={`dropdown-menu-option stage-option ${isSelected ? 'selected' : ''}`}
+                    onClick={() => handleStageChangeFromMenu(stageMenu.contactId, stage.id)}
+                    style={{
+                      borderLeftColor: stage.color,
+                      backgroundColor: isSelected ? `${stage.color}15` : 'transparent'
+                    }}
+                  >
+                    <span
+                      className="stage-indicator"
+                      style={{ backgroundColor: stage.color }}
+                    />
+                    <span className="dropdown-menu-label">{stage.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
@@ -2843,6 +3001,7 @@ function ContactsSpreadsheetView({
   const [resizeStartWidth, setResizeStartWidth] = useState(0);
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const [temperatureDialog, setTemperatureDialog] = useState(null); // { contactId, x, y }
+  const [stageDialog, setStageDialog] = useState(null); // { contactId, x, y }
   const columnsRef = useRef(columns);
 
   // Save column preferences to localStorage
@@ -2920,11 +3079,14 @@ function ContactsSpreadsheetView({
       if (temperatureDialog && !e.target.closest('.temperature-dialog')) {
         setTemperatureDialog(null);
       }
+      if (stageDialog && !e.target.closest('.stage-dropdown-menu')) {
+        setStageDialog(null);
+      }
     };
 
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [showColumnMenu, temperatureDialog]);
+  }, [showColumnMenu, temperatureDialog, stageDialog]);
 
   // Handle temperature icon click
   const handleTemperatureClick = (e, contactId) => {
@@ -2945,9 +3107,29 @@ function ContactsSpreadsheetView({
     setTemperatureDialog(null);
   };
 
+  // Handle stage click
+  const handleStageClick = (e, contactId) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const contact = contacts.find(c => c.id === contactId);
+    setStageDialog({
+      contactId,
+      currentStage: contact?.stage || null,
+      x: rect.left,
+      y: rect.bottom + 5
+    });
+    setTemperatureDialog(null); // Close temperature dialog if open
+  };
+
+  // Handle stage change
+  const handleStageChange = async (contactId, stageId) => {
+    await onUpdateContact(contactId, 'stage', stageId);
+    setStageDialog(null);
+  };
+
   const handleCellClick = (contactId, field, value) => {
-    // Don't edit temperature cell, open dialog instead
-    if (field === 'temperature') {
+    // Don't edit temperature or stage cell, open dialog instead
+    if (field === 'temperature' || field === 'stage') {
       return;
     }
     setEditingCell({ contactId, field });
@@ -3189,8 +3371,11 @@ function ContactsSpreadsheetView({
                                 style={{
                                   backgroundColor: `${pipelineStages.find(s => s.id === contact.stage)?.color || '#6b7280'}15`,
                                   color: pipelineStages.find(s => s.id === contact.stage)?.color || '#6b7280',
-                                  borderColor: `${pipelineStages.find(s => s.id === contact.stage)?.color || '#6b7280'}40`
+                                  borderColor: `${pipelineStages.find(s => s.id === contact.stage)?.color || '#6b7280'}40`,
+                                  cursor: 'pointer'
                                 }}
+                                onClick={(e) => handleStageClick(e, contact.id)}
+                                title="Click to change stage"
                               >
                                 {cellValue}
                               </span>
@@ -3240,6 +3425,52 @@ function ContactsSpreadsheetView({
                       {option.value === 'warm' && '☀️'}
                       {option.value === 'cold' && '❄️'}
                     </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stage Dialog */}
+      {stageDialog && (
+        <div
+          className="stage-dropdown-overlay"
+          onClick={() => setStageDialog(null)}
+        >
+          <div
+            className="stage-dropdown-menu"
+            style={{
+              position: 'fixed',
+              left: `${stageDialog.x}px`,
+              top: `${stageDialog.y}px`,
+              transform: 'translateX(-50%)',
+              zIndex: 10000,
+              maxHeight: '400px',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="dropdown-menu-title">Change Stage</div>
+            <div className="dropdown-menu-options">
+              {pipelineStages.map(stage => {
+                const isSelected = stageDialog.currentStage === stage.id;
+                return (
+                  <button
+                    key={stage.id}
+                    className={`dropdown-menu-option stage-option ${isSelected ? 'selected' : ''}`}
+                    onClick={() => handleStageChange(stageDialog.contactId, stage.id)}
+                    style={{
+                      borderLeftColor: stage.color,
+                      backgroundColor: isSelected ? `${stage.color}15` : 'transparent'
+                    }}
+                  >
+                    <span
+                      className="stage-indicator"
+                      style={{ backgroundColor: stage.color }}
+                    />
+                    <span className="dropdown-menu-label">{stage.label}</span>
                   </button>
                 );
               })}
