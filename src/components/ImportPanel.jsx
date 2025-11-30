@@ -1,8 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './ImportPanel.css'
 
 function ImportPanel({ onProcessData }) {
   const [inputData, setInputData] = useState('')
+  const onProcessDataRef = useRef(onProcessData)
+
+  // Keep the ref updated with the latest callback
+  useEffect(() => {
+    onProcessDataRef.current = onProcessData
+  }, [onProcessData])
 
   // Automatically process data when input changes (debounced)
   useEffect(() => {
@@ -82,11 +88,11 @@ function ImportPanel({ onProcessData }) {
         }
       }).filter(row => row.route && row.route !== '') // Filter out empty rows
 
-      onProcessData(data)
+      onProcessDataRef.current(data)
     }, 300)
 
     return () => clearTimeout(timeoutId)
-  }, [inputData, onProcessData])
+  }, [inputData])
 
   return (
     <div className="import-panel">
