@@ -17,6 +17,7 @@ import {
   campaigns as campaignsAPI
 } from '../../lib/api';
 import { useAuth } from '../../hooks/useAuth';
+import ContactPicker from './ContactPicker';
 import './CampaignContactsTab.css';
 
 const DEFAULT_PIPELINE_STAGES = [
@@ -1229,18 +1230,49 @@ export const CampaignContactsTab = ({ campaign, onUpdate }) => {
         />
       )}
 
-      {/* Add Contact Modal */}
+      {/* Add Contact Modal - Using ContactPicker */}
       {showAddContactModal && (
-        <AddContactModal
-          campaign={campaign}
-          allContacts={allContacts}
-          campaignContacts={campaignContacts}
-          niches={niches}
-          availableNiches={getAvailableNiches()}
-          onAdd={handleAddContact}
-          onBulkAdd={handleBulkAddContacts}
-          onClose={() => setShowAddContactModal(false)}
-        />
+        <div className="contact-picker-modal-backdrop" onClick={() => setShowAddContactModal(false)}>
+          <div className="contact-picker-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="contact-picker-modal-header">
+              <h3>Select Recipients</h3>
+              <button 
+                className="contact-picker-modal-close"
+                onClick={() => setShowAddContactModal(false)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="contact-picker-modal-content">
+              <ContactPicker
+                allContacts={allContacts.map(contact => {
+                  // Ensure niche object has all required fields
+                  let niche = contact.niche;
+                  if (!niche && contact.niche_id) {
+                    niche = niches.find(n => n.id === contact.niche_id);
+                  }
+                  return {
+                    ...contact,
+                    niche: niche ? {
+                      id: niche.id,
+                      name: niche.name,
+                      category: niche.category || 'Uncategorized'
+                    } : null
+                  };
+                })}
+                selectedContactIds={[]}
+                onSelectionChange={async (selectedIds) => {
+                  // This will be called when confirm button is clicked
+                  if (selectedIds.length > 0) {
+                    await handleBulkAddContacts(selectedIds);
+                    setShowAddContactModal(false);
+                  }
+                }}
+                onClose={() => setShowAddContactModal(false)}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

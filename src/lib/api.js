@@ -79,7 +79,7 @@ export const contacts = {
 
     const { data, error } = await supabase
       .from('contacts')
-      .select('*, niche:niches!contacts_niche_id_fkey(name)')
+      .select('*, niche:niches!contacts_niche_id_fkey(id, name, category)')
       .in('user_id', targetUserIds)
       .order('created_at', { ascending: false });
 
@@ -89,7 +89,7 @@ export const contacts = {
   getById: async (id) => {
     const { data, error } = await supabase
       .from('contacts')
-      .select('*, niche:niches!contacts_niche_id_fkey(name)')
+      .select('*, niche:niches!contacts_niche_id_fkey(id, name, category)')
       .eq('id', id)
       .single();
     return { data, error };
@@ -98,7 +98,7 @@ export const contacts = {
   getByStage: async (userId, stage) => {
     const { data, error } = await supabase
       .from('contacts')
-      .select('*, niche:niches!contacts_niche_id_fkey(name)')
+      .select('*, niche:niches!contacts_niche_id_fkey(id, name, category)')
       .eq('user_id', userId)
       .eq('stage', stage)
       .order('created_at', { ascending: false });
