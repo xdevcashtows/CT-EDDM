@@ -1139,6 +1139,20 @@ export const pipelineStages = {
     return { data: results.map(r => r.data), error: errors.length > 0 ? errors : null };
   },
 
+  upsert: async (stageData) => {
+    // Upsert a stage - insert if doesn't exist, update if it does
+    // Assumes unique constraint on (user_id, stage_id)
+    const { data, error } = await supabase
+      .from('pipeline_stages')
+      .upsert(stageData, { 
+        onConflict: 'user_id,stage_id',
+        ignoreDuplicates: false
+      })
+      .select()
+      .single();
+    return { data, error };
+  },
+
   delete: async (userId, stageId) => {
     // First check if any contacts have this stage
     const { data: contacts, error: checkError } = await supabase

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Home from './pages/Home'
 import RoutesPage from './pages/Routes'
 import Contacts from './pages/Contacts'
+import Activities from './pages/Activities'
 import Designs from './pages/Designs'
 import Campaigns from './pages/Campaigns'
 import EmailMarketing from './pages/EmailMarketing'
@@ -30,6 +31,7 @@ function App() {
           <Route path="home" element={<Home />} />
           <Route path="routes" element={<RoutesPage />} />
           <Route path="contacts" element={<Contacts />} />
+          <Route path="activities" element={<Activities />} />
           <Route path="designs" element={<Designs />} />
           <Route path="campaigns" element={<Campaigns />} />
           <Route path="email-marketing" element={<EmailMarketing />} />

@@ -9,7 +9,8 @@ import {
   Mail, 
   FileText,
   Sparkles,
-  LogOut
+  LogOut,
+  Calendar
 } from 'lucide-react'
 import './DashboardLayout.css'
 import { useAuth } from '../hooks/useAuth'
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { path: '/designs', label: 'Designs', icon: Palette },
   { path: '/routes', label: 'Routes', icon: Map },
   { path: '/contacts', label: 'Contacts', icon: Users },
+  { path: '/activities', label: 'Activities', icon: Calendar },
   { path: '/email-marketing', label: 'Emails', icon: Mail },
   { path: '/packing-slips', label: 'Packing Slips', icon: FileText },
   { path: '/ad-generator', label: 'Ad Generator', icon: Sparkles, comingSoon: true }

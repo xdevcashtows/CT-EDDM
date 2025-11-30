@@ -1,0 +1,43 @@
+.activities-page {
+  padding: 24px;
+}
+
+.activities-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  color: #64748b;
+}
+
+.activities-content {
+  min-height: 400px;
+}
+
+.activities-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+  color: #64748b;
+}
+
+.activities-empty-icon {
+  color: #cbd5e1;
+  margin-bottom: 16px;
+}
+
+.activities-empty-state h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+}
+
+.activities-empty-state p {
+  font-size: 14px;
+  color: #64748b;
+}
+

@@ -256,39 +256,177 @@ function Contacts() {
   };
 
   const savePipelineStages = async (stages) => {
-    // Update stages in database
-    const updatePromises = stages.map((stage, index) => {
-      // For existing stages (have an id), update them
-      // For new stages, create them
-      if (DEFAULT_PIPELINE_STAGES.find(ds => ds.id === stage.id)) {
-        // Existing stage - update
-        return pipelineStagesAPI.updateMany([{
-          user_id: user.id,
+    console.log('[Pipeline Stages] Starting save operation', {
+      userId: user.id,
+      stagesToSave: stages.map(s => ({ id: s.id, label: s.label, color: s.color }))
+    });
+
+    // First, fetch existing stages from database to check which ones already exist
+    const { data: existingStages, error: fetchError } = await pipelineStagesAPI.getAll(user.id);
+    
+    if (fetchError) {
+      console.error('[Pipeline Stages] Failed to fetch existing stages:', fetchError);
+      alert('Failed to load existing stages. Please try again.');
+      return;
+    }
+
+    console.log('[Pipeline Stages] Existing stages in database:', existingStages?.map(s => ({
+      id: s.id,
+      stage_id: s.stage_id,
+      label: s.label,
+      sort_order: s.sort_order
+    })) || []);
+
+    // Create a map of existing stage_ids for quick lookup
+    const existingStageIds = new Set(existingStages?.map(s => s.stage_id) || []);
+    const existingStageMap = new Map(
+      existingStages?.map(s => [s.stage_id, s]) || []
+    );
+
+    // Separate stages into updates and creates
+    const updates = [];
+    const creates = [];
+    const errors = [];
+
+    stages.forEach((stage, index) => {
+      const stageData = {
+        user_id: user.id,
+        stage_id: stage.id,
+        label: stage.label,
+        color: stage.color,
+        sort_order: index + 1
+      };
+
+      if (existingStageIds.has(stage.id)) {
+        // Stage exists - need to update
+        const existingStage = existingStageMap.get(stage.id);
+        updates.push(stageData);
+        console.log('[Pipeline Stages] Stage will be updated:', {
           stage_id: stage.id,
           label: stage.label,
-          color: stage.color,
-          sort_order: index + 1
-        }]);
+          old_sort_order: existingStage.sort_order,
+          new_sort_order: index + 1
+        });
       } else {
-        // New custom stage - create
-        return pipelineStagesAPI.create({
-          user_id: user.id,
+        // New stage - need to create
+        creates.push(stageData);
+        console.log('[Pipeline Stages] Stage will be created:', {
           stage_id: stage.id,
           label: stage.label,
-          color: stage.color,
           sort_order: index + 1
         });
       }
     });
 
-    const results = await Promise.all(updatePromises);
-    const hasErrors = results.some(r => r.error);
+    // Process updates and creates
+    const allResults = [];
+    
+    // Update existing stages - use updateMany which handles by user_id + stage_id
+    if (updates.length > 0) {
+      console.log('[Pipeline Stages] Updating', updates.length, 'existing stages');
+      const updateResult = await pipelineStagesAPI.updateMany(updates.map(u => ({
+        user_id: u.user_id,
+        stage_id: u.stage_id,
+        label: u.label,
+        color: u.color,
+        sort_order: u.sort_order
+      })));
+      
+      if (updateResult.error) {
+        console.error('[Pipeline Stages] Failed to update stages:', updateResult.error);
+        // Handle individual update errors
+        if (Array.isArray(updateResult.error)) {
+          updateResult.error.forEach((err, idx) => {
+            if (err) {
+              console.error(`[Pipeline Stages] Failed to update stage ${updates[idx].stage_id}:`, err);
+              errors.push({ stage_id: updates[idx].stage_id, error: err });
+              allResults.push({ error: err, stage_id: updates[idx].stage_id });
+            }
+          });
+        } else {
+          errors.push({ error: updateResult.error });
+          allResults.push({ error: updateResult.error });
+        }
+      } else {
+        console.log('[Pipeline Stages] Successfully updated', updates.length, 'stages');
+        updates.forEach(u => allResults.push({ data: null, stage_id: u.stage_id, success: true }));
+      }
+    }
+
+    // Create new stages - with conflict handling
+    if (creates.length > 0) {
+      console.log('[Pipeline Stages] Creating', creates.length, 'new stages');
+      const createPromises = creates.map((stageData) => {
+        return pipelineStagesAPI.create(stageData)
+          .then(result => {
+            if (result.error) {
+              // If conflict error, try to update instead (race condition handling)
+              if (result.error?.code === '23505' || 
+                  result.error?.code === 'PGRST116' ||
+                  result.error?.message?.includes('duplicate') || 
+                  result.error?.message?.includes('unique') ||
+                  result.error?.message?.includes('conflict')) {
+                console.log(`[Pipeline Stages] Stage ${stageData.stage_id} already exists (race condition), updating instead`);
+                // Use updateMany to update by user_id + stage_id
+                return pipelineStagesAPI.updateMany([{
+                  user_id: stageData.user_id,
+                  stage_id: stageData.stage_id,
+                  label: stageData.label,
+                  color: stageData.color,
+                  sort_order: stageData.sort_order
+                }]).then(updateResult => {
+                  if (updateResult.error) {
+                    console.error(`[Pipeline Stages] Failed to update stage ${stageData.stage_id} after conflict:`, updateResult.error);
+                    return { error: updateResult.error, stage_id: stageData.stage_id };
+                  }
+                  return { data: updateResult.data?.[0] || null, stage_id: stageData.stage_id, success: true };
+                });
+              }
+              console.error(`[Pipeline Stages] Failed to create stage ${stageData.stage_id}:`, result.error);
+              return { error: result.error, stage_id: stageData.stage_id };
+            }
+            return { ...result, stage_id: stageData.stage_id, success: true };
+          })
+          .catch(error => {
+            console.error(`[Pipeline Stages] Exception creating stage ${stageData.stage_id}:`, error);
+            return { error, stage_id: stageData.stage_id };
+          });
+      });
+      
+      const createResults = await Promise.all(createPromises);
+      allResults.push(...createResults);
+    }
+
+    console.log('[Pipeline Stages] Completed all operations', {
+      updates: updates.length,
+      creates: creates.length,
+      totalResults: allResults.length
+    });
+
+    const results = allResults;
+    
+    // Check for errors
+    const failedResults = results.filter(r => r?.error);
+    const hasErrors = failedResults.length > 0;
     
     if (hasErrors) {
-      console.error('Failed to save some stages:', results.filter(r => r.error));
-      alert('Failed to save some stages. Please try again.');
+      console.error('[Pipeline Stages] Failed to save some stages:', failedResults.map(r => ({
+        stage_id: r.stage_id,
+        error: r.error,
+        message: r.error?.message,
+        code: r.error?.code,
+        details: r.error?.details
+      })));
+      
+      const errorMessages = failedResults.map(r => 
+        `Stage "${r.stage_id}": ${r.error?.message || 'Unknown error'}`
+      ).join('\n');
+      
+      alert(`Failed to save some stages:\n\n${errorMessages}\n\nPlease check the console for more details.`);
       return;
     }
+
+    console.log('[Pipeline Stages] All stages saved successfully');
 
     // Update local state
     setPipelineStages(stages);
