@@ -745,33 +745,82 @@ function Contacts() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [temperatureMenu, stageMenu]);
 
+  const handleDragStart = (start) => {
+    console.log('🎯 DRAG START:', {
+      draggableId: start.draggableId,
+      source: start.source,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Find the contact being dragged
+    const contact = contacts.find(c => c.id === start.draggableId);
+    console.log('📦 Dragging contact:', contact?.business_name);
+  };
+
+  const handleDragUpdate = (update) => {
+    console.log('🔄 DRAG UPDATE:', {
+      draggableId: update.draggableId,
+      destination: update.destination,
+      isDragging: true
+    });
+  };
+
   const handleDragEnd = async (result) => {
+    console.log('🏁 DRAG END:', {
+      result,
+      timestamp: new Date().toISOString()
+    });
+
     const { source, destination, draggableId } = result;
 
     // Dropped outside the list
     if (!destination) {
+      console.log('❌ Dropped outside - no destination');
       return;
     }
 
     // No movement
     if (source.droppableId === destination.droppableId && source.index === destination.index) {
+      console.log('⏸️ No movement - same position');
       return;
     }
 
     const contactId = draggableId;
     const newStage = destination.droppableId;
+    
+    console.log('✅ Valid drop:', {
+      contactId,
+      fromStage: source.droppableId,
+      toStage: newStage,
+      fromIndex: source.index,
+      toIndex: destination.index
+    });
 
-    // Optimistically update UI
-    const updatedContacts = contacts.map(c => 
-      c.id === contactId ? { ...c, stage: newStage } : c
+    // Store original contacts for potential revert
+    const originalContacts = contacts;
+
+    // Optimistically update UI - do this synchronously to avoid flash
+    setContacts(prevContacts => 
+      prevContacts.map(c => 
+        c.id === contactId ? { ...c, stage: newStage } : c
+      )
     );
-    setContacts(updatedContacts);
 
     // Update in database
-    const { error } = await contactsAPI.update(contactId, { stage: newStage });
-    if (error) {
-      // Revert on error
-      setContacts(contacts);
+    console.log('💾 Updating database...');
+    try {
+      const { error } = await contactsAPI.update(contactId, { stage: newStage });
+      if (error) {
+        console.error('❌ Database update failed:', error);
+        // Revert on error
+        setContacts(originalContacts);
+        alert('Failed to update contact stage');
+      } else {
+        console.log('✅ Database updated successfully');
+      }
+    } catch (err) {
+      console.error('❌ Unexpected error:', err);
+      setContacts(originalContacts);
       alert('Failed to update contact stage');
     }
   };
@@ -1502,7 +1551,11 @@ function Contacts() {
                 Edit Stages
               </button>
             </div>
-            <DragDropContext onDragEnd={handleDragEnd}>
+            <DragDropContext 
+              onDragStart={handleDragStart}
+              onDragUpdate={handleDragUpdate}
+              onDragEnd={handleDragEnd}
+            >
               <div className="contacts-kanban-board">
                 {pipelineStages.map(stage => {
                   const stageContacts = filteredAndSortedContacts.filter(c => c.stage === stage.id);
@@ -1570,6 +1623,7 @@ function Contacts() {
                                         {...provided.draggableProps}
                                         {...provided.dragHandleProps}
                                         className={`contact-kanban-card ${snapshot.isDragging ? 'dragging' : ''}`}
+                                        style={provided.draggableProps.style}
                                         onClick={() => handleContactClick(contact)}
                                       >
                                         <div className="contact-kanban-card__content">

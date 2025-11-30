@@ -592,6 +592,7 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  overflow: hidden; /* Prevent outer scroll */
 }
 
 .pipeline-header {
@@ -600,6 +601,7 @@
   align-items: center;
   margin-bottom: 20px;
   padding: 0 4px;
+  flex-shrink: 0;
 }
 
 .pipeline-header h3 {
@@ -622,8 +624,6 @@
   /* Hide scrollbar */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
-  /* Prevent nested scroll container detection */
-  position: relative;
 }
 
 .contacts-kanban-board::-webkit-scrollbar {
@@ -693,21 +693,31 @@
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 100px;
+  max-height: 100%; /* Constrain to parent height */
   padding: 16px;
   transition: background-color 0.2s;
   background: #fafafa;
   flex: 1;
-  /* Hide scrollbar */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
-  /* Explicitly mark as scroll container for drag-and-drop */
-  position: relative;
-  /* Ensure this is the only scroll container detected */
-  contain: layout style;
+  /* Show minimal scrollbar for better UX */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: #cbd5e1 #fafafa; /* Firefox */
 }
 
 .contacts-kanban-column-body::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  width: 6px;
+}
+
+.contacts-kanban-column-body::-webkit-scrollbar-track {
+  background: #fafafa;
+}
+
+.contacts-kanban-column-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.contacts-kanban-column-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 .contacts-kanban-column-body.dragging-over {
@@ -749,12 +759,13 @@
 }
 
 .contact-kanban-card.dragging {
-  opacity: 0.6;
+  opacity: 0.9;
   cursor: grabbing;
-  transform: rotate(3deg) scale(1.02);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+  transform: rotate(2deg) scale(1.05);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
   border-left-color: var(--stage-color);
   border-left-width: 4px;
+  background: #ffffff;
 }
 
 .contact-kanban-card__content {
