@@ -2329,66 +2329,95 @@ function UploadContactsModal({
   onImport,
   isUploading 
 }) {
+  const csvColumns = [
+    { name: 'business_name', required: true, description: 'Business or company name', category: 'basic' },
+    { name: 'owner_name', required: false, description: 'Contact person\'s name', category: 'basic' },
+    { name: 'email', required: false, description: 'Email address', category: 'contact' },
+    { name: 'phone', required: false, description: 'Phone number', category: 'contact' },
+    { name: 'website', required: false, description: 'Website URL', category: 'contact' },
+    { name: 'address', required: false, description: 'Street address', category: 'location' },
+    { name: 'city', required: false, description: 'City', category: 'location' },
+    { name: 'state', required: false, description: 'State abbreviation (e.g., AZ, CA)', category: 'location' },
+    { name: 'zip', required: false, description: 'ZIP code', category: 'location' },
+    { name: 'niche', required: false, description: 'Industry/niche name (must match existing niche)', category: 'sales' },
+    { name: 'stage', required: false, description: 'Pipeline stage: lead, contacted, qualified, proposal_sent, negotiating, won, active, past, lost', category: 'sales' },
+    { name: 'temperature', required: false, description: 'Lead temperature: hot, warm, or cold (defaults to warm)', category: 'sales' },
+    { name: 'tags', required: false, description: 'Comma-separated tags (e.g., "VIP,Priority,Follow Up")', category: 'sales' },
+    { name: 'notes', required: false, description: 'Additional notes or comments', category: 'sales' }
+  ];
+
+  const getCategoryLabel = (category) => {
+    const labels = {
+      basic: 'Basic Information',
+      contact: 'Contact Details',
+      location: 'Location',
+      sales: 'Sales & Pipeline'
+    };
+    return labels[category] || category;
+  };
+
+  const groupedColumns = csvColumns.reduce((acc, col) => {
+    if (!acc[col.category]) acc[col.category] = [];
+    acc[col.category].push(col);
+    return acc;
+  }, {});
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content upload-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Upload Contacts</h2>
+          <h2>Import Contacts from CSV</h2>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
 
         <div className="modal-body">
-          <div className="upload-instructions">
-            <div className="instruction-header">
-              <AlertCircle size={20} />
-              <h3>CSV File Format Instructions</h3>
+          {/* Quick Start Section */}
+          <div className="upload-quick-start">
+            <div className="quick-start-header">
+              <FileUp size={20} />
+              <h3>Quick Start</h3>
             </div>
-            
-            <p className="text-sm text-gray-700">Your CSV file should include the following columns (in any order):</p>
-            
-            <div className="required-columns">
-              <div className="column-item required">
-                <strong>business_name</strong> <span className="badge-required">REQUIRED</span>
-                <p className="text-sm text-gray-600">The name of the business or contact</p>
+            <div className="quick-start-steps">
+              <div className="step-item">
+                <span className="step-number">1</span>
+                <span className="step-text">Download the CSV template below</span>
+              </div>
+              <div className="step-item">
+                <span className="step-number">2</span>
+                <span className="step-text">Fill in your contact information</span>
+              </div>
+              <div className="step-item">
+                <span className="step-number">3</span>
+                <span className="step-text">Upload your completed CSV file</span>
               </div>
             </div>
-
-            <div className="optional-columns">
-              <h4 className="text-lg font-semibold text-gray-800">Optional Columns:</h4>
-              <div className="columns-grid">
-                <div className="column-item"><strong className="text-gray-900">owner_name</strong> - <span className="text-gray-600">Contact person's name</span></div>
-                <div className="column-item"><strong className="text-gray-900">email</strong> - <span className="text-gray-600">Email address</span></div>
-                <div className="column-item"><strong className="text-gray-900">phone</strong> - <span className="text-gray-600">Phone number</span></div>
-                <div className="column-item"><strong className="text-gray-900">website</strong> - <span className="text-gray-600">Website URL</span></div>
-                <div className="column-item"><strong className="text-gray-900">address</strong> - <span className="text-gray-600">Street address</span></div>
-                <div className="column-item"><strong className="text-gray-900">city</strong> - <span className="text-gray-600">City</span></div>
-                <div className="column-item"><strong className="text-gray-900">state</strong> - <span className="text-gray-600">State</span></div>
-                <div className="column-item"><strong className="text-gray-900">zip</strong> - <span className="text-gray-600">ZIP code</span></div>
-                <div className="column-item"><strong className="text-gray-900">niche</strong> - <span className="text-gray-600">Industry/niche name</span></div>
-                <div className="column-item"><strong className="text-gray-900">stage</strong> - <span className="text-gray-600">Pipeline stage (lead, contacted, etc.)</span></div>
-                <div className="column-item"><strong className="text-gray-900">temperature</strong> - <span className="text-gray-600">hot, warm, or cold</span></div>
-                <div className="column-item"><strong className="text-gray-900">tags</strong> - <span className="text-gray-600">Comma-separated tags</span></div>
-                <div className="column-item"><strong className="text-gray-900">notes</strong> - <span className="text-gray-600">Additional notes</span></div>
-              </div>
-            </div>
-
             <a 
               href="/templates/contacts-import-template.csv" 
               download="contacts-import-template.csv"
-              className="download-template"
+              className="download-template-btn"
             >
-              <Download size={16} />
-              <span className="text-sm text-gray-700">Download CSV Template</span>
+              <Download size={18} />
+              <span>Download CSV Template</span>
             </a>
           </div>
 
+          {/* File Upload Section */}
           <div className="upload-section">
             <label htmlFor="csv-upload" className="upload-dropzone">
               <FileUp size={48} />
               <p className="upload-text">
-                {uploadFile ? uploadFile.name : 'Click to upload CSV file'}
+                {uploadFile ? (
+                  <>
+                    <CheckCircle size={20} style={{ marginRight: '8px', color: '#22c55e' }} />
+                    {uploadFile.name}
+                  </>
+                ) : (
+                  'Click to upload CSV file'
+                )}
               </p>
-              <p className="upload-subtext">or drag and drop</p>
+              <p className="upload-subtext">
+                {uploadFile ? 'File ready to import' : 'or drag and drop your file here'}
+              </p>
               <input
                 id="csv-upload"
                 type="file"
@@ -2399,11 +2428,52 @@ function UploadContactsModal({
             </label>
           </div>
 
+          {/* CSV Format Guide */}
+          <div className="upload-instructions">
+            <div className="instruction-header">
+              <AlertCircle size={20} />
+              <h3>CSV Format Guide</h3>
+            </div>
+            
+            <p className="instruction-intro">
+              Your CSV file should include these columns. Column order doesn't matter, but column names must match exactly.
+            </p>
+
+            {Object.entries(groupedColumns).map(([category, columns]) => (
+              <div key={category} className="column-category">
+                <h4 className="category-label">{getCategoryLabel(category)}</h4>
+                <div className="columns-list">
+                  {columns.map((col) => (
+                    <div key={col.name} className={`column-item ${col.required ? 'required' : ''}`}>
+                      <div className="column-header">
+                        <code className="column-name">{col.name}</code>
+                        {col.required && <span className="badge-required">REQUIRED</span>}
+                      </div>
+                      <p className="column-description">{col.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <div className="format-tips">
+              <h4 className="tips-header">💡 Tips</h4>
+              <ul className="tips-list">
+                <li><strong>Niche:</strong> Must match an existing niche name in your account (case-insensitive)</li>
+                <li><strong>Stage:</strong> Use one of the predefined stages or it will default to "lead"</li>
+                <li><strong>Temperature:</strong> Use "hot", "warm", or "cold" (defaults to "warm" if empty)</li>
+                <li><strong>Tags:</strong> Separate multiple tags with commas (e.g., "VIP,Priority,Follow Up")</li>
+                <li><strong>Quotes:</strong> Use quotes around values containing commas (e.g., "Smith, John")</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Preview Section */}
           {uploadPreview.length > 0 && (
             <div className="upload-preview">
               <div className="preview-header">
                 <CheckCircle size={20} />
-                <h3>Preview (first 5 rows)</h3>
+                <h3>Preview ({uploadPreview.length} row{uploadPreview.length !== 1 ? 's' : ''} found)</h3>
               </div>
               <div className="preview-table">
                 <table>
@@ -2413,17 +2483,21 @@ function UploadContactsModal({
                       <th>Owner</th>
                       <th>Email</th>
                       <th>Phone</th>
-                      <th>City</th>
+                      <th>City, State</th>
+                      <th>Niche</th>
+                      <th>Stage</th>
                     </tr>
                   </thead>
                   <tbody>
                     {uploadPreview.map((contact, idx) => (
                       <tr key={idx}>
-                        <td>{contact.business_name}</td>
+                        <td><strong>{contact.business_name || '—'}</strong></td>
                         <td>{contact.owner_name || '—'}</td>
                         <td>{contact.email || '—'}</td>
                         <td>{contact.phone || '—'}</td>
-                        <td>{contact.city || '—'}</td>
+                        <td>{[contact.city, contact.state].filter(Boolean).join(', ') || '—'}</td>
+                        <td>{contact.niche || '—'}</td>
+                        <td>{contact.stage || 'lead'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -2432,10 +2506,14 @@ function UploadContactsModal({
             </div>
           )}
 
+          {/* Errors Section */}
           {uploadErrors.length > 0 && (
             <div className="upload-errors">
-              <h4>Errors Found:</h4>
-              <ul>
+              <div className="errors-header">
+                <AlertCircle size={20} />
+                <h4>Errors Found ({uploadErrors.length})</h4>
+              </div>
+              <ul className="errors-list">
                 {uploadErrors.map((error, idx) => (
                   <li key={idx}>{error}</li>
                 ))}
@@ -2445,13 +2523,25 @@ function UploadContactsModal({
         </div>
 
         <div className="modal-footer">
-          <button className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn-secondary" onClick={onClose} disabled={isUploading}>
+            Cancel
+          </button>
           <button 
             className="btn-primary" 
             onClick={onImport}
             disabled={!uploadFile || isUploading}
           >
-            {isUploading ? 'Importing...' : 'Import Contacts'}
+            {isUploading ? (
+              <>
+                <div className="spinner-small" style={{ marginRight: '8px' }}></div>
+                Importing...
+              </>
+            ) : (
+              <>
+                <CheckCircle size={18} style={{ marginRight: '8px' }} />
+                Import Contacts
+              </>
+            )}
           </button>
         </div>
       </div>

@@ -27,7 +27,7 @@ function Routes() {
   const [selectedRoutes, setSelectedRoutes] = useState(new Set());
   const [residentialOnly, setResidentialOnly] = useState(false);
   const [savedRoutes, setSavedRoutes] = useState([]);
-  const [lastOptimizationTarget, setLastOptimizationTarget] = useState(2500);
+  const [lastOptimizationTarget, setLastOptimizationTarget] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Load saved routes on mount
@@ -60,15 +60,15 @@ function Routes() {
       batchNumber: undefined
     }));
     setRouteData(dataWithBatches);
-    // Auto-optimize for 2,500 postcards on data import
+    // Auto-optimize using the current optimization target, or default to 2500
     if (dataWithBatches.length > 0) {
-      const result = optimizeRoutes(dataWithBatches, 2500, residentialOnly);
+      const targetValue = lastOptimizationTarget ?? 2500;
+      const result = optimizeRoutes(dataWithBatches, targetValue, residentialOnly);
       setSelectedRoutes(new Set(result.routeIds));
       updateBatchNumbers(result.batchMap);
-      setLastOptimizationTarget(2500);
+      setLastOptimizationTarget(targetValue);
     } else {
       setSelectedRoutes(new Set());
-      setLastOptimizationTarget(2500);
     }
   };
 
@@ -95,6 +95,8 @@ function Routes() {
       newSelected.add(routeId);
     }
     setSelectedRoutes(newSelected);
+    // Clear optimization state when manually toggling routes
+    setLastOptimizationTarget(null);
   };
 
   const filteredData = useMemo(() => {
@@ -129,9 +131,9 @@ function Routes() {
       return;
     }
     
-    // Only run when residentialOnly actually changes
+    // Only run when residentialOnly actually changes and there's an active optimization
     if (prevResidentialOnlyRef.current !== residentialOnly) {
-      if (routeData.length > 0 && selectedRoutes.size > 0 && lastOptimizationTargetRef.current) {
+      if (routeData.length > 0 && selectedRoutes.size > 0 && lastOptimizationTargetRef.current !== null) {
         const result = optimizeRoutes(filteredDataRef.current, lastOptimizationTargetRef.current, residentialOnly);
         setSelectedRoutes(new Set(result.routeIds));
         updateBatchNumbers(result.batchMap);
@@ -150,6 +152,8 @@ function Routes() {
         prevData.map(route => ({ ...route, batchNumber: undefined }))
       );
     }
+    // Clear optimization state when manually selecting/deselecting all
+    setLastOptimizationTarget(null);
   };
 
   const selectedData = useMemo(() => {
@@ -397,15 +401,17 @@ function Routes() {
               </div>
               <div className="routes-optimization-segmented">
                 <div className="routes-optimization-segmented-bg">
-                  <div 
-                    className="routes-optimization-segmented-indicator"
-                    style={{
-                      left: QUICK_TARGETS.findIndex(opt => opt.value === lastOptimizationTarget) >= 0 
-                        ? `calc(${QUICK_TARGETS.findIndex(opt => opt.value === lastOptimizationTarget) * 25}% + 0.25rem)` 
-                        : 'calc(0% + 0.25rem)',
-                      width: 'calc(25% - 0.5rem)'
-                    }}
-                  />
+                  {lastOptimizationTarget !== null && (
+                    <div 
+                      className="routes-optimization-segmented-indicator"
+                      style={{
+                        left: QUICK_TARGETS.findIndex(opt => opt.value === lastOptimizationTarget) >= 0 
+                          ? `calc(${QUICK_TARGETS.findIndex(opt => opt.value === lastOptimizationTarget) * 25}% + 0.25rem)` 
+                          : 'calc(0% + 0.25rem)',
+                        width: 'calc(25% - 0.5rem)'
+                      }}
+                    />
+                  )}
                 </div>
                 <div className="routes-optimization-segmented-buttons">
                   {QUICK_TARGETS.map((option) => (
